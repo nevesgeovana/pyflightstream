@@ -1176,6 +1176,13 @@ def _write(
 
 
 @with_refusal_policy
+def _refuse_removed_keywords(mesh: str | os.PathLike[str], **given: object) -> None:
+    """Refuse by name a removed keyword of refine_mesh that was given, naming its successor."""
+    for key, value in given.items():
+        if value is not None:
+            raise _refuse(str(mesh), REMOVED_FORMS[f"refine.{key}"].message(f"the keyword {key}"))
+
+
 def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     mesh: str | os.PathLike[str],
     factor: float | None = None,
@@ -1270,10 +1277,9 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     >>> level.folder.name  # doctest: +SKIP
     'W1_R2'
     """
-    removed = (("chordwise", chordwise), ("spanwise", spanwise), ("keep_first_row", keep_first_row))
-    for key, given in removed:
-        if given is not None:
-            raise _refuse(str(mesh), REMOVED_FORMS[f"refine.{key}"].message(f"the keyword {key}"))
+    _refuse_removed_keywords(
+        mesh, chordwise=chordwise, spanwise=spanwise, keep_first_row=keep_first_row
+    )
     source = Path(mesh)
     if not source.is_file():
         raise _refuse(str(source), "no such OBJ file; name an existing OBJ and run again")

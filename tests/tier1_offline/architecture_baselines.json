@@ -713,9 +713,9 @@
    "positional": 6
   },
   "run/_rebuild.py:_rebuild_all": {
-   "complexity": 14,
-   "branches": 15,
-   "statements": 54,
+   "complexity": 12,
+   "branches": 12,
+   "statements": 48,
    "positional": 4
   },
   "run/_rebuild.py:_rebuild_one": {

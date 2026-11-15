@@ -21,7 +21,7 @@ import os
 import re
 import shutil
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -290,20 +290,31 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
     for item in reversed(archived):
         for row in _read_rows(item.path) or []:
             take(row, _relative(base, item.path))
+    for row, source in _post_rows(base):
+        take(row, source)
+    return known
+
+
+def _post_rows(base: Path) -> Iterator[tuple[dict[str, Any], str]]:
+    """Yield the rows the post folders still hold, each with the file it came from.
+
+    The sweep tables of an earlier layout first, then the provenance sheets, each
+    row carrying the ``matrix_stem`` of its folder.
+    """
     post = base / "post"
-    for folder in sorted(post.iterdir()) if post.is_dir() else []:
+    folders = sorted(post.iterdir()) if post.is_dir() else []
+    for folder in folders:
         table = folder / "campaign_sweep.csv"
         if table.is_file():
             # A spreadsheet may have saved it in another encoding; ``take`` drops what that cost.
             with table.open(encoding="utf-8-sig", errors="replace", newline="") as handle:
                 for row in csv.DictReader(handle):
-                    take({**row, "matrix_stem": folder.name}, _relative(base, table))
-    for folder in sorted(post.iterdir()) if post.is_dir() else []:
+                    yield {**row, "matrix_stem": folder.name}, _relative(base, table)
+    for folder in folders:
         for sheet in sorted((folder / "provenance").glob("*.prov.json")):
             provenance = _provenance_row(sheet)
             if provenance is not None:
-                take({**provenance, "matrix_stem": folder.name}, _relative(base, sheet))
-    return known
+                yield {**provenance, "matrix_stem": folder.name}, _relative(base, sheet)
 
 
 def _provenance_row(path: Path) -> dict[str, Any] | None:

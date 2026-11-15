@@ -1144,6 +1144,25 @@ def rebuild(
     return entry
 
 
+def _campaign_of(
+    base: Path, matrix: Path, sim: str, identity: _Known | None, notes: list[str]
+) -> tuple[str, str | None]:
+    """Return the campaign of ``sim`` and its source, said when only the folder names it."""
+    if identity is not None and identity.campaign:
+        return identity.campaign, identity.name_from if identity.name_from_known else None
+    planned, planned_from = _plan_campaign_name(base, matrix.stem)
+    if planned:
+        return planned, planned_from
+    said = (
+        f"no surviving record names the campaign or version of sim_{sim} "
+        "(no archived manifest, provenance sheet or plan receipt): it is "
+        f"rebuilt under the folder name {base.name!r}"
+    )
+    notes.append(said)
+    warnings.warn(said, PyflightstreamWarning, stacklevel=3)
+    return base.name, "directory"
+
+
 def _rebuild_all(
     base: Path,
     sims: Sequence[str],
@@ -1230,23 +1249,7 @@ def _rebuild_all(
                     )
                 for sim in chosen:
                     identity = known.get(sim)
-                    if identity is not None and identity.campaign:
-                        name, name_from = identity.campaign, identity.name_from
-                        if not identity.name_from_known:
-                            name_from = None
-                    else:
-                        planned, planned_from = _plan_campaign_name(base, path.stem)
-                        name, name_from = (
-                            (planned, planned_from) if planned else (base.name, "directory")
-                        )
-                        if not planned:
-                            said = (
-                                f"no surviving record names the campaign or version of sim_{sim} "
-                                "(no archived manifest, provenance sheet or plan receipt): it is "
-                                f"rebuilt under the folder name {base.name!r}"
-                            )
-                            sim_notes[sim].append(said)
-                            warnings.warn(said, PyflightstreamWarning, stacklevel=2)
+                    name, name_from = _campaign_of(base, path, sim, identity, sim_notes[sim])
                     order = (
                         [identity.point_name_template]
                         if identity is not None and identity.point_name_template
