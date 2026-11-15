@@ -438,6 +438,10 @@ def run_campaign(
         the cases that asked for it, before the first point of ANY of
         them executes, so a misconfigured build cannot spend the
         licensed seats of a healthy one first (PFS-2009.09.02).
+    InputArtifactError
+        When ``sweep_csv`` is given: the keyword is removed with the
+        campaign sweep table it named (0.58.0, D30), and the refusal names
+        its successor before anything runs.
 
     """
     if sweep_csv is not None:
