@@ -294,7 +294,7 @@ FR-184,l3,FR-153,FR-2099 FR-2100 FR-2101 FR-2102,tests/requirements_l3.csv
 FR-185,l3,FR-284,FR-2103,tests/requirements_l3.csv
 FR-186,kept,,,docs/unpublished/requirements/trst.md
 FR-187,kept,,FR-2104 FR-2105 FR-2106 FR-2107,docs/unpublished/requirements/dred.md
-FR-188,l3,FR-187,FR-2108 FR-2109,tests/requirements_l3.csv
+FR-188,l3,FR-187,FR-2108,tests/requirements_l3.csv
 FR-189,l3,FR-163,FR-2023 FR-2024,tests/requirements_l3.csv
 FR-190,l3,FR-187,FR-2110 FR-2111 FR-2112 FR-2113,tests/requirements_l3.csv
 FR-191,l3,FR-166,FR-2181 FR-2182,tests/requirements_l3.csv
@@ -1190,3 +1190,4 @@ FR-3020,retired,,FR-3310,docs/unpublished/requirements/retired.md
 FR-2003,retired,,FR-3820,docs/unpublished/requirements/retired.md
 FR-2131,retired,,FR-3827,docs/unpublished/requirements/retired.md
 FR-3566,retired,,FR-3820,docs/unpublished/requirements/retired.md
+FR-2109,retired,,FR-188,docs/unpublished/requirements/retired.md
