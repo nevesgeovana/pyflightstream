@@ -501,6 +501,15 @@ def family_polar_products(ctx: SimContext) -> None:
     """Write the family and group files of one simulation's polar, and their derived polars."""
     if not ctx.pproc.products.polars:
         return
+    if ctx.pproc.products.rotor_cn_slope:
+        # SAID, NEVER SILENT: the slope read the rotor table, which is retired.
+        reason = (
+            "the rotor normal-force slope is not written: it read the rotor table, which the "
+            "rotor groups' RCOEF files replace, and its reading of those files is not yet "
+            "defined"
+        )
+        ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}#rotor_cn_slope"] = reason
+        warn(reason, PyflightstreamWarning, stacklevel=2)
     layout = _layout(ctx)
     if layout is None:
         return
