@@ -19,6 +19,15 @@ def test_retired_polar_files_are_named_only_as_retired():
     assert bad == []
 
 
+def test_changelog_and_upgrading_give_the_renamed_keys_the_same_life():
+    root = DEFINITIONS.parents[1]
+    for name in ("CHANGELOG.md", "docs/upgrading.md"):
+        lines = (root / name).read_text(encoding="utf-8").splitlines()
+        stated = [line for line in lines if "superfile_format" in line and "polar_format" in line]
+        assert stated, name
+        assert all("for one release" in line for line in stated), name
+
+
 def test_the_index_of_definitions_marks_the_retired_entries():
     index = (DEFINITIONS.parent / "post-processing-definitions.md").read_text(encoding="utf-8")
     for anchor in ("time_average", "per_blade", "the-unsteady-polar"):
