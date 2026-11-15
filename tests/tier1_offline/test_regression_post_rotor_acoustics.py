@@ -382,7 +382,11 @@ class TestPost1Corrections:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-DERIVEDNA")])
     def test_p0400_derivedna_cn_alone_makes_etaw_na(tmp_path):
-        """P0400-DERIVEDNA: a CN calibration leaves ETAW NA in the corrected rotor table."""
+        """P0400-DERIVEDNA: a CN calibration leaves ETAW NA in the corrected rotor table.
+
+        0.58.0: the rotor table is the rotor group's RCOEF file, bare names (design of
+        the post outputs, 2.2 and 2.3); CN is its CFZ.
+        """
         extra = '\n[qsteady_correction]\nroute = "table"\nfile = "c001"\n'
         workspace = _post_1_corrections___recorded_wheel(
             tmp_path,
@@ -391,10 +395,10 @@ class TestPost1Corrections:
         )
         products, folder, _ = _post_1_corrections___post_recorded(workspace)
         (rotor,) = [
-            name for name in products["products"] if name.endswith("PROP_rotor_corrected.csv")
+            name for name in products["products"] if name.endswith("P6001-PROP-RCOEF_corrected.csv")
         ]
-        assert {row["ETAW_PROP"] for row in _post_1_corrections___table(folder, rotor)} == {"NA"}
-        assert "ETAW_PROP" in products["products"][rotor]["derived_na"]
+        assert {row["ETAW"] for row in _post_1_corrections___table(folder, rotor)} == {"NA"}
+        assert "ETAW" in products["products"][rotor]["derived_na"]
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-DERIVEDNA")])

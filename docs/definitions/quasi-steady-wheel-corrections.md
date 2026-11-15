@@ -23,7 +23,7 @@ never writes over one: each corrected product is a new file,
 what a post with no route writes.
 
 **The calibration and its grid.** Each row of the file names a component, its
-place on the axes `J` (the rotor table's `J_<ALIAS>` of the point), `ALPHA`
+place on the axes `J` (the rotor's own `J<id>` of the point's run block), `ALPHA`
 (the point's, deg) and `K_1P` (the station's for a sectional component, the
 point's `K_1P_MEAN` for a rotor component), and the coefficients `OFFSET_0P`,
 `GAIN_0P`, `GAIN_1P` and `PHASE_1P_DEG`. The rows of one component form a
@@ -35,7 +35,7 @@ do not fit within a common half-turn arc, the correction is refused with a
 reason; refine the grid to resolve the ambiguity. A point outside it on a
 varying axis, or stating no value on one, is NEVER extrapolated: its corrected
 cells are `NA`, named in
-`skipped` (`<corrected file>#point=<point>#component=<C>` for a rotor table or
+`skipped` (`<corrected file>#point=<point>#component=<C>` for an RCOEF file or
 an average table, `<corrected harmonics>#component=<C>` for a station) and in a
 WARNING line of `post.log`. A file the post cannot read corrects nothing,
 named under `calibrations/<id>.toml#sim=<sim>`.
@@ -44,7 +44,7 @@ named under `calibrations/<id>.toml#sim=<sim>`.
 
 | file | the change |
 |---|---|
-| `polars/P<sim>-<ALIAS>_rotor_corrected.csv` | `CT_<ALIAS>`, `CQ_<ALIAS>`, `CN_<ALIAS>`, `CS_<ALIAS>`, `CMN_<ALIAS>`, `CMS_<ALIAS>`: `q' = GAIN_0P q + OFFSET_0P`; `CP`, `ETA` and `ETAW` `NA` where `CT` or `CQ` is corrected |
+| `polars/P<POL>-<ALIAS>-RCOEF_corrected.csv` (the rotor group's RCOEF file) | `CT`, `CQ` by `CT`, `CQ`, and the in-plane set in the R<id> axes by `CN`, `CS`, `CMN`, `CMS`: `CFZ' = GAIN_0P CFZ + OFFSET_0P`, `CFY' = GAIN_0P CFY - OFFSET_0P`, `CMZ' = GAIN_0P CMZ - OFFSET_0P`, `CMY' = GAIN_0P CMY - OFFSET_0P` (`CFZ = CN`, `CFY = -CS`, `CMZ = -CMN`, `CMY = -CMS`); `NA` where a component they are formed from is corrected: `T`, `TC`, `TCA` (by `CT`), `Q`, `P`, `CP`, `QC`, `QCA` (by `CQ`), `ETA`, the disc and airframe loadings of the in-plane set, and every `CT<f>`, `CQ<f>`, `ETA<f>` (`ETAW` among them) |
 | `polars/P<sim>-<ALIAS>_qs_avg_corrected.csv` | `THRUST_<ALIAS>`, `TORQUE_<ALIAS>`, `FX_<ALIAS>` .. `MZ_<ALIAS>`, `CT_PROPELLER` (by `CT`), `CT_ROTOR`: the same; `CT_ROTOR`, `CT_PROPELLER`, `LAMBDA_I` and `CHI_DEG` `NA` where the thrust is corrected and they are not |
 | `sections/<point>_harmonics_corrected.csv` | per station: `H0' = GAIN_0P H0 + OFFSET_0P`, `H1_AMP' = GAIN_1P H1_AMP`, `H1_PHASE_DEG' = H1_PHASE_DEG + PHASE_1P_DEG` in `[0, 360)`; `H2_AMP`, `H2_PHASE_DEG` and `RESIDUAL_RMS` unchanged |
 | `sections/<point>_sections_corrected.csv` | each row, blade `n` at clocking `i` at its `AZIMUTH` `psi`: `load' = load + (H0' - H0) + [A1' cos(psi - PHI1') - A1 cos(psi - PHI1)]` with the station's fit as the harmonic product wrote it; `Fx_int`, `Fz_int`, `My_int` `NA` where their load is corrected |

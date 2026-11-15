@@ -10,11 +10,12 @@ in manifest order:
    plots table, the unsteady probes and the reductions
    (:mod:`pyflightstream.post.point_tables`,
    :mod:`pyflightstream.post._reduction_stage`);
-2. :func:`_qsteady_rotor_products`: the quasi-steady clockings, their average
-   and the correction route;
+2. :func:`_qsteady_rotor_products`: the quasi-steady clockings and their average;
 3. :func:`_family_polars`: the polar's family and group files, steady or the
    window average of an unsteady run's plots, and the polars derived from them
-   (:mod:`pyflightstream.post._polar_stage`, PFS-2231).
+   (:mod:`pyflightstream.post._polar_stage`, PFS-2231);
+4. :func:`_qsteady_correction_products`: the quasi-steady wheel's correction
+   route, read back from the files above, the rotor's RCOEF file among them.
 
 The byte snapshot of the products (``tests/tier1_offline/test_products_snapshot.py``,
 P0330-PRODUCTS-SNAPSHOT) was taken before the decomposition and is unchanged
@@ -363,7 +364,7 @@ def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -
 
 def _load_step_context(ctx: SimContext, step: Callable[[SimContext], None]) -> SimContext:
     """Scope load-table consumers without suppressing independent export products."""
-    if step not in (_family_polars, _qsteady_rotor_products):
+    if step not in (_family_polars, _qsteady_rotor_products, _qsteady_correction_products):
         return ctx
     if step is _family_polars and ctx.window is not None:
         # AN UNSTEADY POLAR IS READ FROM THE PLOTS, not from the loads export.
@@ -983,7 +984,7 @@ def _unsteady_probes(
 
 
 def _qsteady_rotor_products(ctx: SimContext) -> None:
-    """Write the quasi-steady rotor's clockings, their average, and the correction route."""
+    """Write the quasi-steady rotor's clockings and their average."""
     # THE QUASI-STEADY ROTOR'S CLOCKINGS AND THEIR AVERAGE, one pair of
     # tables per simulation, from the record each point's run wrote beside its
     # loads export.
@@ -1000,9 +1001,14 @@ def _qsteady_rotor_products(ctx: SimContext) -> None:
         replace=ctx.overwrite,
     ):
         ctx.add(target_path, entry)
-    # P0310-CAL: THE QUASI-STEADY WHEEL'S CORRECTION ROUTE AND ITS
-    # DIAGNOSTIC, each corrected product a new file beside its raw one, read back
-    # from the files written above and never written over them. Off by default.
+
+
+def _qsteady_correction_products(ctx: SimContext) -> None:
+    """Write the quasi-steady wheel's correction route and its diagnostic (P0310-CAL)."""
+    # Each corrected product is a new file beside its raw one, read back from the
+    # files written before and never written over them. Off by default. AFTER THE
+    # POLAR FILES (i2 #6): the rotor's raw file is its group's RCOEF file, which
+    # the polar step writes.
     for target_path, entry in _qsteady_corrections(
         ctx.workspace,
         ctx.sim_id,
@@ -1036,6 +1042,8 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     # FR-1062: read reduced plots first, then project far-field cells into the polars.
     farfield_products,
     _family_polars,
+    # P0310-CAL: reads back the rotor's RCOEF file the polar step wrote.
+    _qsteady_correction_products,
     # FR-3511: last, so it reads the tables as every step above left them.
     _merged_polar_products,
 )
