@@ -41,7 +41,7 @@ from pyflightstream.post.polar import grid_convergence
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
-from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix, missing_log_warning
+from pyflightstream.workspace import RunStatus, find_matrix, missing_log_warning
 from pyflightstream.workspace.naming import ADDITIONAL_DIR, resolved_plain
 from pyflightstream.workspace.storage import STEP_EXPORTS_PRUNED
 
@@ -281,23 +281,29 @@ def _warn_unreadable_matrix(
     matrix_stem: str | None,
     rows_of_the_matrix: Mapping[str, MatrixRow],
 ) -> None:
-    """Explain why post choices must fall back to the recorded matrix values."""
+    """Explain why post choices must fall back to the recorded matrix values.
+
+    Raises
+    ------
+    WorkspaceError
+        If the matrix is held in both homes with different bytes (RB3-12): the
+        post cannot tell which one the run meant, so it refuses, naming both.
+    """
     if matrix_stem and not rows_of_the_matrix:
         # SAID, NOT SWALLOWED (PO-06). `matrix_rows` answers `{}` for a matrix that
         # is in neither home, for one it cannot parse, and (RST-1) for a
         # stem held in both homes with different bytes, and every post-only
         # choice then falls back to the run records in silence: an edited window
         # does nothing and the rotor tables, which need the row's reference, are
-        # not written at all.
-        try:
-            found = find_matrix(workspace.root, matrix_stem)
-            state = (
-                "cannot be read"
-                if found is not None
-                else "is in neither the workspace root nor inputs/matrices/"
-            )
-        except WorkspaceError as two_homes:
-            state = f"is refused: {two_homes}"
+        # not written at all. TWO DIFFERING HOMES ARE REFUSED (RB3-12): the refusal
+        # rode on the super-file completeness audit, which 0.58.0 retires with the
+        # super file, and is raised here so the post still refuses them.
+        found = find_matrix(workspace.root, matrix_stem)
+        state = (
+            "cannot be read"
+            if found is not None
+            else "is in neither the workspace root nor inputs/matrices/"
+        )
         warn(
             f"the matrix {matrix_stem}.fs {state}. Every post-only choice falls back to the run "
             "records, and the rotor tables, which take their geometry from the row's "
