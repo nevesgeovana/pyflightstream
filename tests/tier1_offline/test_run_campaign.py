@@ -2947,7 +2947,7 @@ def sweep_csv(tmp_path, *, quiet=True):
     The campaign leaves no table of its own since 0.58.0; the derivation the table
     was written from stays public as ``results.sweep_table``.
     """
-    from pyflightstream.results.tables import sweep_table, write_sweep_table
+    from pyflightstream.results.tables import sweep_table
 
     workspace = CampaignWorkspace(tmp_path / "camp")
     target = tmp_path / "derived" / "sweep.csv"
@@ -2955,7 +2955,7 @@ def sweep_csv(tmp_path, *, quiet=True):
     with warnings.catch_warnings():
         if quiet:
             warnings.simplefilter("ignore", PyflightstreamWarning)
-        write_sweep_table(sweep_table(workspace, require_loads=False), target)
+        sweep_table(workspace, require_loads=False).to_csv(target, index=False)
     return target
 
 

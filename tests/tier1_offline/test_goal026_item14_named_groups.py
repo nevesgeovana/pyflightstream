@@ -23,34 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.post import superfile
 from pyflightstream.post._family_polar import group_file_name
-
-
-def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
-    """THE TRAP. A glob that only matches `_g01` loses a renamed group in silence.
-
-    This asserts the PATTERN rather than the outcome of a full post run,
-    because the outcome is what stays green and empty when the pattern misses:
-    a superset assertion over nothing is satisfied by nothing.
-    """
-    pattern = superfile.POLAR_TABLE_GLOB
-    # THE NAME THE STAGE WRITES: `P<POL>-<GROUP>-<KIND>.csv` since 0.58.0 (the sweep token
-    # left the name, D29), from the function the stage calls.
-    named = group_file_name("0001", "PUSHER", "ACOEF")
-    assert named == "P0001-PUSHER-ACOEF.csv", named
-    numbered_era = "P0001-M150AL+000BE+000J+sweep_g01.csv"
-    import fnmatch
-
-    assert fnmatch.fnmatch(named, pattern), (
-        f"the union glob {pattern!r} does not match a NAMED group's file {named!r}, so a "
-        "renamed group leaves the super file's union without anything failing"
-    )
-    assert fnmatch.fnmatch(numbered_era, pattern), (
-        f"the union glob {pattern!r} stopped matching the numbered files the workspace "
-        f"already holds ({numbered_era!r}), so this release would drop her old products "
-        "out of the union instead of renaming them"
-    )
 
 
 @pytest.mark.requirement("FR-85")

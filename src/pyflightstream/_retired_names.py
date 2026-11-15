@@ -743,6 +743,39 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         why="The one write path of a table is now private; to_csv routes through it.",
         instead="Write with",
     ),
+    # The SUPER and sweep-table writers 0.58.0 retires (reachability guard).
+    "pyflightstream.post.superfile.superfile_row": RetiredName(
+        owner="pyflightstream.post.superfile",
+        old="superfile_row",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It built a row of the SUPER file, which 0.58.0 retires.",
+        instead="Every family is in FAM-DIM and FAM-ACOEF; read",
+    ),
+    "pyflightstream.post.superfile.write_superfile_report": RetiredName(
+        owner="pyflightstream.post.superfile",
+        old="write_superfile_report",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It wrote the SUPER file report, which 0.58.0 retires.",
+        instead="Every family is in FAM-DIM and FAM-ACOEF; read",
+    ),
+    "pyflightstream.post.superfile.union_the_workspace_knows": RetiredName(
+        owner="pyflightstream.post.superfile",
+        old="union_the_workspace_knows",
+        new=_THE_0580_POLAR_FILES,
+        retired_in="0.58.0",
+        why="It listed the names the SUPER file held, which 0.58.0 retires.",
+        instead="Every family is in FAM-DIM and FAM-ACOEF; read",
+    ),
+    "pyflightstream.results.tables.write_sweep_table": RetiredName(
+        owner="pyflightstream.results.tables",
+        old="write_sweep_table",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
 }
 
 _MATRIX_DEFAULT_BUILD = (

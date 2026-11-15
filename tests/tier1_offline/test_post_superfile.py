@@ -3,7 +3,7 @@
 Until 0.57.0 one derived super file per polar and group carried it. The super file is retired
 (design-post-outputs 2.2): the FAM and group files of ``polars/`` open with the run block, the
 setup codes are in ``settings/`` and the matrix row's description is in ``products.json``. The
-cases that remain on the library functions (`superfile_row`, `union_the_workspace_knows`,
+cases that remain on the library functions (`matrix_rows`,
 `measure_sections`, `release_tag`) pin helpers the post still calls; the cases that drove the
 post now read the files that replace the super file, and compare their cells with the run
 records, which this module reads with the standard library rather than through the package's
@@ -27,23 +27,14 @@ import pytest
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 
-def test_p0440_completeness_refuses_ambiguous_matrix_home(tmp_path):
-    from pyflightstream.post.superfile import union_the_workspace_knows
-    from pyflightstream.workspace import WorkspaceError
+def test_p0440_a_matrix_of_two_homes_that_differ_reads_as_no_rows(tmp_path):
+    from pyflightstream.post.superfile import matrix_rows
 
     folder = tmp_path / "inputs" / "matrices"
     folder.mkdir(parents=True)
     (tmp_path / "study.fs").write_text("POL|FIRST\n1|x\n", encoding="utf-8")
     (folder / "study.fs").write_text("POL|SECOND\n1|y\n", encoding="utf-8")
-    with pytest.raises(WorkspaceError, match="study"):
-        union_the_workspace_knows(
-            tmp_path,
-            tmp_path / "post",
-            "study",
-            polars_dir="polars",
-            probes_dir="probes",
-            raw_records=[],
-        )
+    assert matrix_rows(tmp_path, "study") == {}
 
 
 def test_p0430_w012_release_tags_are_unambiguous_and_keep_existing_names():
@@ -53,21 +44,6 @@ def test_p0430_w012_release_tags_are_unambiguous_and_keep_existing_names():
     assert len({release_tag(version) for version in versions}) == len(versions)
     assert release_tag("0.11.0") == "0110"
     assert release_tag("0.40.0rc1") == "0400rc1"
-
-
-@pytest.mark.parametrize("value", [float("inf"), -float("inf"), float("nan")])
-def test_p0430_w012_nonfinite_superfile_values_are_missing(value):
-    from pyflightstream.post.superfile import superfile_row
-
-    row = superfile_row(
-        polar_columns=[],
-        polar_values=[],
-        matrix_row=None,
-        record=None,
-        sweep_row={"residual": value},
-        plots_row=None,
-    )
-    assert row["residual"] == ""
 
 
 def test_p0430_w012_missing_recorded_section_count_has_context(tmp_path):
@@ -80,93 +56,17 @@ def test_p0430_w012_missing_recorded_section_count_has_context(tmp_path):
     assert "run/point" in str(caught.value) and "count" in str(caught.value)
 
 
-def test_p0430_rb2_superfile_union_refuses_unreadable_history(tmp_path):
-    from pyflightstream.post.superfile import union_the_workspace_knows
-    from pyflightstream.workspace import WorkspaceError
-
-    (tmp_path / "runs.json").mkdir()
-    with pytest.raises(WorkspaceError, match="cannot read run records"):
-        union_the_workspace_knows(
-            tmp_path, tmp_path / "post", None, polars_dir="polars", probes_dir="probes"
-        )
-    # Explicit rows remain authoritative even when the default path is unusable.
-    assert union_the_workspace_knows(
-        tmp_path, tmp_path / "post", None, polars_dir="polars", probes_dir="probes", raw_records=[]
-    )
-
-
-def test_p0430_union_reads_matrix_in_inputs_home(tmp_path):
-    from pyflightstream.post.superfile import union_the_workspace_knows
+def test_p0430_the_matrix_is_read_from_its_inputs_home(tmp_path):
+    from pyflightstream.post.superfile import matrix_rows
 
     folder = tmp_path / "inputs" / "matrices"
     folder.mkdir(parents=True)
-    (folder / "study.fs").write_text("POL|VAR_NAMES_VALUES\n1|CUSTOM_FIELD:7\n", encoding="utf-8")
-    known = union_the_workspace_knows(
-        tmp_path,
-        tmp_path / "post",
-        "study",
-        polars_dir="polars",
-        probes_dir="probes",
-        raw_records=[{"matrix_stem": "study", "sim_id": "1"}],
-    )
-    assert {"POL", "VAR_NAMES_VALUES", "CUSTOM_FIELD"} <= known
-
-
-@pytest.mark.parametrize((), [pytest.param(id="P0430-F-162")])
-def test_p0430_recorded_rotor_speed_precedes_current_matrix():
-    from types import SimpleNamespace
-
-    from pyflightstream.post.superfile import superfile_row
-
-    matrix = SimpleNamespace(
-        pol="1",
-        aircraft="wing",
-        description="",
-        ref_code="r",
-        set_code="s",
-        pproc_code="p",
-        fs_build="26.125",
-        hidden=False,
-        run=True,
-        workflow="steady",
-        script_code=None,
-        sweep=SimpleNamespace(values=[], type=None),
-        variables={"RPM": "999"},
-        motions=[],
-        rotations=[],
-        translations=[],
-        raw=[],
-        flight_condition={},
-    )
-    record = SimpleNamespace(reductions={"rpm": 1200.0, "rotors": {"PROP": {"rpm": 1200.0}}})
-    row = superfile_row(
-        polar_columns=[],
-        polar_values=[],
-        matrix_row=matrix,
-        record=record,
-        sweep_row=None,
-        plots_row=None,
-    )
-    assert float(row["RPM"]) == 1200.0
-    assert list(row).index("RPM") > list(row).index("VAR_NAMES_VALUES")
-
-
-@pytest.mark.parametrize((), [pytest.param(id="P0430-F-163")])
-def test_p0430_exact_rotor_alias_precedes_casefold_match():
-    from types import SimpleNamespace
-
-    from pyflightstream.post.superfile import superfile_row
-
-    columns = superfile_row(
-        polar_columns=[],
-        polar_values=[],
-        matrix_row=None,
-        record=SimpleNamespace(reductions={"rotors": {"PROP": {"rpm": 1200.0}}}),
-        sweep_row=None,
-        plots_row=None,
-        rotors={"prop": SimpleNamespace(diameter_m=9.0), "PROP": SimpleNamespace(diameter_m=2.0)},
-    )
-    assert float(columns["DIAMETER_PROP"]) == 2.0
+    (folder / "study.fs").write_text(_MATRIX, encoding="utf-8")
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "study.fs").write_text(_MATRIX, encoding="utf-8")
+    at_inputs = matrix_rows(tmp_path, "study")
+    assert at_inputs, "a matrix of the inputs home reads as its rows"
+    assert list(at_inputs) == list(matrix_rows(tmp_path / "root", "study"))
 
 
 # ---------------------------------------------------------------------------
@@ -546,295 +446,6 @@ def test_p0430_an_unemitted_documented_default_is_written_as_a_default(tmp_path,
     assert {row[f"f{explicit_id}_value"] for row in rows} == {"20"}
 
 
-def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path):
-    """A row states what is known about ITS point, and is EMPTY about the rest.
-
-    The campaign writer resolved a point's manifest record as
-    `by_run.get(run_id, records[0])`, so a run id that did not resolve would
-    silently take an ARBITRARY other point of the same simulation, and
-    blocks 3 and 4 would write that record's flight condition, velocity,
-    density and rotor speeds into this point's row.
-
-    THIS CASE DOES NOT GUARD THAT PATH AND DOES NOT CLAIM TO. It pins the
-    contract the removal relies on: handed no record, this function borrows
-    nothing. A case that drove the campaign writer was written and then
-    DELETED, because restoring the fallback left it green: `sources` and
-    `by_run` are built from the same records in the same loop, so a run id
-    the first names is one the second holds, and the fallback is not
-    reachable today. It was removed anyway, as a branch that would do the
-    wrong thing silently if it ever became reachable, and this case is what
-    says what the right thing is.
-
-    That is the worst failure this file can have and the one its own
-    acceptance forbids: not a missing cell, which a reader sees, but a cell
-    that is WRONG and indistinguishable from a right one, in the file whose
-    whole claim is that it says everything about THAT simulation.
-
-    Empty and not absent, which is what `_rotor_speeds` already chooses for
-    a row that turns none or several.
-    """
-    from pyflightstream.post.superfile import superfile_row
-
-    class _Record:
-        flight_condition = {"MACH": "0.15", "REmi": "5.0"}
-        flight_condition_defaults = {"ALTITUDE": "0"}
-        flight_condition_defaults_from = "the setup"
-        velocity_requested_m_s = 51.0
-        density_kg_m3 = 1.225
-        temperature_k = 288.15
-        viscosity_pa_s = 1.81e-5
-        density_source = "the resolver"
-        reference_length_m = 1.322
-        freestream_units = "SI"
-        reductions = {"rpm": -837.3278}
-
-    theirs = superfile_row(
-        polar_columns=("POL",),
-        polar_values=("0001",),
-        matrix_row=None,
-        record=_Record(),
-        sweep_row=None,
-        plots_row=None,
-    )
-    mine = superfile_row(
-        polar_columns=("POL",),
-        polar_values=("0001",),
-        matrix_row=None,
-        record=None,
-        sweep_row=None,
-        plots_row=None,
-    )
-    # NOT ONE VALUE THE RECORD WOULD HAVE SUPPLIED APPEARS IN THE ROW THAT
-    # HAS NO RECORD. Asserted over the keys the OTHER row gained rather than
-    # over a list typed here, so a field added to block 3 is covered the day
-    # it lands and nothing is left out by judgement.
-    assert theirs["freestream_units"] == "SI"
-    assert mine["freestream_units"] == "", "missing records borrow no declaration"
-    from_record = set(theirs) - set(mine)
-    assert from_record, "the fixture record supplied nothing, so this proves nothing"
-    borrowed = {
-        k: mine[k]
-        for k in set(mine) & set(theirs)
-        if k != "POL" and mine[k] and mine[k] == theirs[k]
-    }
-    assert not borrowed, f"a point with no record carried {borrowed}"
-
-
-def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
-    """A field added to a manifest record forces a decision rather than slipping past.
-
-    The union could not see a single one of the record's own scalars until
-    2026-09-11, so dropping one from the file passed the completeness check.
-    They now live in ONE tuple the writer loops and the union requires.
-
-    THIS CASE IS THE OTHER HALF: it takes a real record's top-level keys and
-    demands each one be either CARRIED or EXCLUDED BY NAME below. A field
-    added to `RunRecord` lands in neither and fails here, which is the
-    decision the completeness claim needs someone to make, rather than a
-    silent absence.
-    """
-    from pyflightstream.post.superfile import RECORD_SCALARS
-
-    #: Read as: these are NOT in the superfile, and here is why. Grouped, and
-    #: every group is a reason rather than a list.
-    carried_by_their_contents = {
-        # containers whose KEYS become columns of their own
-        "flight_condition",
-        "flight_condition_defaults",
-        "reductions",
-        "solver_setup",
-        "point",
-        # 0.25.0 F02: the surface averaging window is a BLOCK (its bounds, their
-        # unit, the revolutions or iterations asked for), not a scalar, and the
-        # products manifest and the provenance state it beside each averaged
-        # surface export, which is where a reader of that export looks.
-        "surface_time_averaging",
-        # 0.28.0 G45: which Tecplot surfaces the run wrote from its VTK, a list
-        # of blocks (the two names, the frame, the files written), which
-        # products.json and the provenance state beside each translated file.
-        "surface_translations",
-        # 0.28.0 G25: the window the package averages the surface over, a block
-        # like the solver's window above, stated beside the averaged surface.
-        "surface_average_window",
-    }
-    carried_under_the_matrix_or_polar_name = {
-        "description",
-        "mach",
-        "pproc",
-        "recipe",
-        "reference",
-        "aliases",
-        "motions",
-        "conditions",
-        "raw_commands",
-        "raw_flag",
-        "matrix_stem",
-    }
-    about_the_INVOCATION_and_not_the_simulation = {
-        "argv",
-        "cwd",
-        "executor",
-        "fs_exe",
-        "fs_exe_sha256",
-        "script_path",
-        "script_sha256",
-        "recipe_sha256",
-        "inputs_sha256",
-        "outputs_sha256",
-        "staged_as",
-        "staged_as_reason",
-        "log_file_used",
-        "manifest_schema",
-        "package_commit",
-        "package_dirty",
-        "timeout_s",
-        "started_at",
-        "finished_at",
-        "error",
-        "outputs",
-        "action_count",
-        "action_program",
-        "action_script",
-        "campaign_name_from",
-        "point_name_template",
-        "inventory_source",
-        # 0.27.0 G01. How a raw mesh was imported: a BLOCK (the unit the file is
-        # written in), not a scalar, and a fact of the geometry FILE, stated once
-        # in its sidecar. The manifest records it beside `inputs_sha256`, which is
-        # where two runs of one mesh under two units are told apart; a superfile
-        # row names its geometry through the matrix row's own cell.
-        "mesh_import",
-        "fs_version_source",
-        "export_window",
-        # NL-RECS-6: the processors and the machine a run used are its cost,
-        # kept in the record beside its wall time; a machine description in a
-        # result table would make two identical results differ by the host.
-        "processor_count",
-        "machine",
-        "waived_commands",
-        # FR-91. The path of the file this run's probe positions were
-        # written to. It is an INDEX into another file and not a fact about
-        # the simulation, and the positions themselves reach a reader
-        # through `probes/<point>_probes.csv`, where they sit beside the
-        # sample they place. A column holding a path would tell a reader to
-        # go and open something, which is the one thing the superfile
-        # exists so that they never have to do.
-        "probe_points_file",
-        # FR-99, 0.17.0. WHERE a submitted job went: the descriptor the
-        # scheduler was handed, the profile that rendered it, and whether
-        # the submit command ran. Every one of those is about HOW this
-        # point was launched and not about the simulation, which is the
-        # same reason `executor` and `argv` are here.
-        "submission",
-        # 0.24.0. WHICH RUN THIS ONE CONTINUES: a run id, and so an index into
-        # the manifest rather than a fact about the simulation. It exists so
-        # that a reader of the MANIFEST can take the end of a continuation
-        # chain; a superfile row is already the point the stage selected.
-        "continues",
-        # 0.24.0. WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE: a list of
-        # blocks, and so not a scalar a row could hold. It reaches a reader as
-        # the FAMILY, PLANE and ROTOR columns of `sections/<point>_sections.csv`,
-        # beside the rows it names.
-        "sections_layout",
-        # 0.27.0, R03. THE GEOMETRY'S BOUNDARY NAMES the script was built over:
-        # a list, not a scalar a row could hold. It reaches a reader through the
-        # per-distribution split and integration it lets the post match.
-        "inventory",
-        # 0.30.0, M1. EACH ROTOR'S TIP AND HELICAL MACH NUMBERS: a block per
-        # rotor, not a scalar a row could hold. They reach a reader as the
-        # MTIP_<alias> and MHEL_<alias> columns of the rotor table, beside the
-        # speed and the diameter they were taken at.
-        "rotor_mach",
-        # 0.39.0, FR-999. WHICH WORKSPACE SETTINGS FILE each default of the
-        # invocation came from: a block, and about how the command was given its
-        # options, not about the simulation, as `argv` is. Absent where no file
-        # gave anything.
-        "settings_sources",
-        # 0.43.0, FR-69. WHICH ANGLES THE ROW DID NOT STATE: a list of names, not a
-        # scalar a row could hold. The owner decision places it in the plan and the
-        # run record; the angle's value, 0.0, is the ALPHA or BETA a row carries.
-        "angles_not_stated",
-    }
-    carried_by_the_campaign_sweep_table = {
-        # FR-95, 0.17.0, and both for the same reason: a job's identity is
-        # its record's `run_id`, which this table already carries, and its
-        # points are already one row each of this table. Carrying `job_id`
-        # would restate the run_id and carrying `points_ran` would put the
-        # whole job inside each of its own points.
-        "points_ran",
-        "job_id",
-        # FR-98. WHERE a run the wall clock stopped got to. It is about the
-        # INVOCATION rather than the simulation: the step the watchdog
-        # counted is a fact about how far that process ran before it was
-        # told to stop, and the status column already says that it was.
-        # What a reader of this table wants from it is the status, and a
-        # continuation reads the step off the record itself.
-        "stopped_at",
-        "run_id",
-        "sim_id",
-        "status",
-        "iterations",
-        "residual",
-        "wall_time_s",
-        "fs_build",
-        "fs_version_reported",
-        "fs_version_requested",
-        "package_version",
-    }
-    structured_run_and_product_provenance = {
-        # Callback timing describes launch cost, retained together in the run
-        # record and cost evidence rather than the simulation's superfile row.
-        "step_wall_timestamps_s",
-        "step_wall_times_s",
-        "step_wall_time_last20_mean_s",
-        # Per-sample IDs, coordinates and output formats, retained in the run
-        # manifest and sampled-field provenance beside the derived arrays.
-        "probe_field_layout",
-        # Native surface-property/plot declarations form one list per layout,
-        # retained in the manifest, not one scalar per simulation row.
-        "surface_probe_layout",
-        # Frame transforms, trajectories and explicit unknowns remain in the
-        # manifest and constrain the sampled-field writers and their provenance.
-        "frame_motions",
-        # Keep state, grid/body bounds, method and limitations together in the
-        # manifest; a scalar coverage label would hide that bounds do not prove
-        # interpolation support or full physical coverage.
-        "custom_field_coverage",
-    }
-    diagnostics_retained_in_post_logs = {
-        # Nonfatal messages are a list, distinct from solver status. The run
-        # retains each message and post.log/post.log.json carry run-status
-        # entries; flattening them into one scalar would lose that structure.
-        "warnings",
-    }
-    excluded = (
-        carried_by_their_contents
-        | carried_under_the_matrix_or_polar_name
-        | about_the_INVOCATION_and_not_the_simulation
-        | carried_by_the_campaign_sweep_table
-        | structured_run_and_product_provenance
-        | diagnostics_retained_in_post_logs
-    )
-
-    workspace = _workspace(tmp_path)
-    payload = _read_record_rows(workspace.root / "runs.json")
-    runs = payload["runs"] if isinstance(payload, dict) else payload
-    keys = {key for record in runs for key in record}
-    assert keys, "the fixture wrote no record, so this proves nothing"
-
-    undecided = sorted(keys - set(RECORD_SCALARS) - excluded)
-    assert not undecided, (
-        f"the manifest record carries {undecided}, which the superfile neither "
-        "carries nor excludes by name. Add each to RECORD_SCALARS if the "
-        "superfile should state it, or to one of the groups above with the "
-        "reason it should not."
-    )
-    # AND THE TUPLE IS NOT A DEAD LETTER: every name in it is a field the
-    # record actually has, so a typo there cannot sit unnoticed.
-    typos = sorted(set(RECORD_SCALARS) - keys)
-    assert not typos, f"RECORD_SCALARS names {typos}, which no record carries"
-
-
 def test_every_polar_file_carries_the_whole_run_block_and_no_variable_of_a_run_that_never_ran(
     tmp_path,
 ):
@@ -1028,40 +639,6 @@ def test_every_record_scalar_reaches_the_file_with_its_value(tmp_path):
     assert checked >= 3 * len(from_record), (
         f"only {checked} cell(s) were compared against a record; a case that "
         "matches no row asserts nothing"
-    )
-
-
-def test_the_union_sees_every_record_scalar(tmp_path):
-    """Round two, finding 2: the UNION half was undefended per field.
-
-    The mirror of the defect round one fixed. Narrowing the package's union
-    comprehension to `RECORD_SCALARS[:-1]` re-blinded the superset check to
-    `reference_length_m` and left the suite green, because the superset check
-    reads that union: a name the union cannot see is a name no file is required
-    to carry.
-
-    Asserted against the PACKAGE's union and not against the test module's own,
-    because it is the package's that the report arm and the superset check
-    consume. It cannot be written as a superset over the superfile's own
-    columns, which would be the check-that-accepts-everything this module's
-    docstring already rules out.
-    """
-    from pyflightstream.post.products import POLARS_DIR, PROBES_DIR
-    from pyflightstream.post.superfile import RECORD_SCALARS, union_the_workspace_knows
-
-    workspace = _workspace(tmp_path)
-    _post(workspace)
-    known = union_the_workspace_knows(
-        workspace.root,
-        workspace.products_dir("matriz"),
-        "matriz",
-        polars_dir=POLARS_DIR,
-        probes_dir=PROBES_DIR,
-    )
-    assert known, "an empty union proves nothing"
-    missing = sorted(set(RECORD_SCALARS) - known)
-    assert not missing, (
-        f"the union cannot see {missing}, so nothing requires a superfile to carry them"
     )
 
 

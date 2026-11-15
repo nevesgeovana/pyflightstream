@@ -1,8 +1,7 @@
 """The columns a matrix row's ``IDENTIFIERS`` put in the tables a post writes (FR-3564).
 
-Private to the package, in this layer because both table writers are at or above it:
-:func:`pyflightstream.post._tables.write_csv_table`, the funnel of the post's tables, and
-:func:`pyflightstream.results.tables.write_sweep_table`, the writer of the sweep table. A
+Private to the package, in this layer because its writer is at or above it:
+:func:`pyflightstream.post._tables.write_csv_table`, the funnel of the post's tables. A
 row states
 ``IDENTIFIERS: {FLAP:0,TESTE:10}`` and every table the post writes for that row's polar gains a
 column of each name, holding the value as text. The tables are many and their writers do not know
@@ -13,21 +12,17 @@ A table the post wrote and reads back to build another comes back without them
 (:func:`without_stamped`), since the scope knows what it stamped where. That is what tells a column
 the post put there from one the table holds as its own, which keeps its value.
 
-Only the post reads a matrix's identifiers. The run rewrites the sweep table from its records, so
-it keeps the columns it finds there and reads nothing else.
+Only the post reads a matrix's identifiers.
 """
 
 from __future__ import annotations
 
-import csv
-import io
-from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._tokens import (
     NOT_APPLICABLE,
@@ -35,9 +30,6 @@ from pyflightstream._tokens import (
     ROTOR_ID_COLUMN,
     plain_cell,
 )
-
-#: The first column of that table past ``POL``, in every run it is written from.
-_SWEEP_FIRST_OWN = "run_id"
 
 
 @dataclass
@@ -110,75 +102,6 @@ def tables_of_polar(polar: str) -> Iterator[None]:
     finally:
         if scope is not None:
             scope.polar = before
-
-
-@contextmanager
-def columns_held(names: Sequence[str]) -> Iterator[None]:
-    """Give every table written inside this block the columns ``names``, whoever states them.
-
-    Parameters
-    ----------
-    names : sequence of str
-        The columns, in order.
-
-    Yields
-    ------
-    None
-        The block.
-    """
-    scope = _SCOPE.get()
-    if scope is not None:
-        scope.held = tuple(names)
-    try:
-        yield
-    finally:
-        if scope is not None:
-            scope.held = ()
-
-
-def names_for_superfiles(polars: Iterable[object], leading: Collection[str]) -> tuple[str, ...]:
-    """Return the identifier columns of super files that share one header.
-
-    Parameters
-    ----------
-    polars : iterable
-        The polars of the rows being written.
-    leading : collection of str
-        The columns the other simulations' super files already carry.
-
-    Returns
-    -------
-    tuple of str
-        What those polars state, then the columns of ``leading`` that are identifiers of the
-        matrix; empty outside a post, or with a matrix that states none.
-    """
-    scope = _SCOPE.get()
-    if scope is None:
-        return ()
-    stated = {name: None for polar in polars for name in scope.of_polar(polar)}
-    every = {name for names in scope.by_polar.values() for name in names}
-    stated.update(dict.fromkeys(name for name in leading if name in every))
-    return tuple(stated)
-
-
-def header_with(columns: Sequence[str], names: Sequence[str]) -> tuple[str, ...]:
-    """Return the header :func:`stamped_table` gives ``columns`` carrying ``names``.
-
-    Parameters
-    ----------
-    columns : sequence of str
-        The table's own columns.
-    names : sequence of str
-        The identifier columns.
-
-    Returns
-    -------
-    tuple of str
-        The header.
-    """
-    fresh = [name for name in names if name not in columns]
-    at = _position(columns)
-    return (*columns[:at], *fresh, *columns[at:])
 
 
 def _position(columns: Sequence[str]) -> int:
@@ -308,107 +231,3 @@ def without_stamped(
         tuple(name for name in columns if name not in names),
         [{key: value for key, value in row.items() if key not in names} for row in rows],
     )
-
-
-def _say_a_saved_table(path: Path, cause: str) -> None:
-    """Warn of a sweep table a spreadsheet saved, whose identifier columns nothing can read."""
-    warn(
-        f"{path} {cause}, as a spreadsheet may have saved it, so its IDENTIFIERS columns were not "
-        "read. A post leaves the file as it is: save it as UTF-8 with commas, then pyfs-matrix "
-        "post <matrix> --sims <sim> writes them. A run replaces the file from its records, "
-        "without those columns, and the same post writes them back.",
-        PyflightstreamWarning,
-        stacklevel=4,
-    )
-
-
-def _read_sweep(path: Path, *, warned: bool = False) -> tuple[list[str], list[list[str]]] | None:
-    """Return the header and rows of a sweep table, or None for one that is not there to read.
-
-    ``warned`` is for the second read of one command, whose first has said so already.
-    """
-    if not path.is_file():
-        return None
-    try:
-        # A signature is how a spreadsheet saves this table as UTF-8; it is no part of ``POL``.
-        table = list(csv.reader(io.StringIO(path.read_text(encoding="utf-8-sig"), newline="")))
-    except (UnicodeDecodeError, csv.Error) as error:
-        if not warned:
-            _say_a_saved_table(path, f"cannot be read as UTF-8 text ({error})")
-        return None
-    if table and len(table[0]) == 1 and table[0][0].startswith(f"{POLAR_ID_COLUMN};"):
-        if not warned:
-            _say_a_saved_table(path, "is separated by semicolons")
-        return None
-    if not table or not table[0] or table[0][0] != POLAR_ID_COLUMN:
-        return None
-    if any(len(row) != len(table[0]) for row in table[1:]):
-        return None
-    return table[0], table[1:]
-
-
-def _identifier_positions(header: Sequence[str]) -> range:
-    """Return where a post put identifiers in a sweep table: after ``POL``, before ``run_id``.
-
-    The position decides, not the name: the table's own columns vary from run to run (a
-    coefficient where the loads parse, an axis where a point states it), so a column one frame
-    lacks is not an identifier for that.
-    """
-    return range(1, header.index(_SWEEP_FIRST_OWN)) if _SWEEP_FIRST_OWN in header else range(0)
-
-
-def sweep_identifiers_held(path: str | Path, *, warned: bool = False) -> dict[str, dict[str, str]]:
-    """Return what the sweep table at ``path`` says in its identifier columns, by polar.
-
-    Parameters
-    ----------
-    path : str or Path
-        The sweep table.
-    warned : bool, optional
-        Say nothing of a table that cannot be read, for a caller with no identifier to lose.
-
-    Returns
-    -------
-    dict of str to dict of str to str
-        Each polar's identifier cells that say something; empty when the table holds none.
-    """
-    table = _read_sweep(Path(path), warned=warned)
-    if table is None:
-        return {}
-    header, rows = table
-    earlier = list(_identifier_positions(header))
-    return {
-        row[0]: {header[at]: row[at] for at in earlier if row[at] != NOT_APPLICABLE} for row in rows
-    }
-
-
-def state_in_sweep_table(path: str | Path, stated: Mapping[str, Mapping[str, str]]) -> None:
-    """Give the sweep table at ``path`` the columns of the identifiers ``stated``, by polar.
-
-    The funnel's own rule, on a table the funnel does not write. A file already as it should be is
-    not written, so with no identifiers it keeps its bytes.
-
-    Parameters
-    ----------
-    path : str or Path
-        The sweep table; one that does not exist or does not open with ``POL`` is left alone.
-    stated : mapping of str to mapping of str to str
-        Each polar's identifiers, name to value; what the file held there is replaced.
-    """
-    target = Path(path)
-    table = _read_sweep(target, warned=True)
-    if table is None:
-        return
-    header, rows = table
-    earlier = _identifier_positions(header)
-    kept = [at for at in range(len(header)) if at not in earlier]
-    with stated_identifiers(stated):
-        columns, written = stamped_table(
-            target, [header[at] for at in kept], [[row[at] for at in kept] for row in rows]
-        )
-    if list(columns) == header and [list(row) for row in written] == rows:
-        return
-    with _textio.atomic_text(target) as handle:
-        writer = _textio.csv_writer(handle)
-        writer.writerow(columns)
-        writer.writerows(written)

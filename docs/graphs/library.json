@@ -2639,11 +2639,6 @@
     },
     {
       "source": "pyflightstream._identifier_columns",
-      "target": "pyflightstream._textio",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream._identifier_columns",
       "target": "pyflightstream._tokens",
       "kind": "module"
     },
@@ -10344,17 +10339,7 @@
     },
     {
       "source": "pyflightstream.post.superfile",
-      "target": "pyflightstream._matrix_identifiers",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.superfile",
       "target": "pyflightstream._textio",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.superfile",
-      "target": "pyflightstream._tokens",
       "kind": "module"
     },
     {
@@ -10379,17 +10364,7 @@
     },
     {
       "source": "pyflightstream.post.superfile",
-      "target": "pyflightstream.post._tree_migration",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.superfile",
       "target": "pyflightstream.workspace",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.superfile",
-      "target": "pyflightstream.workspace.record_document",
       "kind": "module"
     },
     {
@@ -11644,6 +11619,11 @@
     },
     {
       "source": "pyflightstream.results",
+      "target": "pyflightstream._deprecations",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.results",
       "target": "pyflightstream.results.conditions",
       "kind": "module"
     },
@@ -11774,12 +11754,12 @@
     },
     {
       "source": "pyflightstream.results.tables",
-      "target": "pyflightstream._errors",
+      "target": "pyflightstream._deprecations",
       "kind": "module"
     },
     {
       "source": "pyflightstream.results.tables",
-      "target": "pyflightstream._identifier_columns",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {

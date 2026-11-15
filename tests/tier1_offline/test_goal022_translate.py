@@ -137,10 +137,8 @@ def _row_file(tmp_path: Path, workflow: str, cell: str) -> Path:
 
 
 @pytest.mark.requirement("FR-100")
-def test_goal022_cell_grammar_the_list_reaches_the_row_the_case_and_the_super_file(tmp_path):
-    """MatrixRow.translations to SimCase.translations, and the super file's TRANSLATE column."""
-    from pyflightstream.post.superfile import superfile_row
-
+def test_goal022_cell_grammar_the_list_reaches_the_row_and_the_case(tmp_path):
+    """MatrixRow.translations to SimCase.translations."""
     cell = "GEOMETRY: wb.fsm / TRANSLATE: {DISTANCE: 0.5 / AXIS: MRP-X / ALIAS: airframe}"
     path = _row_file(tmp_path, "steady", cell)
     row = read_matrix(path, active_only=False)[0]
@@ -150,27 +148,9 @@ def test_goal022_cell_grammar_the_list_reaches_the_row_the_case_and_the_super_fi
         path, name="m", fs_version="26.123", fs_exe="C:/fs.exe", recipes=RECIPES
     ).sims[0]
     assert case.translations == row.translations
-    super_row = superfile_row(
-        polar_columns=("POL",),
-        polar_values=("0001",),
-        matrix_row=row,
-        record=None,
-        sweep_row=None,
-        plots_row=None,
-    )
-    # The super file writes a list cell as ROTATE's and MOTIONS' are written.
-    assert super_row["TRANSLATE"] == "{DISTANCE: 0.5, AXIS: MRP-X, ALIAS: airframe}"
-    # The column is written for every row, empty where the row states none.
+    # A row that states none carries an empty list.
     bare = _row_file(tmp_path, "steady", "GEOMETRY: wb.fsm")
-    empty = superfile_row(
-        polar_columns=("POL",),
-        polar_values=("0001",),
-        matrix_row=read_matrix(bare, active_only=False)[0],
-        record=None,
-        sweep_row=None,
-        plots_row=None,
-    )
-    assert empty["TRANSLATE"] == ""
+    assert read_matrix(bare, active_only=False)[0].translations == []
 
 
 # ---------------------------------------------------------------- refusals

@@ -11,7 +11,6 @@ import csv
 import dataclasses
 import json
 import shutil
-import warnings
 from pathlib import Path
 
 import pytest
@@ -20,13 +19,11 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._identifier_columns import (
     stamped_table,
     stated_identifiers,
-    sweep_identifiers_held,
     tables_of_polar,
 )
 from pyflightstream._matrix_identifiers import matrix_form_digest, matrix_run_digests
 from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, MatrixRow, read_matrix
 from pyflightstream.post.products import write_campaign_products
-from pyflightstream.results.tables import sweep_table, write_sweep_table, write_table
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace, find_matrix
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
@@ -660,42 +657,6 @@ def test_p0550_the_installed_copy_carries_them_turning_none_and_naming_none(tmp_
 # ------------------------------------------------------------------ the review's cases
 
 
-def test_p0550_a_column_the_frame_lost_is_no_identifier(tmp_path):
-    workspace = _three_sims(tmp_path)
-    frame = sweep_table(workspace, require_loads=False, matrix_stem="matriz")
-    target = tmp_path / "sweep.csv"
-    write_table(frame, target, overwrite=True)
-    plain = target.read_bytes()
-    rows = list(csv.reader(target.read_text(encoding="utf-8").splitlines()))
-    rows[0].append("CL_GONE")
-    for row in rows[1:]:
-        row.append("0.5")
-    with target.open("w", encoding="utf-8", newline="") as handle:
-        csv.writer(handle, lineterminator="\n").writerows(rows)
-    write_sweep_table(frame, target)
-    assert target.read_bytes() == plain
-
-
-def _sweep_of(workspace: CampaignWorkspace) -> Path:
-    sweep = workspace.sweep_dir("matriz") / "campaign_sweep.csv"
-    sweep.parent.mkdir(parents=True, exist_ok=True)
-    write_table(
-        sweep_table(workspace, require_loads=False, matrix_stem="matriz"), sweep, overwrite=True
-    )
-    return sweep
-
-
-def test_p0550_the_run_replaces_a_sweep_table_saved_in_another_encoding(tmp_path):
-    """REL55-2: a table it could not read stopped the rewrite; 0.54.0 replaced it."""
-    workspace = _three_sims(tmp_path)
-    sweep = _sweep_of(workspace)
-    sweep.write_bytes(sweep.read_bytes().replace(b"raw", "cru\u00e7".encode("cp1252"), 1))
-    frame = sweep_table(workspace, require_loads=False, matrix_stem="matriz")
-    with pytest.warns(PyflightstreamWarning, match="cannot be read as UTF-8"):
-        write_sweep_table(frame, sweep)
-    assert sweep.read_text(encoding="utf-8").startswith("POL,run_id,")
-
-
 @pytest.mark.parametrize(
     "edited",
     [
@@ -848,35 +809,9 @@ def test_p0550_a_label_named_time_beside_time_sec_is_no_clock(tmp_path):
     assert plots_table_series(table)[0] == ("Time (sec)", "CL")
 
 
-def test_p0550_a_table_of_pol_alone_is_not_called_semicolons(tmp_path):
-    table = tmp_path / "campaign_sweep.csv"
-    table.write_text("POL\n7001\n", encoding="utf-8")
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        assert sweep_identifiers_held(table) == {"7001": {}}
-
-
-def test_p0550_a_saved_table_s_warning_names_no_folder_as_a_matrix(tmp_path):
-    table = tmp_path / "sweep.csv"
-    table.write_text("POL;run_id\n", encoding="utf-8")
-    with pytest.warns(PyflightstreamWarning, match="<matrix> --sims") as caught:
-        sweep_identifiers_held(table)
-    assert all(f"post {tmp_path.name}" not in str(w.message) for w in caught)
-
-
 def test_p0550_an_empty_pair_is_not_a_space(tmp_path):
     first, second = tmp_path / "a.fs", tmp_path / "b.fs"
     head = "POL|X|VAR_NAMES_VALUES\n"
     first.write_text(head + "1|x| A:1 / B:2\n", encoding="utf-8")
     second.write_text(head + "1|x| A:1 // B:2\n", encoding="utf-8")
     assert matrix_form_digest(first) != matrix_form_digest(second)
-
-
-def test_p0550_a_matrix_stating_none_is_told_nothing_of_a_saved_table(tmp_path):
-    workspace = _three_sims(tmp_path)
-    sweep = _sweep_of(workspace)
-    sweep.write_text(sweep.read_text(encoding="utf-8").replace(",", ";"), encoding="utf-8")
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        write_campaign_products(workspace, matrix_stem="matriz")
-    assert not [w for w in caught if "semicolons" in str(w.message)]

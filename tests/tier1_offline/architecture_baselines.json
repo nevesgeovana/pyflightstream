@@ -496,12 +496,6 @@
    "statements": 48,
    "positional": 1
   },
-  "post/superfile.py:superfile_row": {
-   "complexity": 14,
-   "branches": 13,
-   "statements": 36,
-   "positional": 0
-  },
   "post/surfaces.py:average_surface_exports": {
    "complexity": 13,
    "branches": 13,
@@ -1043,7 +1037,6 @@
   "pyflightstream.post.products": 4,
   "pyflightstream.post.section_distributions": 2,
   "pyflightstream.post.series": 1,
-  "pyflightstream.post.superfile": 1,
   "pyflightstream.post.unsteady_polar": 2,
   "pyflightstream.probes.geometry": 1,
   "pyflightstream.qa._spec_0400_gap": 1,

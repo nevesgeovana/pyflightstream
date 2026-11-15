@@ -510,7 +510,7 @@ def test_the_sweep_table_derived_from_a_run_holds_no_cr_with_crlf_forced(
     """P0340-LF-PRODUCTS, FR-1154: the sweep table written from a run is LF where Windows is CRLF.
 
     The run stage writes no ``campaign_sweep.csv`` since 0.58.0 (FR-3777); the table
-    ``results.write_sweep_table`` writes from the run's manifest is the one measured. pandas
+    ``Table.to_csv`` writes from the run's manifest is the one measured. pandas
     ends a row with
     ``os.linesep`` unless told otherwise, which is set to CRLF here as Windows has it,
     beside text mode forced to CRLF. The control: under the same forcing a ``to_csv``
@@ -518,7 +518,7 @@ def test_the_sweep_table_derived_from_a_run_holds_no_cr_with_crlf_forced(
     """
     pd = pytest.importorskip("pandas", reason="needs the optional extra: pandas")
 
-    from pyflightstream.results.tables import sweep_table, write_sweep_table
+    from pyflightstream.results.tables import sweep_table
     from tests.tier1_offline.test_goal028_hpc_sweep_csv import _run
     from tests.tier1_offline.test_products_snapshot import crlf_text_mode
 
@@ -526,7 +526,7 @@ def test_the_sweep_table_derived_from_a_run_holds_no_cr_with_crlf_forced(
     with crlf_text_mode():
         workspace = _run(tmp_path)
         derived = tmp_path / "derived.csv"
-        write_sweep_table(sweep_table(workspace, require_loads=False, matrix_stem="warm"), derived)
+        sweep_table(workspace, require_loads=False, matrix_stem="warm").to_csv(derived, index=False)
         control = tmp_path / "control.csv"
         pd.DataFrame({"a": [1]}).to_csv(control, index=False)
     data = derived.read_bytes()

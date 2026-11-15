@@ -521,7 +521,6 @@
       "tests/tier1_offline/test_p0550_identifiers.py",
       "tests/tier1_offline/test_p0550_merged_polar.py",
       "tests/tier1_offline/test_p0580_i1_custom_dat.py",
-      "tests/tier1_offline/test_p0580_i1_earlier_path.py",
       "tests/tier1_offline/test_p0580_i1_manifest.py",
       "tests/tier1_offline/test_p0580_i1_retired_kinds.py",
       "tests/tier1_offline/test_p0580_i1_run_block.py",

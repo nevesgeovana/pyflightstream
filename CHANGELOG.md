@@ -59,6 +59,8 @@ Five public helpers that lost every caller with those products are removed and r
 
 The public helpers of the retired polar writers are now private, and the old public names are refused by name, each naming the FAM and group files whose columns they computed: in `post.polar` (and `post.products`) `GroupCoefficients`, `group_coefficients`, `polar_row`, `polar_table_columns`, `polar_table_rows`, `drag_columned_rows`, `drag_columns_of` and `group_polar_rows`; in `post.axes` `polar_axis_coefficients`, `rotor_in_plane_axes` and `rotor_in_plane_loads`; in `post.rotor_table` (and `post.products`) `rotor_coefficients` and `rotor_coefficient_columns`; `unsteady_polar_file_name` of `post.unsteady_polar` (and `post.products`); and `results.write_table`, whose successor is `results.to_csv(result, path)`. migration: read the FAM and group files; use `to_csv`; docs/upgrading.md#0580-post-tree.
 
+Four public functions that lost every caller with the retired SUPER file and sweep table are removed and refused by name, each naming its successor: `post.superfile.superfile_row`, `post.superfile.write_superfile_report` and `post.superfile.union_the_workspace_knows` (the SUPER file and its superset report: every family is in FAM-DIM and FAM-ACOEF), and `results.tables.write_sweep_table` (the group files of each polar; `Table.to_csv` writes the derived `sweep_table`). migration: read the FAM and group files; docs/upgrading.md#0580-post-tree.
+
 Every deprecated form of the package is removed, and the old form is refused by name with the new spelling (the deprecation ledger holds no entry). Each refusal says what the form became.
 
 `analysis_setup(vorticity_drag_boundaries=...)` is refused. migration: pass the selection to `solver_settings(vorticity_drag_boundaries=...)`.

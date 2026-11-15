@@ -57,7 +57,12 @@ names are refused by name: `GroupCoefficients`, `group_coefficients`, `polar_row
 `rotor_in_plane_loads` of `post.axes`; `rotor_coefficients` and `rotor_coefficient_columns`
 of `post.rotor_table`; `unsteady_polar_file_name`; and `results.write_table`. Their values
 are the columns of the FAM and group files (`post.axes.airframe_axis_coefficients` is the
-public function of the axes columns), and a table is written with `results.to_csv`.
+public function of the axes columns), and a table is written with `results.to_csv`. Four
+functions left with the SUPER file and the sweep table, refused by name in the same way:
+`post.superfile.superfile_row`, `post.superfile.write_superfile_report`,
+`post.superfile.union_the_workspace_knows` (every family is in `FAM-DIM` and `FAM-ACOEF`)
+and `results.tables.write_sweep_table` (join the `TOTAL` group files; `Table.to_csv` writes
+the derived `sweep_table`).
 
 ### The tree
 

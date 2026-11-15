@@ -82,10 +82,6 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
-from pyflightstream._identifier_columns import (
-    state_in_sweep_table,
-    sweep_identifiers_held,
-)
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
 from pyflightstream.extras import missing_extra
 from pyflightstream.results.conditions import bind_conditions
@@ -1066,30 +1062,6 @@ def superseded_by_a_continuation(records: Iterable[_ManifestRecord]) -> dict[str
         if continued:
             superseded[str(continued)] = str(record.run_id)
     return superseded
-
-
-def write_sweep_table(frame: Table, path: str | Path) -> Path:
-    """Write the sweep table of ``frame``, keeping the identifier columns the file holds.
-
-    The run rewrites this table from its records and reads no identifier: what the last post put
-    in it stays until the next post states otherwise (FR-3564).
-
-    Parameters
-    ----------
-    frame : Table
-        The table :func:`sweep_table` returned.
-    path : str or Path
-        The file, replaced.
-
-    Returns
-    -------
-    Path
-        The written file.
-    """
-    held = sweep_identifiers_held(path)
-    written = _write_table(frame, path, overwrite=True)
-    state_in_sweep_table(written, held)
-    return written
 
 
 def sweep_table(

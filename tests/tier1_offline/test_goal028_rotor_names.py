@@ -85,8 +85,8 @@ def test_an_alias_with_a_slash_names_one_file_in_the_polars_folder(tmp_path):
 def test_the_union_reads_a_rotor_tables_header_and_not_its_alias_line(tmp_path):
     """The first line of the rotor's file is its header, the run block first, never the alias.
 
-    The union of what the workspace knows (``union_the_workspace_knows``) belongs to the
-    retired SUPER file and reads no 0.58.0 file; what NL-03 protects is that a reader taking
+    The union of what the workspace knows belonged to the retired SUPER file and read no
+    0.58.0 file; what NL-03 protects is that a reader taking
     the first line of the rotor's table gets its real header, so it is pinned on the file.
     """
     _workspace_made, written = _posted(tmp_path, "PUSHER")

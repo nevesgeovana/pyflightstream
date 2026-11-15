@@ -394,18 +394,6 @@ def test_g16_the_rotor_group_table_opens_with_the_run_block_then_its_rotor(tmp_p
     assert columns[0] == POL and rows == [row]
 
 
-def test_g16_a_rotor_table_written_before_the_rule_still_reads_into_the_union(tmp_path):
-    """A 0.26.0 rotor table, alias alone on line one, gives the union its header, not its alias."""
-    from pyflightstream.post.superfile import _header
-
-    old = tmp_path / "P4014-PUSHER_rotor.csv"
-    old.write_text(f"PUSHER\n{ROTOR_COLUMNS_BEFORE}\n" + ",".join(["0"] * 24) + "\n")
-    assert _header(old) == set(ROTOR_COLUMNS_BEFORE.split(","))
-    new = tmp_path / "P4014-LIFT_rotor.csv"
-    new.write_text(f"POL,ROTOR,{ROTOR_COLUMNS_BEFORE}\n")
-    assert _header(new) == {POL, "ROTOR", *ROTOR_COLUMNS_BEFORE.split(",")}
-
-
 # ----------------------------------------------------------------- the steady polar --
 
 
@@ -452,23 +440,6 @@ def test_g16_a_polar_file_in_the_fixed_width_format_states_the_polar_once_as_pol
         header = path.read_text(encoding="utf-8").splitlines()[0].split()
         assert header[: len(lead)] == lead, (path.name, header)
         assert RETIRED not in header, (path.name, header[:6])
-
-
-def test_g16_a_polar_table_written_before_the_rule_gives_the_union_its_polar_as_pol(tmp_path):
-    """A 0.26.0 polar table names the polar `POLAR` and has no `POL`: the union reads it as `POL`.
-
-    The super file's union reads the header of every polar table under `polars/`, one an earlier
-    release wrote included. Read as written, that table put `POLAR` into what the workspace knows,
-    a name no super file carries any more, and the superset the union measures could not hold.
-    """
-    from pyflightstream.post.superfile import _header
-
-    old = tmp_path / "P3207-M20AL-020BE+000_g01.csv"
-    old.write_text("POLAR,DESCRIPTION,GROUP,SREF\n3207,STEADY_WB,1,50.00000\n", encoding="utf-8")
-    assert _header(old) == {POL, "DESCRIPTION", "GROUP", "SREF"}
-    new = tmp_path / "P3208-M20AL-020BE+000_g01.csv"
-    new.write_text("POL,DESCRIPTION,GROUP,SREF\n3208,STEADY_WB,1,50.00000\n", encoding="utf-8")
-    assert _header(new) == {POL, "DESCRIPTION", "GROUP", "SREF"}
 
 
 # ------------------------------------------------------------------ the readers --

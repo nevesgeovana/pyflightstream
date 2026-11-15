@@ -28,7 +28,6 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.post.products import write_campaign_products
-from pyflightstream.post.superfile import union_the_workspace_knows
 from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
@@ -128,23 +127,6 @@ def test_p0370_s11_a_row_without_a_rotor_has_no_diameter_column(tmp_path):
         assert not [column for column in header if per_rotor.match(column)], (name, header)
     header, _rows_of_sector = _rows(folder / "polars" / "P6001-TOTAL-ACOEF.csv")
     assert "D0" in header and "RPM0" in header
-
-
-def test_p0370_s11_the_union_names_the_diameter_of_a_planned_rotor(tmp_path):
-    """P0370-S11-SUPER-DIAMETER (FR-89): the union knows the column from the record alone.
-
-    The rotor table's header and the unsteady polar's (whose name the polar
-    glob also matches) name it too, so every polar table is removed first: what
-    is left is the record's plan, which names rotor PUSHER.
-    """
-    products = _posted_unsteady_rotor(tmp_path)
-    for table in (products / "polars").glob("*.csv"):
-        table.unlink()
-    root = products.parents[1]
-    known = union_the_workspace_knows(
-        root, products, "products", polars_dir="polars", probes_dir="probes"
-    )
-    assert {"RPM_PUSHER", "DIAMETER_PUSHER"} <= known, sorted(known)
 
 
 def _parity():

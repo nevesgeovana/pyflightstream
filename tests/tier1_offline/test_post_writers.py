@@ -470,7 +470,6 @@ _OVERWRITE_WRITERS = (
     ("section_distributions", "write_section_distributions"),
     ("surfaces", "write_point_surface_average"),
     ("streamlines", "write_streamline_products"),
-    ("superfile", "write_superfile_report"),
     ("qsteady_noise", "write_qsteady_noise_report"),
     ("glossary", "write_input_glossary"),
     ("glossary", "write_workspace_input_glossary"),
@@ -507,19 +506,6 @@ def test_p0430_the_csv_funnel_refuses_an_existing_table_only_when_asked_nfr_49(t
     assert table.read_text(encoding="utf-8") == before
     write_csv_table(table, ["A"], [[2.0]])
     assert table.read_text(encoding="utf-8") != before
-
-
-def test_p0430_the_report_writer_refuses_an_existing_file_when_not_overwriting_nfr_49(tmp_path):
-    """NFR-49: the report writer shares the policy of the csv funnel."""
-    from pyflightstream._errors import ProductExistsError
-    from pyflightstream.post.superfile import write_superfile_report
-
-    first = write_superfile_report(tmp_path, version="0.43.0", files=[], known=["A"])
-    with pytest.raises(ProductExistsError, match="already exists"):
-        write_superfile_report(tmp_path, version="0.43.0", files=[], known=["B"], overwrite=False)
-    assert '"A"' in first.read_text(encoding="utf-8")
-    write_superfile_report(tmp_path, version="0.43.0", files=[], known=["B"])
-    assert '"B"' in first.read_text(encoding="utf-8")
 
 
 def test_p0430_a_refused_writer_of_several_files_leaves_none_of_them_nfr_49(tmp_path):

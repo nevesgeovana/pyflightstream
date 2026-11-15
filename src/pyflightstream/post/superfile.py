@@ -63,11 +63,10 @@ record does not.
 
 from __future__ import annotations
 
-import csv
 import json
 import math
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -76,26 +75,19 @@ import numpy as np
 import pyflightstream._textio as _textio
 from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._digest import file_sha256
-from pyflightstream._matrix_identifiers import take_identifiers
-from pyflightstream._tokens import POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
 from pyflightstream.cases.matrix import (
-    COLUMNS_THAT_MAY_BE_UNSTATED,
     MatrixError,
     MatrixRow,
     read_matrix,
 )
 from pyflightstream.cases.workflows import SECTION_DISTRIBUTION_COMMAND
 from pyflightstream.post._tables import (
-    ROTOR_TABLE_SUFFIX,
     ProductError,
-    _refuse_existing_product,
 )
 from pyflightstream.post._tables import _cell as _fixed_cell
 from pyflightstream.post._tables import _legacy_field as _legacy_field
-from pyflightstream.post._tree_migration import earlier_path
 from pyflightstream.workspace import WorkspaceError, find_matrix
-from pyflightstream.workspace.record_document import read_rows as _read_run_rows
 
 __all__ = [
     "REPORTS_DIR",
@@ -105,9 +97,6 @@ __all__ = [
     "SuperfileDraft",
     "matrix_rows",
     "release_tag",
-    "superfile_row",
-    "union_the_workspace_knows",
-    "write_superfile_report",
 ]
 
 #: Where a post's measurements land, inside its products folder
@@ -118,29 +107,11 @@ REPORTS_DIR = "reports"
 #: appended, so ``post/<matrix>/reports/superfile-0160.json``.
 SUPERFILE_REPORT_PREFIX = "superfile-"
 
-#: The suffix of the campaign's own matrix file.
-_MATRIX_SUFFIX = ".fs"
-
-#: The two matrix cells whose content is a LIST OF KEYS rather than one
-#: value, so the union of what the workspace knows includes the keys
-#: inside them and not only the cell's own name.
-_KEYED_CELLS = {"FLIGHT_CONDITION": ",", "VAR_NAMES_VALUES": "/"}
-
-#: The point axes a matrix row states in its FLIGHT_CONDITION cell that are
-#: resolved PER POINT rather than held for the whole row, mapped to the
-#: column the polar table already writes the resolved value under. A cell
-#: key named here takes the point's value; every other key takes the row's.
-_AXIS_COLUMNS = {"ALPHA": "ALPHA", "BETA": "BETA", "ADVANCE_RATIO": "J"}
-
 #: The column naming the rotor speed the requirement asks for by name. A row
 #: that turns several rotors also gets ``RPM_<alias>`` per rotor, because
 #: one number cannot be two speeds; ``RPM`` then carries the speed only
 #: where the row turns exactly one.
 RPM_COLUMN = "RPM"
-
-
-#: FR-1062: quantity, method and target, for example ``CL_FF_A_W``.
-_FARFIELD_COLUMN = re.compile(r"[A-Z][A-Z0-9_]*_FF_[ABCDW]_.+")
 
 
 def release_tag(version: str) -> str:
@@ -279,309 +250,6 @@ def _take(row: dict[str, str], key: str, value: object, *, fixed: bool = False) 
     row[key] = _fixed_cell(value) if fixed else _free(value)
 
 
-#: The record scalar fields carried by a superfile have one home. The writer and completeness
-#: check both read this tuple, so excluding a field requires an explicit decision beside the
-#: shared definition.
-RECORD_SCALARS = (
-    # FR-98: the wall clock the ROW stated and the margin the SETUP
-    # left for the exports, as THIS RUN used them. Both are facts about the
-    # simulation and both are carried, even though the matrix block beside
-    # them also writes a WALLTIME cell: the cell is what the workspace
-    # intends next and these are what the run was given, and PFS-2038.02 is
-    # the whole lesson about telling those two apart. Empty on every run
-    # that states no clock.
-    "walltime_s",
-    "walltime_margin_s",
-    # GOAL-026 item 12: the recorded operator. It is a run-time fact that
-    # cannot be recovered afterward; records without it keep an empty value.
-    "submitted_by",
-    # GOAL-023: the recorded unsteady route, actions or single_march. It
-    # can differ across builds for one row. Empty for steady points and
-    # records that do not state a route.
-    "march_strategy",
-    # GOAL-024: where a final residual overflowed its printed field
-    # and was read from an earlier iteration: a converged verdict that rests
-    # on that reading says so on its row.
-    "residual_note",
-    # GOAL-024: the names of the point and its sweep, and whether the run
-    # accepted an installed build other than the registered one.
-    "point_name",
-    "sweep_name",
-    "accept_unregistered_build",
-    # GOAL-024: the solver's own times and step count, from its log.
-    "solver_run_time_s",
-    "solver_initialization_s",
-    "time_steps",
-    "flight_condition_defaults_from",
-    "velocity_requested_m_s",
-    "density_kg_m3",
-    "temperature_k",
-    "viscosity_pa_s",
-    "density_source",
-    "reference_length_m",
-    # Source-unit semantics belong to this run: identical field bytes mean
-    # different physical values under SI and NATIVE in a millimetre simulation.
-    # Historical undeclared inputs remain NA; do not infer their declaration.
-    "freestream_units",
-)
-
-
-def _take_record_scalars(row: dict[str, str], record: object | None) -> None:
-    """Copy the recorded scalar fields, keeping cells supplied by earlier sources."""
-    for field in RECORD_SCALARS:
-        _take(row, field, getattr(record, field, None))
-
-
-def superfile_row(
-    *,
-    polar_columns: Sequence[str],
-    polar_values: Sequence[object],
-    matrix_row: MatrixRow | None,
-    record: object | None,
-    sweep_row: Mapping[str, object] | None,
-    plots_row: Mapping[str, str] | None,
-    rotors: Mapping[str, object] | None = None,
-    own_speeds: Mapping[str, float] | None = None,
-) -> dict[str, str]:
-    """Assemble one row of a superfile: one CONVERGED point, everything known about it.
-
-    ``record`` is the manifest record of THIS point, duck-typed rather than
-    imported: this module sits under the workspace layer the way every
-    other product writer does.
-
-    NONE WHERE THE POINT HAS NO RECORD, and then this row simply carries no
-    key the record would have supplied. It does not need to: the header is
-    the campaign's, and the retired ``write_superfiles`` unions the keys of every
-    row and writes `NA` for a row that lacks one, so the file's columns are
-    the same whatever any single row knows. It wrote an EMPTY cell in legacy releases, and this
-    is the exact shape the rule was made for: a key declared
-    for the union of every run type, on a row whose run type does not have it.
-
-    Never borrow another point's record: a missing cell is visible while
-    another point's plausible value would hide the missing evidence.
-
-    Parameters
-    ----------
-    polar_columns : sequence of str
-        The polar table's columns.
-    polar_values : sequence of object
-        The point's values of those columns.
-    matrix_row : MatrixRow or None
-        The point's row of the matrix.
-    record : object or None
-        The point's manifest record; None where it has none.
-    sweep_row : mapping of str to object, or None
-        The point's row of the campaign sweep table.
-    plots_row : mapping of str to str, or None
-        The last row of the point's plots table.
-    rotors : mapping of str to object, optional
-        The rotor blocks of the reference the row cites, by alias, read for
-        each one's ``diameter_m``: the diameter the rotor table divides by.
-    own_speeds : mapping of str to float, optional
-        The row's own speed by rotor alias, taken where the record's plan
-        states none (a quasi-steady point's, from its quasi-steady record).
-
-    Returns
-    -------
-    dict of str to str
-        The row, column to cell.
-    """
-    row: dict[str, str] = {}
-    # 1. THE POLAR TABLE'S OWN ROW, verbatim and at its own precision, so
-    #    the two files agree digit for digit on every column they share.
-    for column, value in zip(polar_columns, polar_values, strict=True):
-        _take(row, column, value, fixed=True)
-        if isinstance(value, str) and value == "" and re.search(r"_FF_[ABCDW]_", column):
-            row[column] = ""
-    # 2. EVERY VARIABLE THAT DEFINES THE FLIGHT CONDITION AS THE RUN
-    #    RECORDED IT: what the row STATED, what the setup PINNED, and what
-    #    the resolver SOLVED, under the keys each of the three is recorded
-    #    by.
-    #
-    #    BEFORE THE MATRIX, AND THAT IS PFS-2038.02 (GEO-039-F02). It came
-    #    after, and `_take` never replaces a field an earlier block wrote,
-    #    so the CURRENT matrix, read from the workspace as it is today and
-    #    bound to nothing, overwrote the conditions of a point that had
-    #    already run. The reviewer moved a recorded REmi of 11.7716754 to
-    #    99.0 by editing the matrix alone: the regenerated historical row
-    #    then said 99.0 while the run record still said 11.7716754.
-    #
-    #    A recorded point's conditions are what it RAN AT. The matrix cell
-    #    is what the workspace intends NEXT, and it still reaches the row
-    #    wherever the record says nothing, which is every key of every row
-    #    that has not run. This adds no gate and takes nothing away; it
-    #    removes a wrong number.
-    for key, value in (getattr(record, "flight_condition", None) or {}).items():
-        _take(row, key, value)
-    for key, value in (getattr(record, "flight_condition_defaults", None) or {}).items():
-        _take(row, key, value)
-    _take_record_scalars(row, record)
-    # Historical rotor speeds precede the current matrix's declarations.
-    recorded_rotors = _rotor_columns(getattr(record, "reductions", None), own_speeds, rotors or {})
-    # 3. EVERY INPUT OF THE MATRIX ROW, under the cell names the matrix
-    #    itself carries, including DESCRIPTION and the two activity flags.
-    if matrix_row is not None:
-        _take(row, "POL", matrix_row.pol)
-        _take(row, "AIRCRAFT", matrix_row.aircraft)
-        _take(row, "DESCRIPTION", matrix_row.description)
-        _take(row, "REF", matrix_row.ref_code)
-        _take(row, "SET", matrix_row.set_code)
-        _take(row, "PPROC", matrix_row.pproc_code)
-        _take(row, "FS_BUILD", matrix_row.fs_build)
-        _take(row, "HIDDEN", matrix_row.hidden)
-        _take(row, "RUN", matrix_row.run)
-        _take(row, "WORKFLOW", matrix_row.workflow)
-        _take(row, "RECIPE", matrix_row.script_code)
-        # The two free cells as one string each, rendered from what the
-        # reader parsed rather than re-read off the file: the cell is kept
-        # so a reader sees the row as it was written, and every key inside
-        # it is ALSO a column of its own below, so nothing is only inside a
-        # string. Its commas reach the file as `;` (G16): the funnel
-        # writes no cell a reader splitting on `,` would count twice.
-        _take(row, "FLIGHT_CONDITION", _condition_cell(matrix_row))
-        _take(row, "SWEEP_VALUES", ",".join(_free(value) for value in matrix_row.sweep.values))
-        _take(row, "SWEEP_VARIABLE", matrix_row.sweep.type)
-        _take(
-            row,
-            "VAR_NAMES_VALUES",
-            " / ".join(f"{key}: {_free(value)}" for key, value in matrix_row.variables.items()),
-        )
-        for key, value in matrix_row.variables.items():
-            _take(row, key, _recorded_rotor_value(key, value, recorded_rotors))
-        # Always include these six columns, leaving values empty where unstated.
-        # The column set must not depend on what one row fills in: the superfile
-        # is a superset of the workspace's defined simulation information.
-        for column in COLUMNS_THAT_MAY_BE_UNSTATED:
-            _take(row, column, row.get(column, ""))
-        # The three cell keys the matrix reader parses OUT of the variables
-        # into lists of their own; written always, empty where the row
-        # states none, so the column set does not depend on the row.
-        _take(row, "MOTIONS", _records_cell(matrix_row.motions))
-        _take(row, "ROTATE", _records_cell(matrix_row.rotations))
-        _take(row, "TRANSLATE", _records_cell(matrix_row.translations))
-        _take(row, "RAW", _records_cell(matrix_row.raw))
-        for key in matrix_row.flight_condition:
-            _take(
-                row,
-                key,
-                _recorded_rotor_value(key, matrix_row.flight_condition[key], recorded_rotors),
-            )
-        for key, column in _AXIS_COLUMNS.items():
-            _take(row, key, row.get(column, ""))
-    # 4. RPM, by name, and per rotor its speed and its diameter.
-    for key, value in recorded_rotors.items():
-        _take(row, key, value)
-    # 5. EVERYTHING THE CAMPAIGN SWEEP TABLE HOLDS: the run id, the status,
-    #    the iterations, the residual, the wall time, the solver build and
-    #    the package version, under that table's own column names.
-    for key, value in (sweep_row or {}).items():
-        _take(row, key, value)
-    # 6. THE FLAGS, keyed by the solver command they set, which is the name
-    #    the snapshot itself is keyed by and the name the solver knows.
-    setup = getattr(record, "solver_setup", None) or {}
-    flags = setup.get("flags") if isinstance(setup, Mapping) else None
-    for command, flag in (flags or {}).items():
-        _take(row, command, _flag_cell(flag))
-    # 7. EVERY PARAMETER THE UNSTEADY PLOTS PRODUCE, forces and fluids
-    #    alike, AT THE LAST TIME STEP.
-    for key, value in (plots_row or {}).items():
-        _take(row, key, value)
-    return row
-
-
-def _flag_cell(flag: object) -> object:
-    """Return one solver flag's superfile cell, keeping the class of its value (NL-RECS-2).
-
-    A documented default the script did not emit is the solver's own
-    behaviour, read from the manual, not a value the run set: the cell says
-    ``<value> (default)``, the form the plan uses for an unstated angle. An
-    explicit or emitted value is the value; an unknown flag has none.
-    """
-    if not isinstance(flag, Mapping):
-        return flag
-    value = flag.get("value")
-    if flag.get("provenance") == "default" and not flag.get("emitted") and value is not None:
-        return f"{value} (default)"
-    return value
-
-
-def _recorded_rotor_value(key: str, fallback: object, columns: Mapping[str, object]) -> object:
-    """Use recorded speeds at the matrix's column position, with unstated fallback."""
-    value = columns.get(key) if key == RPM_COLUMN or key.startswith(f"{RPM_COLUMN}_") else None
-    return fallback if value is None else value
-
-
-def _condition_cell(row: MatrixRow) -> str:
-    """Render the row's FLIGHT_CONDITION cell from what the reader parsed."""
-    parts = [f"{key}:{_free(value)}" for key, value in row.flight_condition.items()]
-    swept = {"alpha": "ALPHA", "beta": "BETA", "advance_ratio": "ADVANCE_RATIO"}.get(row.sweep.type)
-    if swept:
-        parts.append(f"{swept}:sweep")
-    elif row.sweep.type == "alpha_beta":
-        parts += ["ALPHA:sweep", "BETA:sweep"]
-    return ", ".join(parts)
-
-
-def _records_cell(records: Sequence[Mapping[str, str]]) -> str:
-    """Render a list cell of the matrix, ``{K: V}`` per entry, in cell order."""
-    return " ".join(
-        "{" + ", ".join(f"{key}: {value}" for key, value in record.items()) + "}"
-        for record in records
-    )
-
-
-def _rotor_columns(
-    reductions: object, own_speeds: Mapping[str, float] | None, rotors: Mapping[str, object]
-) -> dict[str, object]:
-    """Return ``RPM``, and per rotor ``RPM_<alias>`` and right after it ``DIAMETER_<alias>``.
-
-    THE DIAMETER IS THE ROTOR BLOCK'S ``diameter_m``, of the reference the row
-    cites, the same number the rotor table states and divides by; `NA` where
-    the reference declares no block of that alias. A speed with no diameter
-    beside it is not the rotor's condition: every rotor coefficient and the
-    advance ratio divide by both (FR-89,
-    P0370-S11-SUPER-DIAMETER).
-
-    THE ROW'S OWN SPEED where the plan states none at all, as the clock
-    columns take it (:func:`pyflightstream.post._condition.row_rotor_speeds`):
-    it reaches the per-rotor columns only, and ``RPM`` stays as the row and the
-    plan state it.
-    """
-    columns = _rotor_speeds(reductions)
-    named = [key for key in columns if key != RPM_COLUMN]
-    if not named and _states_no_speed(reductions):
-        columns = {f"{RPM_COLUMN}_{alias}": rpm for alias, rpm in (own_speeds or {}).items()}
-        columns[RPM_COLUMN] = None
-    out: dict[str, object] = {}
-    for key, value in columns.items():
-        out[key] = value
-        if key != RPM_COLUMN:
-            alias = key[len(RPM_COLUMN) + 1 :]
-            block = rotors.get(alias)
-            if block is None:
-                block = next(
-                    (rotors[name] for name in rotors if str(name).casefold() == alias.casefold()),
-                    None,
-                )
-            span = getattr(block, "diameter_m", None)
-            out[f"DIAMETER_{alias}"] = (
-                float(span)
-                if isinstance(span, int | float) and not isinstance(span, bool)
-                else None
-            )
-    return out
-
-
-def _states_no_speed(reductions: object) -> bool:
-    """Whether a record's plan states no rotor speed: no rotor block's, and no flat one."""
-    if not isinstance(reductions, Mapping):
-        return True
-    rotors = reductions.get("rotors")
-    blocks = rotors.values() if isinstance(rotors, Mapping) else ()
-    stated = any(isinstance(b, Mapping) and b.get("rpm") is not None for b in blocks)
-    return not stated and reductions.get("rpm") is None
-
-
 def _rotor_speeds(reductions: object) -> dict[str, object]:
     """Return ``RPM`` and one ``RPM_<alias>`` per rotor the record's windows name."""
     speeds: dict[str, object] = {}
@@ -634,261 +302,7 @@ class SuperfileDraft:
     fmt: str | None = None
 
 
-def _validate_superfile_formats(drafts: Sequence[SuperfileDraft], fmt: str) -> None:
-    """Validate every format before any destination can be prepared."""
-    for chosen in (fmt, *(fmt if draft.fmt is None else draft.fmt for draft in drafts)):
-        if chosen not in SUPERFILE_FORMATS:
-            raise ProductError(
-                f"the super file format {chosen!r} is not one this package writes; it "
-                f"offers {', '.join(SUPERFILE_FORMATS)}"
-            )
-
-
 # --- the measurement --------------------------------------------------------
-
-
-#: The glob that finds every per-polar table when the union is built.
-#:
-#: IT IS A CONSTANT AND NOT A LITERAL because it is a TRAP. The
-#: union of FR-89 is a superset of what the workspace knows, and it is built by
-#: matching file names: a table this pattern misses does not fail, it simply is
-#: not there, and the superset assertion stays green over the smaller set. Item
-#: 14 renames a group's product from `_g01` to `_<NAME>`, so a pattern pinned
-#: to the numbered form would have dropped every renamed group out of the union
-#: in silence, hiding items 5, 6 and 10 with it. Named here so a test can assert
-#: the pattern itself rather than an outcome that is satisfied by nothing.
-#: A group's file is `P<POL>-<GROUP>-<KIND>.csv` (no underscore in the name),
-#: so the pattern is the polar and a dash: it holds the group files, the derived
-#: polars beside them, and the files of an earlier layout a workspace still holds.
-POLAR_TABLE_GLOB = "P*-*.csv"
-#: The family files of every polar, `FAM-<KIND>-P<POL>.csv`.
-FAMILY_TABLE_GLOB = "FAM-*-P*.csv"
-
-#: The name a steady polar table gave the polar in legacy releases, where
-#: :data:`~pyflightstream._tokens.POLAR_ID_COLUMN` stands (G16).
-_POLAR_COLUMN_BEFORE_0270 = "POLAR"
-
-
-def _header(path: Path) -> set[str]:
-    """Return the column names of one product table.
-
-    EVERY TABLE'S HEADER IS ITS FIRST LINE (G16), a rotor table's
-    included: its alias is the `ROTOR` column now. A rotor table from
-    a legacy writer still leads with the alias alone on its first line (NL-03),
-    and the polar glob matches it: read as a header, that line put the alias
-    into the union as if it were a column and left the table's real columns
-    out. So a rotor table's first line of ONE cell is the old title and is
-    passed over; a header always holds more than one.
-
-    THE POLAR IS `POL`, whatever release wrote the table. A steady polar table
-    written in legacy releases names it `POLAR` and has no `POL`; no super file
-    carries `POLAR` any more, so that name, read as written, would be a field
-    the union demands and no super file could hold. It is read as `POL`.
-    """
-    # Names only, and of what the post wrote: a table a spreadsheet saved since costs no post.
-    with path.open("r", encoding="utf-8-sig", errors="replace", newline="") as handle:
-        reader = csv.reader(handle)
-        first = next(reader, None)
-        if first is not None and len(first) == 1 and path.name.endswith(ROTOR_TABLE_SUFFIX):
-            first = next(reader, None)
-    # A name that lost a character, or a line a spreadsheet joined, names no column: the union
-    # would demand what nothing holds.
-    names = {name for name in first or () if chr(0xFFFD) not in name and ";" not in name}
-    if _POLAR_COLUMN_BEFORE_0270 in names:
-        names.discard(_POLAR_COLUMN_BEFORE_0270)
-        names.add(POLAR_ID_COLUMN)
-    return names
-
-
-def _matrix_names(path: Path, pols: Iterable[str]) -> set[str]:
-    """Every NAME a run matrix carries: its columns, and the keys inside its cells.
-
-    It reads the file as text and takes NAMES ONLY, never a value and never
-    a row: this is the measurement's gatherer and not a second reader of
-    the format. Nothing here reaches a run, a script or a record, and the
-    row the superfile writes comes from
-    :func:`~pyflightstream.cases.matrix.read_matrix` like everything else.
-
-    THE KEYS INSIDE A CELL ARE TAKEN FROM THE RECORDED ROWS ALONE, and the
-    matrix's own thirteen COLUMN names from the file whatever it holds.
-    MEASURED on `pfs0160`: its matrix carries a third row, 6003, with
-    ``RUN`` 0 and a ``digits`` variable of its own, and that row never ran.
-    ``digits`` is a fact about a simulation this campaign does not have, so
-    requiring it of the superfile of 6001 would be requiring a field about
-    someone else; the thirteen columns are a fact about the FORMAT and are
-    carried by every row.
-    """
-    wanted = {str(pol) for pol in pols}
-    names: set[str] = set()
-    try:
-        lines = [
-            line
-            for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line.strip() and set(line.strip()) != {"-"}
-        ]
-    except OSError:
-        return names
-    if not lines:
-        return names
-    header = [cell.strip() for cell in lines[0].split("|")]
-    names |= set(header)
-    for line in lines[1:]:
-        # NOT strict: this gathers NAMES from a file that may be anything,
-        # and a row with the wrong number of cells is a file the matrix
-        # reader will refuse on its own terms, not a crash for a measurement.
-        cells = dict(zip(header, [cell.strip() for cell in line.split("|")], strict=False))
-        if cells.get("POL", "") not in wanted:
-            continue
-        # FR-3560: an identifier is a column of what the post writes, read from those tables'
-        # headers above, and its key is no field of the workspace.
-        cells["VAR_NAMES_VALUES"] = take_identifiers(cells.get("VAR_NAMES_VALUES", ""))[0]
-        for cell, separator in _KEYED_CELLS.items():
-            for pair in cells.get(cell, "").split(separator):
-                if ":" in pair:
-                    names.add(pair.split(":", 1)[0].strip())
-    return names
-
-
-def _recorded_matrix_names(root: Path, stem: str, pols: set[str]) -> set[str]:
-    """Gather names from the same unambiguous matrix home as the row reader."""
-    path = find_matrix(root, stem)
-    return set() if path is None else _matrix_names(path, pols)
-
-
-def union_the_workspace_knows(
-    root: Path,
-    out: Path,
-    matrix_stem: str | None,
-    *,
-    polars_dir: str,
-    probes_dir: str,
-    raw_records: Sequence[Mapping[str, object]] | None = None,
-) -> set[str]:
-    """Build the union of what the workspace knows about a simulation, FROM THE WORKSPACE.
-
-    IT READS THE FILES AND NEVER THE ASSEMBLY. The superfile is built from
-    the manifest records in memory; this reads the headers the other
-    writers left on disk, the manifest as JSON and the matrix as text, so
-    the two sides of the superset comparison are built differently and a
-    field that reaches one has to reach the other on its own. A union
-    derived from the superfile's own columns would be a check that accepts
-    everything, which is the defect this requirement exists to prevent.
-
-    ``raw_records`` are the manifest's rows as written, when the caller read
-    them from another manifest than ``runs.json`` or holds no manifest file
-    (``post --runs NAME`` and ``post --from-sims``); None reads
-    ``runs.json`` beside ``root``.
-
-    Parameters
-    ----------
-    root : Path
-        The workspace root.
-    out : Path
-        The matrix's products folder.
-    matrix_stem : str or None
-        The matrix stem.
-    polars_dir : str
-        The folder under ``out`` holding the polar tables.
-    probes_dir : str
-        The folder under ``out`` an earlier post left its plots tables in; the
-        plots history is read from ``time_history/`` first, then from there with
-        one warning.
-    raw_records : sequence of mapping, optional
-        The manifest's rows as written; ``runs.json`` beside ``root`` is read when None.
-
-    Returns
-    -------
-    set of str
-        Every field the workspace's files carry.
-
-    Raises
-    ------
-    WorkspaceError
-        If two matrix homes disagree; completeness cannot be measured until resolved.
-    """
-    known: set[str] = set()
-    tables = {
-        *(out / polars_dir).glob(POLAR_TABLE_GLOB),
-        *(out / polars_dir).glob(FAMILY_TABLE_GLOB),
-    }
-    for table in sorted(tables):
-        known |= _header(table)
-    # The CAMPAIGN-level tables sit at the top of the matrix's folder and
-    # the per-polar ones do not (FR-88), so this glob is `campaign_sweep.csv`
-    # and anything else about the campaign as a whole.
-    for table in sorted(out.glob("*.csv")):
-        known |= _header(table)
-    # THE PLOTS HISTORY IS IN time_history/ (0.58.0); a post of the earlier layout
-    # left it in ``probes_dir``, read with the one warning of the tree migration.
-    plots = {table.name: table for table in sorted((out / "time_history").glob("*_plots.csv"))}
-    for table in sorted((out / probes_dir).glob("*_plots.csv")):
-        if table.name not in plots:
-            plots[table.name] = earlier_path(out, f"time_history/{table.name}", kind="plots")
-    for table in plots.values():
-        known |= _header(table)
-    known.add(RPM_COLUMN)
-    manifest = root / "runs.json"
-    pols: set[str] = set()
-    records = list(raw_records) if raw_records is not None else _read_run_rows(manifest)
-    for record in records:
-        if not isinstance(record, Mapping):
-            continue
-        if matrix_stem and record.get("matrix_stem") != matrix_stem:
-            continue
-        pols.add(str(record.get("sim_id")))
-        known |= _record_field_names(record)
-    if matrix_stem:
-        known |= _recorded_matrix_names(root, matrix_stem, pols)
-    return known
-
-
-def write_superfile_report(
-    root: Path,
-    *,
-    version: str,
-    files: Iterable[tuple[Path, Sequence[str], int]],
-    known: Iterable[str],
-    overwrite: bool = True,
-) -> Path:
-    """Write the measurement of the superfiles: what was written, and what was known.
-
-    The report the goal's superfile arm reads. It carries the union as its
-    own field rather than letting the reader derive one, because an arm
-    that decided the union itself would be deciding by judgement exactly
-    what this requirement takes out of anyone's judgement.
-
-    Parameters
-    ----------
-    root : Path
-        The products folder of the posted matrix (``reports_root`` of the
-        workspace); the report goes under its reports folder.
-    version : str
-        The package version, which names the report.
-    files : iterable of (Path, sequence of str, int)
-        Each superfile written, with its columns and its row count.
-    known : iterable of str
-        The union of what the workspace knows.
-    overwrite : bool, optional
-        Replace a file that already exists, as the writer always did (the default).
-        False refuses an existing file, naming it, before it is replaced.
-
-    Returns
-    -------
-    Path
-        The report written.
-    """
-    payload = {
-        "files": [
-            {"name": path.name, "columns": list(columns), "rows": rows}
-            for path, columns, rows in files
-        ],
-        "known": sorted(known),
-    }
-    target = root / REPORTS_DIR / f"{SUPERFILE_REPORT_PREFIX}{release_tag(version)}.json"
-    _refuse_existing_product(target, overwrite)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    _textio.write_text(target, json.dumps(payload, indent=1) + "\n")
-    return target
 
 
 #: The sections measurement sits beside the superfile one, same release tag, so
@@ -1031,27 +445,6 @@ def write_sections_report(
     target.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(target, json.dumps({"cases": list(cases)}, indent=1) + "\n")
     return target
-
-
-def _record_field_names(record: Mapping[str, object]) -> set[str]:
-    """Return the scalar, condition and rotor columns carried by one record."""
-    known: set[str] = set()
-    for field in ("flight_condition", "flight_condition_defaults"):
-        condition = record.get(field)
-        if isinstance(condition, Mapping):
-            known |= set(condition)
-    # Read the record scalars through the same tuple as the writer so
-    # the superset check covers every scalar the file must carry.
-    known |= {field for field in RECORD_SCALARS if record.get(field) is not None}
-    setup = record.get("solver_setup") or {}
-    known |= set((setup.get("flags") if isinstance(setup, Mapping) else None) or {})
-    reductions = record.get("reductions") or {}
-    rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
-    for alias in rotors or {}:
-        known.add(f"{RPM_COLUMN}_{alias}")
-        # Each rotor's diameter beside its speed (FR-89).
-        known.add(f"DIAMETER_{alias}")
-    return known
 
 
 # The names retired with their products answer by name (FR-457).
