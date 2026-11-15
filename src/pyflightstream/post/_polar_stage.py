@@ -44,6 +44,7 @@ from pyflightstream.post._family_polar import (
     PolarGroup,
     PolarPointLoads,
     PolarRotor,
+    family_file_name,
     family_ids,
     group_file_name,
     polar_files,
@@ -431,8 +432,14 @@ def _point_loads(
     families, rotors = layout
     if ctx.window is not None:
         span = ctx.point_windows.get(point.name, ctx.window)
+        # THE PRODUCT A FROZEN-WINDOW REFUSAL NAMES IS A FILE THE POST WRITES: the
+        # polar's FAM-DIM file, the first file the averaged plots make.
         values = _averaged_plots(
-            ctx, point, span, gathered.left_out, f"{POLARS_DIR}/FAM-P{ctx.sim_id}"
+            ctx,
+            point,
+            span,
+            gathered.left_out,
+            f"{POLARS_DIR}/{family_file_name(ctx.sim_id, 'DIM')}",
         )
         if values is None:
             return None
