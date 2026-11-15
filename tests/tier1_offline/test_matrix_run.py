@@ -5722,7 +5722,7 @@ _FR310_MATRIX_HOMES_ALL__NOT_A_MATRIX = {
     ("delete-sims", "matrix_products"): "a choice of what happens to the matrix products",
     # 0.53.0 (FR-3440): a LIST of names, each resolved through the one lookup by the command
     # itself (matrix_path, every_matrix for 'all'), not a single path resolve_matrix_arguments sets.
-    ("visual-inspect", "matrices"): "a list of names the command resolves through the homes",
+    ("plot-sweeps", "matrices"): "a list of names the command resolves through the homes",
 }
 
 

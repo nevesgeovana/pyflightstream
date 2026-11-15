@@ -385,7 +385,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
         "stated per call and never a machine default"
     ),
     ("pyfs-matrix", "matrix"): SUBJECT,
-    # 0.53.0 (FR-3440): visual-inspect names the matrices it draws and the parameters to draw.
+    # 0.53.0 (FR-3440): plot-sweeps names the matrices it draws and the parameters to draw.
     ("pyfs-matrix", "matrices"): SUBJECT,
     ("pyfs-matrix", "params"): CASE,
     ("pyfs-matrix", "finished_by"): CASE,
@@ -821,7 +821,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "plan",
             "post",
             "run",
-            "visual-inspect",
+            "plot-sweeps",
         }
     ),
     ("pyfs-workspace", "verbose"): frozenset(
@@ -853,7 +853,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "plan",
             "post",
             "run",
-            "visual-inspect",
+            "plot-sweeps",
         }
     ),
     ("pyfs-workspace", "log_level"): frozenset(
@@ -890,8 +890,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "status",
         }
     ),
-    ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run", "visual-inspect"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"noise", "visual-inspect"}),
+    ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run", "plot-sweeps"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"noise", "plot-sweeps"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "archive"): frozenset({"collect", "post"}),
     ("pyfs-workspace", "archive"): frozenset({"delete-sims"}),
@@ -955,12 +955,12 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "post",
             "run",
             "status",
-            "visual-inspect",
+            "plot-sweeps",
         }
     ),
-    ("pyfs-matrix", "matrices"): frozenset({"visual-inspect"}),
-    ("pyfs-matrix", "params"): frozenset({"visual-inspect"}),
-    ("pyfs-matrix", "finished_by"): frozenset({"visual-inspect"}),
+    ("pyfs-matrix", "matrices"): frozenset({"plot-sweeps"}),
+    ("pyfs-matrix", "params"): frozenset({"plot-sweeps"}),
+    ("pyfs-matrix", "finished_by"): frozenset({"plot-sweeps"}),
     ("pyfs-workspace", "reason"): frozenset({"mark-converged", "mark-failed"}),
     ("pyfs-workspace", "master"): frozenset({"search-log-batch"}),
     ("pyfs-workspace", "top"): frozenset({"space-in-use"}),

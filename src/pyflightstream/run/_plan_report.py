@@ -506,7 +506,7 @@ def finished_points(
         flags.extend(_in_table(point, table, swept) for point in points)
     if untold:
         warnings.warn(
-            f"visual-inspect: matrix {stem} sweeps {', '.join(sorted(untold))}, which no polar "
+            f"plot-sweeps: matrix {stem} sweeps {', '.join(sorted(untold))}, which no polar "
             f"table states, so {FINISHED_BY_OPTION} products cannot tell those points apart and "
             f"draws them not finished; {FINISHED_BY_OPTION} sims reads the run records.",
             NotApplicableWarning,
@@ -688,7 +688,7 @@ def _named_matrices(root: Path, names: Sequence[str]) -> dict[str, Path]:
         if not path.is_file():
             held = ", ".join(sorted(p.stem for p in matrix_files(root))) or "none"
             warnings.warn(
-                f"visual-inspect: the matrix {name!r} was not found and was skipped; "
+                f"plot-sweeps: the matrix {name!r} was not found and was skipped; "
                 f"the workspace holds: {held}.",
                 NotApplicableWarning,
                 stacklevel=3,
@@ -742,13 +742,13 @@ def visual_inspect(
     """
     if finished_by not in FINISHED_BY_CHOICES:
         raise InputValueError(
-            f"visual-inspect: finished_by {finished_by!r} is not valid; give 'products' (the polar "
+            f"plot-sweeps: finished_by {finished_by!r} is not valid; give 'products' (the polar "
             f"tables of the post) or 'sims' (the run records), as {FINISHED_BY_OPTION} takes them"
         )
     out = figure_path(root, name)
     if out.exists() and not overwrite:
         warnings.warn(
-            f"visual-inspect: {out} exists and was kept, nothing was drawn; "
+            f"plot-sweeps: {out} exists and was kept, nothing was drawn; "
             f"pass {OVERWRITE_OPTION} to replace it, or give another --name.",
             NotApplicableWarning,
             stacklevel=2,
@@ -763,7 +763,7 @@ def visual_inspect(
         unknown = [p for p in params if p not in every]
         if unknown:
             warnings.warn(
-                f"visual-inspect: unknown parameters {unknown} were skipped; the matrices state: "
+                f"plot-sweeps: unknown parameters {unknown} were skipped; the matrices state: "
                 f"{', '.join(every) or 'nothing'}.",
                 NotApplicableWarning,
                 stacklevel=2,
@@ -773,7 +773,7 @@ def visual_inspect(
         chosen = varying
     if not table or not chosen:
         warnings.warn(
-            "visual-inspect: no matrix or no parameter is left to draw; nothing was written.",
+            "plot-sweeps: no matrix or no parameter is left to draw; nothing was written.",
             EmptySelectionWarning,
             stacklevel=2,
         )
@@ -804,9 +804,9 @@ def _figure_name_argument(text: str) -> str:
 
 
 def add_visual_inspect_parser(subparsers: Any) -> None:
-    """Register ``visual-inspect``, appended last as every later command is."""
+    """Register ``plot-sweeps``, appended last as every later command is."""
     inspect = subparsers.add_parser(
-        "visual-inspect",
+        "plot-sweeps",
         help="draw the design of experiments of run matrices as a pair plot of their parameters",
         description=(
             "Expands the active rows of the named matrices into points and draws every pair of "
@@ -863,7 +863,7 @@ def add_visual_inspect_parser(subparsers: Any) -> None:
 
 
 def cmd_visual_inspect(args: argparse.Namespace) -> int:
-    """Run ``pyfs-matrix visual-inspect``; prints the path of the figure and returns 0."""
+    """Run ``pyfs-matrix plot-sweeps``; prints the path of the figure and returns 0."""
     out = visual_inspect(
         args.workspace,
         args.matrices,

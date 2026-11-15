@@ -58,6 +58,28 @@ def test_pyfs_geom_help_names_every_verb_and_its_page(capsys):
         assert verb in head, verb
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["visual-inspect", "--name", "x"],
+        ["--warning-refusals", "visual-inspect", "--name", "x"],
+        ["--warning-off", "visual-inspect"],
+    ],
+)
+def test_the_old_matrix_visual_inspect_is_refused_naming_plot_sweeps(argv, capsys):
+    assert matrix_main(argv) == 2
+    said = capsys.readouterr().err
+    assert "pyfs-matrix plot-sweeps" in said and "no longer accepted" in said, said
+
+
+def test_plot_sweeps_parses_and_pyfs_mesh_keeps_visual_inspect():
+    from pyflightstream.run import cli, mesh_cli
+
+    stated = cli._build_parser().parse_args(["plot-sweeps", "--matrices", "all", "--name", "fig"])
+    assert stated.subcommand == "plot-sweeps" and stated.name == "fig"
+    assert "visual-inspect" in mesh_cli._build_parser().format_help()
+
+
 def test_beam_declares_both_spellings_of_the_inspection_flag():
     """pyfs-mesh spells it --visual-inspect; pyfs-fsi beam accepts that and its own spelling.
 

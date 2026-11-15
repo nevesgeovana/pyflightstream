@@ -12,7 +12,7 @@ MATRIX_VERBS = {
     "collect",
     "post",
     "noise",
-    "visual-inspect",
+    "plot-sweeps",
     "support",
     "status",
     "inspect-setups",

@@ -98,7 +98,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
         "noise",
         "support",
         "status",
-        "visual-inspect",
+        "plot-sweeps",
     ]
     records = _cli_parsers.records_parser()
     assert list(records._subparsers._group_actions[0].choices) == [

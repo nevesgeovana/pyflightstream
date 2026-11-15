@@ -662,7 +662,7 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
         "run",
         "support",
         "status",
-        "visual-inspect",
+        "plot-sweeps",
     }
     assert choices["inspect-setups"] is choices["plan"], (
         "inspect-setups is registered as plan's alias; a separate parser could "

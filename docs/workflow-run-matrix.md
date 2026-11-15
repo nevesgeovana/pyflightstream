@@ -610,7 +610,7 @@ beside the old record.
 
 ## Looking at the design of experiments of your matrices
 
-`pyfs-matrix visual-inspect --matrices A B --params ADVANCE_RATIO ALPHA elev_RH` draws the points
+`pyfs-matrix plot-sweeps --matrices A B --params ADVANCE_RATIO ALPHA elev_RH` draws the points
 your matrices will run as a pair plot: a scatter of every pair of the parameters asked, the
 histogram of each on the diagonal, one colour and marker per matrix with its point count in the
 legend. It reads the matrices only; it needs no executable and spends no seat, so it is the quick

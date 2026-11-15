@@ -338,7 +338,7 @@ def _records_or_storage(args: argparse.Namespace) -> int | None:
     """Run the records or the storage command the arguments name, else return None."""
     if args.subcommand == "noise":
         return _cmd_noise(args)
-    if args.subcommand == "visual-inspect":
+    if args.subcommand == "plot-sweeps":
         from pyflightstream.run._plan_report import cmd_visual_inspect
 
         return cmd_visual_inspect(args)  # FR-3440

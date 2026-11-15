@@ -39,7 +39,7 @@ _RECORDS = (
 _OLD = re.compile(
     r"pyfs-workspace\s+geometry\b"
     r"|pyfs-matrix(?:\s+--?[\w-]+(?:[ =][^\s-]\S*)?)*\s+"
-    r"(?:refine|audit-mesh|inventory|degenerate|" + _RECORDS + r")(?![\w-])"
+    r"(?:refine|audit-mesh|inventory|degenerate|visual-inspect|" + _RECORDS + r")(?![\w-])"
     r"|(?:`{1,2}|\\sub\{|\\cmd\{|\\code\{|\\pyfs\{)geometry\s+(?:" + _MOVED + r")(?![\w-])"
 )
 
@@ -84,7 +84,7 @@ def test_p0580_the_guard_sees_each_old_spelling():
         r"\sub{geometry inventory <geometry>}{...}; "
         "``geometry beam``; "
         "pyfs-workspace geometry --help; "
-        "pyfs-matrix --workspace W sync"
+        "pyfs-matrix --workspace W sync; pyfs-matrix visual-inspect --name x"
     )
     assert _old_forms(planted) == [
         "pyfs-workspace geometry",
@@ -94,6 +94,7 @@ def test_p0580_the_guard_sees_each_old_spelling():
         "``geometry beam",
         "pyfs-workspace geometry",
         "pyfs-matrix --workspace W sync",
+        "pyfs-matrix visual-inspect",
     ]
     for new in (
         "pyfs-matrix --workspace W plan m.fs",
@@ -104,5 +105,7 @@ def test_p0580_the_guard_sees_each_old_spelling():
         "a geometry build of a body",
         "pyfs-geom iges-convert",
         "`pyfs-mesh audit`",
+        "pyfs-mesh visual-inspect wing.obj",
+        "pyfs-matrix plot-sweeps --name x",
     ):
         assert not _old_forms(new), new

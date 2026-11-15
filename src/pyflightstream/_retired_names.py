@@ -1151,6 +1151,14 @@ REMOVED_FORMS: dict[str, RetiredName] = {
     **_command_moves("pyfs-workspace geometry", _GEOMETRY_VERB_HOMES, _GEOMETRY_TOOLS),
     # 0.58.0 (PFS-2261): the records, storage and query verbs, the flag form included.
     **_command_moves("pyfs-matrix", _WORKSPACE_VERB_HOMES, _WORKSPACE_VERBS_WHY),
+    # 0.58.0 (PFS-2264): the matrix's design-of-experiments plot no longer shares the mesh
+    # inspection's name; pyfs-mesh visual-inspect is unchanged.
+    **_command_moves(
+        "pyfs-matrix",
+        {"visual-inspect": "pyfs-matrix plot-sweeps"},
+        "The matrix's plot is named for what it draws, the sweeps of its rows, so that "
+        "visual-inspect means the mesh inspection of pyfs-mesh alone; the output is identical.",
+    ),
 }
 
 

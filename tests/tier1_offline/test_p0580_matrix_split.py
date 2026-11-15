@@ -1,7 +1,7 @@
 """PFS-2261: the records, storage and query verbs of pyfs-matrix are pyfs-workspace's.
 
 ``pyfs-matrix`` keeps what needs a matrix to know what to do (plan, run, collect, post, noise,
-visual-inspect, support) and ``status``; ``pyfs-workspace`` takes the fourteen verbs that act on
+plot-sweeps, support) and ``status``; ``pyfs-workspace`` takes the fourteen verbs that act on
 what the workspace already holds, flat, with their names, options and pre-dispatch unchanged.
 Every old form, the flag form included, is refused by name naming the new command.
 """
@@ -43,7 +43,7 @@ def test_p0580_the_fourteen_verbs_moved_and_pyfs_matrix_keeps_eight(capsys):
     with pytest.raises(SystemExit):
         matrix_main(["--help"])
     matrix = capsys.readouterr().out.split("\n\n")[0]
-    for verb in ("plan", "inspect-setups", "run", "collect", "post", "noise", "visual-inspect"):
+    for verb in ("plan", "inspect-setups", "run", "collect", "post", "noise", "plot-sweeps"):
         assert verb in matrix
     assert "support" in matrix and "status" in matrix
     assert not [verb for verb in _MOVED if re.search(rf"[{{,]{verb}[,}}]", matrix)], matrix
