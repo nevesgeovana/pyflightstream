@@ -9,6 +9,11 @@ point, with the columns of the FAM file it mirrors
 [FAM-RCOEF](fam-rcoef.md#fam-rcoef)) and `GROUP`, `GROUP_ID` in place of
 `FAMILY`, `FAMILY_ID`.
 
+`<GROUP>` in a file name is the group's name with every character other than a
+letter, a digit, `-`, `_` or `.` replaced by `_` (the rule of every file named
+after an alias), so `Left/Right` is written `P0001-Left_Right-ACOEF.csv`; the
+`GROUP` column and `products.json` keep the name as written.
+
 <a id="the-groups"></a>
 
 ### The groups

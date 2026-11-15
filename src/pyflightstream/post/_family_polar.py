@@ -39,6 +39,7 @@ from pyflightstream.post._family_columns import (
     rcoef_columns,
 )
 from pyflightstream.post._run_block import run_block_columns
+from pyflightstream.post._stage import _a_name_a_file_may_carry
 from pyflightstream.post.axes import (
     RotorFrame,
     airframe_axis_coefficients,
@@ -127,8 +128,18 @@ def group_file_name(pol: str | int, group: str, kind: str) -> str:
     --------
     >>> group_file_name("0001", "PUSHER", "RCOEF")
     'P0001-PUSHER-RCOEF.csv'
+    >>> group_file_name("0001", "Left/Right", "ACOEF")
+    'P0001-Left_Right-ACOEF.csv'
+
+    Notes
+    -----
+    The group's name reaches the file name through the one rule of the rotor
+    tables (:func:`pyflightstream.post._stage._a_name_a_file_may_carry`): a
+    character other than a letter, a digit, ``-``, ``_`` or ``.`` becomes ``_``,
+    so a slash never writes a subfolder. The group's own spelling stays in its
+    ``GROUP`` column and in ``products.json``.
     """
-    return f"P{pol}-{group}-{_kind(kind)}.csv"
+    return f"P{pol}-{_a_name_a_file_may_carry(str(group))}-{_kind(kind)}.csv"
 
 
 @dataclass(frozen=True)

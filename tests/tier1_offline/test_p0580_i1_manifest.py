@@ -98,3 +98,12 @@ def test_p0580_a_polar_row_carries_the_run_block_of_its_point(tmp_path):
     assert by_point["POLAR-6001_M20AL-020BE+000"]["POINT_ID"] == "1"
     assert by_point["POLAR-6001_M20AL+000BE+000"]["POINT_ID"] == "2"
     assert list(header[:3]) == ["POL", "POINT_ID", "POINT"]
+
+
+def test_p0580_a_group_name_with_a_slash_is_one_file_and_keeps_its_name(tmp_path):
+    polars, _said, _rho = _posted(tmp_path, groups='"Left/Right" = "W"\n')
+    names = sorted(path.name for path in polars.iterdir())
+    assert "P6002-Left_Right-ACOEF.csv" in names, names
+    assert not [path for path in polars.iterdir() if path.is_dir()], names
+    _header, rows = read_csv_table(polars / "P6002-Left_Right-ACOEF.csv")
+    assert {row["GROUP"] for row in rows} == {"Left/Right"}
