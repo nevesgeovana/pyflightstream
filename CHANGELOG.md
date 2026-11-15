@@ -49,6 +49,8 @@ The `time_average` and `per_blade` reductions are no longer written, and a pproc
 
 ### Removed
 
+The run no longer writes `campaign_sweep.csv`: each polar's `TOTAL` group file is complete, and the guide's `Joining polars` stacks several. `pyfs-matrix run --sweep-csv`, the `sweep_csv` keyword of `run_matrix` and `run_campaign`, and `pyflightstream.run.SWEEP_TABLE_NAME` are removed and refused by name with that sentence; the post leaves a `campaign_sweep.csv` of an earlier layout as it finds it. FR-3777. migration: join the `TOTAL` group files (docs/upgrading.md#0580-post-tree).
+
 The post no longer writes the super file (`SUPER-*.csv`) and its superset report, the unsteady polar (`*_uns_avg.csv`), the per-group polar split by Mach (`P<sim>-<sweep>_<GROUP>.csv`) or the standalone rotor table (`P<sim>-<ROTOR>_rotor.csv`): the FAM and group files carry what they held. migration: docs/upgrading.md#0580-post-tree.
 
 The public writers of the products the 0.58.0 post tree retires are removed and refused by name, each naming the FAM and group files: `post.point_tables.write_per_blade_table` and `post.unsteady.per_blade_rows` (the per_blade table), `post.rotor_table.write_rotor_table` (the standalone rotor table), `post.superfile.write_superfiles` (the SUPER file), `post.unsteady_polar.write_unsteady_polar` (the uns_avg polar) and `post.polar.swept_polar_file_name` (the per-Mach polar file name), with their names re-exported by `post.products`. migration: read the FAM and group files; docs/upgrading.md#0580-post-tree.

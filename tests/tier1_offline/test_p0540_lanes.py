@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 import subprocess
@@ -80,8 +79,7 @@ def test_p0540_two_sims_lanes_run_at_once_on_one_workspace_and_one_plan(tmp_path
         ("5001", RunStatus.CONVERGED),
         ("5002", RunStatus.CONVERGED),
     ]
-    with (workspace.root / "post" / "local" / "campaign_sweep.csv").open(encoding="utf-8") as fh:
-        assert sorted(row["POL"] for row in csv.DictReader(fh)) == ["5001", "5002"]
+    assert not (workspace.root / "post" / "local" / "campaign_sweep.csv").exists()
     products = json.loads((workspace.root / "post" / "local" / "products.json").read_text("utf-8"))
     for pol in ("5001", "5002"):
         assert any(f"polars/P{pol}-" in name for name in products["products"]), pol

@@ -375,7 +375,7 @@ def test_drift_is_two_runs_of_the_matrix_under_two_registries_and_a_diff(stub_wo
     assert sides == ["a_26120", "b_26120"]
     for side in sides:
         assert (workroot / side / "runs.json").is_file(), side
-        assert (workroot / side / "post" / "matriz_physics" / "campaign_sweep.csv").is_file()
+        assert not (workroot / side / "post" / "matriz_physics" / "campaign_sweep.csv").exists()
         overlay = (workroot / side / "inputs" / "executables.local.toml").read_text(
             encoding="utf-8"
         )

@@ -246,7 +246,7 @@
         "matrix.fs; W/post/matrix/plan.json; args"
       ],
       "outputs": [
-        "run records; W/post/matrix/campaign_sweep.csv"
+        "run records"
       ],
       "next": [
         "plan_receipt_error",
@@ -563,11 +563,10 @@
         "a simulation whose last point is recorded"
       ],
       "outputs": [
-        "post products; campaign_sweep.csv"
+        "post products"
       ],
       "next": [
-        "_leave_products",
-        "_leave_sweep_table"
+        "_leave_products"
       ],
       "note": "A local run posts each simulation as its last point is recorded, only the simulations it ran. A simulation with a SUBMITTED record is left to collect.",
       "line": 1271,
@@ -616,7 +615,7 @@
       "module": "src/pyflightstream/post/products.py",
       "function": "_campaign_products",
       "inputs": [
-        "runs.json with recorded definitions; collected files; current matrix if readable; prior products.json; campaign_sweep.csv if present"
+        "runs.json with recorded definitions; collected files; current matrix if readable; prior products.json"
       ],
       "outputs": [
         "admitted records grouped by simulation; product manifest"

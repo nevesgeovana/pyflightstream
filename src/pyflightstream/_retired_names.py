@@ -302,7 +302,19 @@ _THE_GEOMETRY_ENGINE_IS_CORE = (
     "rtree and scipy are core dependencies, so nothing raises or needs it."
 )
 _THE_0580_POLAR_FILES = "the FAM and group files under polars/ (docs/upgrading.md#0580-post-tree)"
+_THE_CAMPAIGN_SWEEP_SENTENCE = (
+    "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
+    "(docs/pproc/index.md#joining-polars) joins several."
+)
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
+    "pyflightstream.run.SWEEP_TABLE_NAME": RetiredName(
+        owner="pyflightstream.run",
+        old="SWEEP_TABLE_NAME",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
     "pyflightstream.exceptions.GeometryEngineMissingError": RetiredName(
         owner="pyflightstream.exceptions",
         old="GeometryEngineMissingError",
@@ -501,6 +513,30 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         new="default_fs_version",
         retired_in="0.58.0",
         why=_MATRIX_DEFAULT_BUILD,
+    ),
+    "pyfs-matrix.--sweep-csv": RetiredName(
+        owner="pyfs-matrix run",
+        old="--sweep-csv",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
+    "run_matrix.sweep_csv": RetiredName(
+        owner="run_matrix",
+        old="sweep_csv",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
+    ),
+    "run_campaign.sweep_csv": RetiredName(
+        owner="run_campaign",
+        old="sweep_csv",
+        new="the group files of each polar",
+        retired_in="0.58.0",
+        why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+        instead="Join",
     ),
     "pyfs-matrix.refine": RetiredName(
         owner="pyfs-matrix",

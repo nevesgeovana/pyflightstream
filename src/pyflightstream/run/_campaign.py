@@ -5,9 +5,9 @@ of it. This module composes the case preparation, the point and sweep
 paths and the plan's collision checks into the loop that lands every
 campaign point in the manifest with exactly one terminal status (PP-5,
 FR-14), raises :class:`~pyflightstream.run.CampaignErrors` after the loop,
-and leaves the sweep table and the products of a campaign that recorded a
-point (PFS-2014.03). It sits at the top of the package order: nothing of
-the package imports it but the root.
+and leaves the products of a campaign that recorded a point (PFS-2014.03). It
+sits at the top of the package order: nothing of the package imports it but the
+root.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import cast
 
 import pyflightstream
-import pyflightstream._textio as _textio
 
 # The cold-start question is asked through its module, so a caller that
 # replaces the answer replaces it for the run loop too.
@@ -36,9 +35,6 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     demote,
 )
-from pyflightstream._identifier_columns import (
-    SWEEP_TABLE_NAME as SWEEP_TABLE_NAME,
-)
 from pyflightstream._progress import (
     record_activity,
     terminal_glob,
@@ -46,6 +42,7 @@ from pyflightstream._progress import (
     terse_terminal,
     workspace_activity,
 )
+from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases import (
     Campaign,
     CampaignConfigError,
@@ -60,7 +57,6 @@ from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
 )
-from pyflightstream.results.tables import sweep_table, write_sweep_table
 from pyflightstream.run._assessment import (
     OutcomeAssessor,
 )
@@ -170,8 +166,7 @@ def _leave_products(
     is recorded, and every other simulation's products stay as they were
     (PFS-2185.18).
 
-    PFS-2029.15.03, the sibling of :func:`_leave_sweep_table` and under the
-    same rule: the products are derived from the manifest and the collected
+    PFS-2029.15.03, the products are derived from the manifest and the collected
     exports, so rewriting them after a resume adds the new points, and a write
     error must not replace the campaign's own outcome. ``pyfs-matrix post`` is
     the same writer run by hand; it writes no archive by default (FR-397), and
@@ -204,101 +199,6 @@ def _leave_products(
     return None
 
 
-def _leave_sweep_table(
-    workspace: CampaignWorkspace,
-    matrix_stem: str | None,
-    target: str | Path | None = None,
-) -> str | None:
-    """Write the campaign's sweep table under ``post/``, never raising.
-
-    Under ``post/<matrix>/`` for a campaign converted from a run matrix,
-    holding that matrix's records alone (PFS-2031.04).
-
-    PFS-2014.03. A completed sweep leaves its csv WITHOUT ANYONE ASKING
-    FOR IT: until this existed, only ``pyfs-matrix run`` wrote one, so a
-    campaign driven from Python left every number it produced inside the
-    manifest and the raw exports, and a colleague opening the workspace
-    found no table at all.
-
-    ``require_loads=False`` is the keyword written for exactly this
-    call: a campaign whose every point failed still has identity rows,
-    and raising there would leave nothing to write in the one case the
-    file is most wanted. :func:`~pyflightstream.results.tables.
-    write_table` is the tabular layer's single write path and refuses a
-    frame that cannot say what produced its numbers, so each row states
-    whether it is a raw integration or a reduction and over what window.
-
-    Overwriting is deliberate and is not the silent-overwrite class
-    (PFS-2011.02): every value in this file is derived from the
-    manifest, which is append-only, so rewriting it after a resume adds
-    the new points and can destroy nothing. The flow-visualization
-    writers refuse an existing destination because their content is NOT
-    reconstructable; this content is.
-
-    Parameters
-    ----------
-    workspace : CampaignWorkspace
-        The managed campaign root whose manifest is tabulated and under
-        whose ``post/`` folder the file lands.
-    matrix_stem : str or None
-        The run matrix's file name without extension, which names the
-        ``post/<matrix>/`` folder; None for a campaign authored in Python.
-    target : str or Path, optional
-        Where the caller chose to have the table INSTEAD of the default
-        place. The table is written once: a chosen path replaces the default
-        one and is never a copy beside it.
-
-    Returns
-    -------
-    str or None
-        None when the table was written. Otherwise the sentence saying
-        why it was not, for the caller to warn with.
-
-    Notes
-    -----
-    WHY THIS CATCHES ``Exception`` AND RETURNS INSTEAD OF RAISING. The
-    table is a side product written after all the expensive work is
-    done: the solver seats are spent, every point is in the manifest,
-    and the caller is owed either its records or the
-    :class:`CampaignErrors` naming the points that failed. Letting a
-    write error out of here would replace that outcome with a report
-    about a csv, which is the worse of the two failures by a long way,
-    and would do it precisely on the failing campaigns whose table this
-    item exists to leave. The narrow ``except`` clause the
-    ``pyfs-matrix`` writer uses is right THERE, where the write is the
-    last thing the process does; here an unforeseen error (a manifest
-    row the tabular layer cannot widen, a pandas type error) would cost
-    the campaign's own result, so the clause is deliberately total.
-    ``BaseException`` is NOT caught: a ``KeyboardInterrupt`` means the
-    operator asked for the process to stop.
-    """
-    target = (
-        Path(target) if target is not None else workspace.sweep_dir(matrix_stem) / SWEEP_TABLE_NAME
-    )
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        lock = workspace.products_dir(matrix_stem)
-        lock.mkdir(parents=True, exist_ok=True)
-        # REL-R2-017: derived and written under the matrix's campaign lock, so the last
-        # of two runs of one matrix writes the table of every record then recorded.
-        with _textio.exclusive(lock / "products.json", wait=_textio.LOCK_WAIT) as held:
-            if held is None:
-                raise TimeoutError(f"{lock / 'products.json'} stayed locked by another post")
-            write_sweep_table(
-                sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem), target
-            )
-    except Exception as error:
-        return (
-            f"the campaign ran and its sweep table was NOT written to {target}: "
-            f"{type(error).__name__}: {error}. No run outcome is affected and nothing "
-            f"is lost: every point is recorded in {workspace.manifest_path}. Fix the "
-            "cause (an unwritable post/ folder, a full disk, or a manifest row the "
-            "tabular layer cannot widen) and rebuild the file with "
-            "pyflightstream.results.sweep_table(CampaignWorkspace(root))."
-        )
-    return None
-
-
 @dataclass(kw_only=True)
 class _CampaignState:
     """Inputs and phase results of one ordered execution."""
@@ -315,7 +215,6 @@ class _CampaignState:
     name_from: str | None
     quiet: bool
     accept_unregistered_build: bool
-    sweep_csv: str | Path | None
     accepted_builds: Collection[str] = ()
     #: ``force_rerun_all`` was asked: a point recorded as SUBMITTED is redone and warned of.
     redo_submitted: bool = False
@@ -324,8 +223,6 @@ class _CampaignState:
     #: The simulations this call posted, each once, as its last point of the
     #: call was recorded (PFS-2185.18).
     posted: list[str] = field(default_factory=list)
-    #: What the last sweep table derivation said, said once after the loop.
-    sweep_said: list[warnings.WarningMessage] = field(default_factory=list)
     case_builds: list[SolverBuild | None] = field(init=False)
     manifest: dict[str, RunRecord] = field(init=False)
     recorded: set[str] = field(init=False)
@@ -385,7 +282,7 @@ def run_campaign(
     name_from: str | None = None,
     quiet: bool = False,
     accept_unregistered_build: bool = False,
-    sweep_csv: str | Path | None = None,
+    sweep_csv: object = None,
     accepted_builds: Collection[str] = (),
     redo_submitted: bool = False,
     parallel: int | str | None = None,
@@ -405,24 +302,10 @@ def run_campaign(
     manifest; an unexpected internal error crashes the loop loudly
     instead of masquerading as a solver status.
 
-    Afterwards, and WITHOUT ANYONE ASKING FOR IT, the campaign's sweep
-    table is written to ``post/`` under :data:`SWEEP_TABLE_NAME`: one
-    line per recorded point, carrying the integrated forces, and each
-    line saying whether its numbers are a raw integration or a reduction
-    and over what window, so a steady point and an unsteady point's time
-    average are never read as one method (PFS-2014.03, PFS-2014.05). It
-    is written BEFORE :class:`CampaignErrors` is raised, so a campaign
-    with failing points still leaves the table; the failed points are
-    the identity rows whose coefficient columns are empty. A campaign
-    that recorded nothing at all leaves no file, having nothing to
-    tabulate.
-
-    The table is a side product and never costs the campaign its own
-    outcome: a write that fails is reported as a
-    :class:`~pyflightstream.exceptions.PyflightstreamWarning` naming the
-    cause and the rebuild call, and the records (or the
-    :class:`CampaignErrors`) are returned exactly as they would have
-    been (:func:`_leave_sweep_table`).
+    Afterwards each simulation is posted as its last point is recorded, and the
+    campaign leaves no table of its own: the polars' family and group files hold
+    every point, and :func:`pyflightstream.results.sweep_table` derives the frame
+    from the manifest when one is wanted.
 
     Parameters
     ----------
@@ -511,11 +394,9 @@ def run_campaign(
         version a row names is accepted instead of refused by the identity
         check, and every record of the run says the flag was used.
         Default False.
-    sweep_csv : str or Path, optional
-        Where to leave the campaign's sweep table instead of
-        ``post/<matrix stem>/`` under :data:`SWEEP_TABLE_NAME`. ONE table is
-        written either way: a chosen path replaces the default one, so the
-        command line's ``--sweep-csv`` never leaves a second copy.
+    sweep_csv : object, optional
+        Retired in 0.58.0 with the table it named; any value but None is refused
+        naming the successor.
     accepted_builds : collection of str
         The installations whose own entry of ``inputs/executables.local.toml``
         accepts their installed build (FR-998), a build id or ``""`` for
@@ -558,12 +439,9 @@ def run_campaign(
         them executes, so a misconfigured build cannot spend the
         licensed seats of a healthy one first (PFS-2009.09.02).
 
-    Warns
-    -----
-    PyflightstreamWarning
-        When the automatic sweep table could not be written. The runs
-        themselves are unaffected and the manifest is complete.
     """
+    if sweep_csv is not None:
+        raise InputArtifactError(REMOVED_FORMS["run_campaign.sweep_csv"].message())
     state = _CampaignState(
         campaign=campaign,
         executor=executor,
@@ -577,7 +455,6 @@ def run_campaign(
         name_from=name_from,
         quiet=quiet,
         accept_unregistered_build=accept_unregistered_build,
-        sweep_csv=sweep_csv,
         accepted_builds=accepted_builds,
         redo_submitted=redo_submitted,
         parallel=parallel,
@@ -607,8 +484,6 @@ def _run_scheduled_campaign(state: _CampaignState) -> list[RunRecord]:
             _execute_prepared_case(state)
             if last_case[case.sim_id] == index:
                 _post_the_simulation(state, case.sim_id)
-    for said in state.sweep_said:
-        warnings.warn_explicit(said.message, said.category, said.filename, said.lineno)
     return _finish_campaign(state)
 
 
@@ -632,27 +507,19 @@ def _execute_prepared_case(state: _CampaignState) -> None:
 
 
 def _post_the_simulation(state: _CampaignState, sim_id: str) -> None:
-    """Post one simulation this call ran, and rewrite the sweep table, never raising.
+    """Post one simulation this call ran, never raising.
 
     PFS-2185.18. Only the simulation's own products are rebuilt, through the
     partial post (FR-307), so the products folder holds every simulation
     finished so far as the matrix runs. A simulation with a point submitted
     to a scheduler is left to ``collect``, which posts it once its outputs
     land. A post that fails is warned and the run goes on (PFS-2029.15.03).
-    The table is derived after every polar, so what its derivation says is
-    kept and said once, from the last, after the loop.
     """
     ran = [record for record in state.records if record.sim_id == sim_id]
     if not ran or any(record.status is RunStatus.SUBMITTED for record in ran):
         return
     matrix = state.campaign.matrix_stem
     problem = _leave_products(state.workspace, matrix, [sim_id])
-    if problem is not None:
-        warnings.warn(problem, PyflightstreamWarning, stacklevel=3)
-    with warnings.catch_warnings(record=True) as said:
-        warnings.simplefilter("always")
-        problem = _leave_sweep_table(state.workspace, matrix, state.sweep_csv)
-    state.sweep_said = said
     if problem is not None:
         warnings.warn(problem, PyflightstreamWarning, stacklevel=3)
     state.posted.append(sim_id)
@@ -1383,11 +1250,8 @@ def _restore_archived_outputs(archived: Path) -> None:
 
 def _finish_campaign(state: _CampaignState) -> list[RunRecord]:
     """Finish campaign."""
-    # PFS-2014.03: write the sweep table before raising CampaignErrors so
-    # recorded failed points remain represented. With no recorded run ids
-    # there is no table to write and no warning to issue. G43: a submitting
-    # run does not post unavailable outputs; print one submission summary
-    # and the command that collects and posts them.
+    # G43: a submitting run does not post unavailable outputs; print one
+    # submission summary and the command that collects and posts them.
     if state.outcomes:
         _say_the_summary(state.outcomes, time.perf_counter() - state.started, quiet=state.quiet)
     # Report how many planned points have records and name every point
@@ -1411,18 +1275,6 @@ def _finish_campaign(state: _CampaignState) -> list[RunRecord]:
             "(add --watch to wait), which posts once "
             "their outputs land."
         )
-    elif state.recorded and not state.posted:
-        # PFS-2185.18: every simulation this call ran was posted as its last
-        # point was recorded, so nothing is posted again here; a call that
-        # ran nothing (a resume) still leaves the sweep table.
-        problem = _leave_sweep_table(state.workspace, state.campaign.matrix_stem, state.sweep_csv)
-        if problem is not None:
-            # The one residual, stated rather than hidden: under
-            # `-W error` this warning is promoted to an exception and
-            # propagates in place of the outcome below. That promotion is
-            # the caller's explicit request, and the manifest is complete
-            # either way; silence would not be.
-            warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
     if state.failures:
         raise CampaignErrors(state.failures, state.records)
     return state.records

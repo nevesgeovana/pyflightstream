@@ -7853,11 +7853,6 @@
       "kind": "typing"
     },
     {
-      "source": "pyflightstream.post._point_stage",
-      "target": "pyflightstream.post.rotor_table",
-      "kind": "deferred"
-    },
-    {
       "source": "pyflightstream.post._polar_stage",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -10134,11 +10129,6 @@
     },
     {
       "source": "pyflightstream.post.rotor_table",
-      "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.rotor_table",
       "target": "pyflightstream.post._tables",
       "kind": "module"
     },
@@ -11844,6 +11834,11 @@
     },
     {
       "source": "pyflightstream.run",
+      "target": "pyflightstream._deprecations",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run",
       "target": "pyflightstream._retired_names",
       "kind": "module"
     },
@@ -12484,17 +12479,12 @@
     },
     {
       "source": "pyflightstream.run._campaign",
-      "target": "pyflightstream._identifier_columns",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._campaign",
       "target": "pyflightstream._progress",
       "kind": "module"
     },
     {
       "source": "pyflightstream.run._campaign",
-      "target": "pyflightstream._textio",
+      "target": "pyflightstream._retired_names",
       "kind": "module"
     },
     {
@@ -12510,11 +12500,6 @@
     {
       "source": "pyflightstream.run._campaign",
       "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._campaign",
-      "target": "pyflightstream.results.tables",
       "kind": "module"
     },
     {
@@ -14575,16 +14560,6 @@
     {
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream.options",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run.cli",
-      "target": "pyflightstream.results",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run.cli",
-      "target": "pyflightstream.results.tables",
       "kind": "module"
     },
     {

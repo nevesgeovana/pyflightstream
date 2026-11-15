@@ -261,9 +261,10 @@ def _known_runs(base: Path, rows: list[dict[str, Any]]) -> dict[str, _Known]:
     """Per simulation: the campaign, the version and the template a surviving file names.
 
     Read, first found wins: the manifest's own rows, the archived manifests
-    newest first, then each matrix's sweep table (``campaign_sweep.csv``,
-    which carries the run id and the package version of every point it
-    tabled) and plan receipt.
+    newest first, then the sweep table of a matrix of an earlier layout
+    (``campaign_sweep.csv``, retired in 0.58.0 and no longer written, which
+    carries the run id and the package version of every point it tabled) and
+    plan receipt.
     """
     known: dict[str, _Known] = {}
 

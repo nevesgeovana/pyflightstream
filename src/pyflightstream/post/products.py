@@ -128,7 +128,6 @@ from pyflightstream.post._products_campaign import (
     _identifiers_of,
     _index_record_surfaces,
     _retire_campaign_products,
-    _state_in_the_sweep_table,
     _warn_unreadable_matrix,
     carry_marks,
     stated_identifiers,
@@ -455,8 +454,8 @@ def _sweep_rows(
 ) -> dict[str, dict[str, object]]:
     """Return the campaign sweep table's own rows, keyed by run id (FR-89).
 
-    The frame `campaign_sweep.csv` is written from, read here so the
-    superfile carries what that file holds by carrying the SAME row. A
+    The frame :func:`pyflightstream.results.sweep_table` derives, read here so the
+    superfile carries what that frame holds by carrying the SAME row. A
     campaign whose records yield no table at all leaves this empty and the
     superfile is short of those columns rather than of the whole file:
     every other block of the row is independent of this one.
@@ -836,8 +835,8 @@ def _campaign_products(
     # FR-89, gathered ONCE for the whole campaign and never per simulation:
     # the rows of the matrix this campaign came from, keyed by POL, and the
     # campaign sweep table's own rows keyed by run id. The sweep table is
-    # the frame `campaign_sweep.csv` is written from, so the superfile
-    # carries what that file holds by carrying the same row rather than by
+    # the frame `sweep_table` derives, so the superfile
+    # carries what that frame holds by carrying the same row rather than by
     # assembling one that looks like it.
     rows_of_the_matrix = matrix_rows(workspace.root, matrix_stem)
     _warn_unreadable_matrix(workspace, matrix_stem, rows_of_the_matrix)
@@ -1017,7 +1016,6 @@ def _write_the_products(
         sims=None if partial is None else partial.sims,
     )
     _write_campaign_superfiles(ctx)
-    _state_in_the_sweep_table(ctx)
     _finish_campaign_products(ctx)
 
 

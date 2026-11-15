@@ -93,7 +93,6 @@ def refuse_grouped_options(
     *,
     force_rerun: Sequence[str] | None,
     force_rerun_all: bool,
-    sweep_csv: str | Path | None,
 ) -> str | None:
     """Say why a grouped run may not take these options, or return None.
 
@@ -103,20 +102,17 @@ def refuse_grouped_options(
         The ``--force-rerun`` selection.
     force_rerun_all : bool
         The ``--force-rerun-all`` switch.
-    sweep_csv : str or Path, optional
-        The ``--sweep-csv`` path.
 
     Returns
     -------
     str or None
-        The refusal sentence, or None when none of the three is given.
+        The refusal sentence, or None when none of the two is given.
     """
     given = [
         flag
         for flag, present in (
             ("--force-rerun", bool(force_rerun)),
             ("--force-rerun-all", force_rerun_all),
-            ("--sweep-csv", sweep_csv is not None),
         )
         if present
     ]

@@ -2,7 +2,7 @@
 
 Private to the package, in this layer because both table writers are at or above it:
 :func:`pyflightstream.post._tables.write_csv_table`, the funnel of the post's tables, and
-:func:`pyflightstream.results.tables.write_sweep_table`, the run's writer of the sweep table. A
+:func:`pyflightstream.results.tables.write_sweep_table`, the writer of the sweep table. A
 row states
 ``IDENTIFIERS: {FLAP:0,TESTE:10}`` and every table the post writes for that row's polar gains a
 column of each name, holding the value as text. The tables are many and their writers do not know
@@ -35,33 +35,6 @@ from pyflightstream._tokens import (
     ROTOR_ID_COLUMN,
     plain_cell,
 )
-
-#: Name of the sweep csv :func:`run_campaign` leaves under the
-#: workspace's ``post/`` folder at the end of every campaign, spelled
-#: once here rather than at the write and again at every assertion
-#: about it (PFS-2014.03).
-#:
-#: WHY THIS NAME, since the item asks the choice to be justified rather
-#: than merely made. Three things had to be true of it.
-#:
-#: It says WHOSE table it is. The file covers the whole CAMPAIGN, one
-#: line per recorded point, because :func:`~pyflightstream.results.
-#: tables.sweep_table` reads the manifest and not the records of the
-#: call that happened to write it. So a resumed campaign rewrites one
-#: file that describes everything recorded so far, rather than leaving a
-#: per-call fragment nobody can join. A timestamped or per-call name
-#: would accumulate files of which none is "the" table.
-#:
-#: It says what is INSIDE: a sweep table, the tabular layer's own word
-#: for one row per point, which is what a reader opens it expecting.
-#:
-#: And it does not collide with ``sweep.csv``, the default target of
-#: ``pyfs-matrix run --sweep-csv``, which the operator names and which
-#: lands in the campaign ROOT. The two files would hold the same table,
-#: so a collision would corrupt nothing; what it would cost is a reader
-#: who cannot tell which file the tool maintains and which one a
-#: colleague put there.
-SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
 #: The first column of that table past ``POL``, in every run it is written from.
 _SWEEP_FIRST_OWN = "run_id"

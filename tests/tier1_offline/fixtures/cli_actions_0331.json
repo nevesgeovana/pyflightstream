@@ -139,7 +139,6 @@
   "run|refuse_missing_families|--no-ignore-missing-families": {"action": "_StoreTrueAction", "choices": null, "default": false, "dest": "refuse_missing_families", "nargs": 0, "option_strings": ["--no-ignore-missing-families"], "required": false, "type": null},
   "run|resume|--resume": {"action": "_StoreTrueAction", "choices": null, "default": false, "dest": "resume", "nargs": 0, "option_strings": ["--resume"], "required": false, "type": null},
   "run|sims|--sims": {"action": "_StoreAction", "choices": null, "default": null, "dest": "sims", "nargs": "+", "option_strings": ["--sims"], "required": false, "type": null},
-  "run|sweep_csv|--sweep-csv": {"action": "_StoreAction", "choices": null, "default": null, "dest": "sweep_csv", "nargs": null, "option_strings": ["--sweep-csv"], "required": false, "type": null},
   "run|verbose|--verbose": {"action": "_StoreTrueAction", "choices": null, "default": false, "dest": "verbose", "nargs": 0, "option_strings": ["--verbose"], "required": false, "type": null},
   "run|workflow|--workflow": {"action": "_AppendAction", "choices": null, "default": [], "dest": "workflow", "nargs": null, "option_strings": ["--workflow"], "required": false, "type": null},
   "run|workspace|--workspace": {"action": "_StoreAction", "choices": null, "default": ".", "dest": "workspace", "nargs": null, "option_strings": ["--workspace"], "required": false, "type": null},

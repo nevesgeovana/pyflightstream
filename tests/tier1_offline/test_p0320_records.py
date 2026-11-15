@@ -141,6 +141,15 @@ def _local_campaign(tmp_path, monkeypatch):
     )
     (record,) = _read_record_rows(workspace.manifest_path)
     assert record["status"] == "CONVERGED", record.get("error")
+    # The workspace of an earlier layout: 0.57.0 left its sweep table beside the products, and
+    # the rebuild reads the campaign name and version off it. 0.58.0 writes none (FR-3777), so
+    # a lost record of a new workspace has the manifest archives and the plan receipt only.
+    from pyflightstream.results.tables import sweep_table, write_sweep_table
+
+    earlier = workspace.sweep_dir(at_root.stem) / "campaign_sweep.csv"
+    earlier.parent.mkdir(parents=True, exist_ok=True)
+    frame = sweep_table(workspace, require_loads=False, matrix_stem=at_root.stem)
+    write_sweep_table(frame, earlier)
     _quiet(workspace.root / "sims")
     return workspace, at_root, record
 

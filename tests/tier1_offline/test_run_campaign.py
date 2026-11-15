@@ -2941,18 +2941,29 @@ def mixed_campaign(tmp_path):
     )
 
 
-def sweep_csv(tmp_path):
-    """Where the campaign is expected to have left its table."""
-    return tmp_path / "camp" / "post" / run_module.SWEEP_TABLE_NAME
+def sweep_csv(tmp_path, *, quiet=True):
+    """The frame the campaign's manifest derives (FR-3777), written to a file to be read.
+
+    The campaign leaves no table of its own since 0.58.0; the derivation the table
+    was written from stays public as ``results.sweep_table``.
+    """
+    from pyflightstream.results.tables import sweep_table, write_sweep_table
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    target = tmp_path / "derived" / "sweep.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with warnings.catch_warnings():
+        if quiet:
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+        write_sweep_table(sweep_table(workspace, require_loads=False), target)
+    return target
 
 
-def test_a_completed_sweep_leaves_its_csv_beside_its_runs_unasked(tmp_path):
-    """Nobody names a path, and the table is there afterwards.
+def test_a_completed_sweep_leaves_no_csv_and_its_manifest_derives_the_lines(tmp_path):
+    """The campaign writes no table (FR-3777); the manifest still derives one line per point.
 
-    The call below passes no target, no writer and no post-processing
-    step: the acceptance is that the file exists all the same, under the
-    campaign's own post/ folder, with one line per point carrying the
-    integrated forces.
+    The derived frame carries the integrated forces of each point, and the post folder
+    holds no campaign_sweep.csv.
     """
     pd = pytest.importorskip("pandas")
     campaign = mixed_campaign(tmp_path)
@@ -2966,13 +2977,8 @@ def test_a_completed_sweep_leaves_its_csv_beside_its_runs_unasked(tmp_path):
     )
     assert len(records) == 2
 
-    target = sweep_csv(tmp_path)
-    assert target.is_file(), (
-        f"a completed campaign left no {run_module.SWEEP_TABLE_NAME} under post/; the "
-        "numbers exist only inside the manifest and the raw exports, which is the "
-        "state PFS-2014.03 exists to end"
-    )
-    table = pd.read_csv(target)
+    assert list((tmp_path / "camp").rglob("campaign_sweep.csv")) == []
+    table = pd.read_csv(sweep_csv(tmp_path))
     assert list(table["run_id"]) == ["camp/sim_9001/AL+020", "camp/sim_9002/AL+000"], (
         "the table must carry one line per point, in manifest order"
     )
@@ -3074,15 +3080,16 @@ def test_a_sweep_whose_exports_do_not_read_as_loads_still_leaves_its_rows(tmp_pa
     pd = pytest.importorskip("pandas")
     campaign = make_campaign(tmp_path, alphas=(0.0, 2.0))
     workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),  # writes a file that is not a loads spreadsheet
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
     with pytest.warns(PyflightstreamWarning, match="none of the 2 successful runs"):
-        run_campaign(
-            campaign,
-            StubSolver(WRITES_LOADS),  # writes a file that is not a loads spreadsheet
-            workspace,
-            assess=converged,
-            recipes={"steady": steady_recipe},
-        )
-    table = pd.read_csv(sweep_csv(tmp_path))
+        derived = sweep_csv(tmp_path, quiet=False)
+    table = pd.read_csv(derived)
     assert list(table["run_id"]) == ["camp/sim_9001/AL+000", "camp/sim_9001/AL+020"]
     assert set(table["status"]) == {"CONVERGED"}
     assert "CL" not in table.columns
@@ -3111,17 +3118,14 @@ def test_a_campaign_that_recorded_nothing_leaves_no_table_and_no_warning(tmp_pat
             )
             == []
         )
-    assert not sweep_csv(tmp_path).exists()
+    assert list((tmp_path / "camp").rglob("campaign_sweep.csv")) == []
 
 
-def test_the_table_is_rebuilt_from_the_whole_manifest_on_a_resume(tmp_path):
-    """One file describes the campaign, not the call that wrote it.
+def test_the_derived_table_covers_the_whole_manifest_on_a_resume(tmp_path):
+    """One derivation describes the campaign, not the call that wrote it.
 
-    This is why the name says campaign and why overwriting is right: the
-    content is derived from an append-only manifest, so a rewrite can
-    only add points. A per-call file would leave fragments nobody can
-    join, and refusing the overwrite would freeze the table at the first
-    call.
+    The content is derived from an append-only manifest, so a later derivation can
+    only add points.
     """
     pd = pytest.importorskip("pandas")
     workspace = CampaignWorkspace(tmp_path / "camp")
@@ -3144,58 +3148,7 @@ def test_the_table_is_rebuilt_from_the_whole_manifest_on_a_resume(tmp_path):
     assert list(pd.read_csv(sweep_csv(tmp_path))["run_id"]) == [
         "camp/sim_9001/AL+000",
         "camp/sim_9001/AL+020",
-    ], "the rewritten table dropped the point an earlier call recorded"
-
-
-def test_a_failed_write_costs_the_campaign_nothing_but_says_so(tmp_path):
-    """A real OSError from the write, and the records still come back.
-
-    post/ is occupied by a FILE, so creating the folder fails the way a
-    read-only tree or a full disk would. The campaign's own outcome is
-    what the operator paid solver time for; a csv that could not be
-    written must not take it away, and must not be silent either.
-    """
-    (tmp_path / "camp").mkdir()
-    (tmp_path / "camp" / "post").write_text("not a folder", encoding="utf-8")
-    campaign = make_campaign(tmp_path, alphas=(0.0,))
-    workspace = CampaignWorkspace(tmp_path / "camp")
-    with pytest.warns(PyflightstreamWarning, match="sweep table was NOT written"):
-        records = run_campaign(
-            campaign,
-            StubSolver(WRITES_LOADS),
-            workspace,
-            assess=converged,
-            recipes={"steady": steady_recipe},
-        )
-    assert [record.run_id for record in records] == ["camp/sim_9001/AL+000"]
-    assert len(workspace.read_manifest()) == 1
-
-
-def test_an_unforeseen_write_error_does_not_swallow_the_campaign_failures(tmp_path, monkeypatch):
-    """The except clause is total ON PURPOSE, and this is why.
-
-    A RuntimeError out of the writer is exactly the class a narrow
-    except would let through, and letting it through would replace
-    CampaignErrors, the one object naming which points failed, with a
-    report about a csv.
-    """
-
-    def explodes(frame, path, **kwargs):
-        raise RuntimeError("the writer broke in a way nobody predicted")
-
-    monkeypatch.setattr(campaign_module, "write_sweep_table", explodes)
-    campaign = make_campaign(tmp_path, alphas=(0.0,))
-    workspace = CampaignWorkspace(tmp_path / "camp")
-    with pytest.warns(PyflightstreamWarning, match="RuntimeError"):
-        with pytest.raises(CampaignErrors, match="1 campaign point"):
-            run_campaign(
-                campaign,
-                StubSolver(WRITES_NOTHING),
-                workspace,
-                assess=converged,
-                recipes={"steady": steady_recipe},
-            )
-    assert workspace.read_manifest()[0].status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    ], "the derived table dropped the point an earlier call recorded"
 
 
 @pytest.mark.parametrize(

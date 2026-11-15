@@ -2542,7 +2542,7 @@ def test_one_executor_is_built_per_installation(tmp_path, monkeypatch):
     register(workspace, "26.123", second.as_posix(), version="26.123")
     path = write_matrix(tmp_path / "executors.fs", [NAMED_ROW, SECOND_BUILD_ROW])
 
-    with pytest.warns(UserWarning, match="none of the"):
+    with pytest.warns(UserWarning, match="the steady run type opens no geometry"):
         run_matrix(
             path,
             workspace,
@@ -4229,7 +4229,7 @@ def test_two_matrices_of_one_workspace_keep_their_own_plan_sweep_and_products(tm
     assert sorted(set(table["sim_id"].astype(str))) == ["8001", "8002"]
     for stem, sims in (("wing_alpha", {"8001", "8002"}), ("wing_beta", {"8101", "8102"})):
         folder = workspace.root / "post" / stem
-        assert (folder / "campaign_sweep.csv").is_file(), f"no sweep table under {folder}"
+        assert not (folder / "campaign_sweep.csv").exists(), f"retired table under {folder}"
         manifest = json.loads((folder / "products.json").read_text(encoding="utf-8"))
         # The settings table spans the matrix and belongs to no one simulation (FR-419).
         per_simulation = [
@@ -6201,7 +6201,7 @@ def test_pfs_2185_18_the_run_posts_each_simulation_before_the_next_runs(tmp_path
             (
                 options.get("sims"),
                 sorted({r.sim_id for r in ws.read_manifest()}),
-                sweep.read_text(encoding="utf-8") if sweep.is_file() else "",
+                sweep.is_file(),
             )
         )
         return []
@@ -6211,8 +6211,9 @@ def test_pfs_2185_18_the_run_posts_each_simulation_before_the_next_runs(tmp_path
     assert [sims for sims, _, _ in calls] == [["5001"], ["5002"]]
     # The first post ran before any point of 5002 was recorded.
     assert calls[0][1] == ["5001"]
-    # The sweep table written after the first post already holds 5001.
-    assert "5001" in calls[1][2] and "5002" not in calls[1][2]
+    # The second post saw 5001 recorded and no campaign table beside it (FR-3777).
+    assert calls[1][1] == ["5001", "5002"] or calls[1][1] == ["5001"]
+    assert not any(sweep for _, _, sweep in calls)
 
 
 @pytest.mark.requirement("FR-3443")
@@ -6246,7 +6247,7 @@ def test_pfs_2185_18_a_run_of_one_simulation_leaves_the_others_products_untouche
     _run_the_matrix(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
     out = workspace.products_dir("warm")
     document = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    own = {"products.json", "post.log", "post.log.json", "campaign_sweep.csv"}
+    own = {"products.json", "post.log", "post.log.json"}
     files = {
         path: (path.read_bytes(), path.stat().st_mtime_ns)
         for path in out.rglob("*")

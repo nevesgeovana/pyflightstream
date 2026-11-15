@@ -56,6 +56,7 @@ FAM and group files the post writes instead.
 | `sections/<point>_disc_<ROTOR>_<QUANTITY>.csv` | `reductions/`, same name |
 | `probes/<point>_time_average.csv` | retired: the window average of every family and group is its row in the polar files |
 | `probes/<point>_per_blade_<ALIAS>.csv` | retired: each blade is a family row of `FAM-ACOEF` and `FAM-RCOEF` |
+| `campaign_sweep.csv`, beside the products of a matrix | retired: each polar's `TOTAL` group files are complete, and [joining polars](pproc/index.md#joining-polars) stacks several |
 | `probes/<point>_probes.csv`, `_probes_history.csv` | unchanged |
 | `sections/<point>_sections.csv` | unchanged path; the identity columns changed, below |
 | the solver's `_cp.txt`, a run record only | `sections/<point>_cp.csv`, new |
@@ -108,6 +109,7 @@ the nearest valid window; write it. A window that already spans whole passages n
 | a run matrix with the header of 0.56.0 (no `MESH_ROUTE` column) | run `pyfs-workspace migrate --apply`, which inserts the column after `GEOMETRY` and changes nothing else |
 | `[hub_rings] width` | `[hub_rings] band_width` |
 | `sector_to_wheel(hub=...)`, `geometry sector-to-wheel --hub` | `center=...`, `--center X Y Z` |
+| `pyfs-matrix run --sweep-csv`, `run_matrix(..., sweep_csv=...)`, `run_campaign(..., sweep_csv=...)`, `pyflightstream.run.SWEEP_TABLE_NAME` | none: the run writes no campaign table; join the `TOTAL` group files of the polars ([joining polars](pproc/index.md#joining-polars)) |
 
 ## 0.57.0
 

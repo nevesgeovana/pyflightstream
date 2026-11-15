@@ -1,17 +1,20 @@
-"""SWEEP-CSV-SECOND-COPY: ``--sweep-csv`` names THE table, never a second one.
+"""FR-3777 (D30): the campaign sweep table is retired, and so is the option that named it.
 
-The help of the option promises that the run writes one sweep table and never a
-second copy under another name. The run layer wrote the default table on its
-own and the command then wrote the chosen path, so a chosen path meant two.
+0.58.0 writes no ``campaign_sweep.csv``: each polar's TOTAL group file is complete. The
+``--sweep-csv`` flag, the ``sweep_csv`` keyword of ``run_matrix`` and ``run_campaign`` and the
+``run.SWEEP_TABLE_NAME`` constant are refused by name with the page's successor sentence.
 """
 
 from __future__ import annotations
 
 import warnings
 
+import pytest
+
+import pyflightstream.run as run
+from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import workflow_registry
-from pyflightstream.exceptions import PyflightstreamWarning
-from pyflightstream.run import SWEEP_TABLE_NAME
+from pyflightstream.exceptions import InputArtifactError, PyflightstreamWarning
 from pyflightstream.run import cli as cli_mod
 from pyflightstream.run.matrix import run_matrix
 from tests.tier1_offline.test_matrix_run import (
@@ -22,35 +25,10 @@ from tests.tier1_offline.test_matrix_run import (
     converged,
 )
 
-
-def test_the_command_hands_the_chosen_path_to_the_run(tmp_path, monkeypatch):
-    received: dict[str, object] = {}
-
-    def spy(matrix, workspace, **keywords):
-        received.update(keywords)
-        return []
-
-    monkeypatch.setattr(cli_mod, "run_matrix", spy)
-    monkeypatch.setattr(cli_mod, "plan_receipt_error", lambda *args, **kwargs: None)
-    chosen = tmp_path / "elsewhere" / "my_table.csv"
-    matrix = tmp_path / "warm.fs"
-    matrix.write_text("", encoding="utf-8")
-    cli_mod.main(
-        [
-            "run",
-            str(matrix),
-            "--workspace",
-            str(tmp_path / "ws"),
-            "--name",
-            "warm",
-            "--fs-version",
-            "26.120",
-            "--sweep-csv",
-            str(chosen),
-        ]
-    )
-    assert "sweep_csv" in received, sorted(received)
-    assert str(received["sweep_csv"]) == str(chosen)
+SUCCESSOR = (
+    "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
+    "(docs/pproc/index.md#joining-polars) joins several."
+)
 
 
 def _run(tmp_path, **extra):
@@ -71,15 +49,42 @@ def _run(tmp_path, **extra):
     return workspace
 
 
-def test_a_chosen_path_is_the_only_sweep_table_the_run_leaves(tmp_path):
-    chosen = tmp_path / "elsewhere" / "my_table.csv"
-    workspace = _run(tmp_path, sweep_csv=chosen)
-    assert chosen.is_file()
-    default = workspace.sweep_dir("warm") / SWEEP_TABLE_NAME
-    assert not default.exists(), "the run left a second copy under the default name"
-    assert list(workspace.root.rglob(SWEEP_TABLE_NAME)) == []
+@pytest.mark.requirement("FR-3777")
+@pytest.mark.parametrize("form", ["--sweep-csv", "--sweep-csv=table.csv"])
+def test_the_command_refuses_the_retired_flag_by_name(tmp_path, capsys, form):
+    argv = ["run", str(tmp_path / "warm.fs"), "--workspace", str(tmp_path / "ws"), form]
+    if form == "--sweep-csv":
+        argv.append("table.csv")
+    assert cli_mod.main(argv) == 2
+    err = capsys.readouterr().err
+    assert "--sweep-csv" in err and "no longer accepted since v0.58.0" in err
+    assert SUCCESSOR in err
 
 
-def test_without_a_chosen_path_the_default_table_is_still_left(tmp_path):
+@pytest.mark.requirement("FR-3777")
+def test_run_matrix_refuses_the_retired_keyword_by_name(tmp_path):
+    with pytest.raises(MatrixError, match="sweep_csv of run_matrix") as refused:
+        _run(tmp_path, sweep_csv=tmp_path / "my_table.csv")
+    assert SUCCESSOR in str(refused.value)
+
+
+@pytest.mark.requirement("FR-3777")
+def test_run_campaign_refuses_the_retired_keyword_by_name():
+    with pytest.raises(InputArtifactError, match="sweep_csv of run_campaign") as refused:
+        run.run_campaign(None, None, None, assess=converged, sweep_csv="t.csv")  # type: ignore[arg-type]
+    assert SUCCESSOR in str(refused.value)
+
+
+@pytest.mark.requirement("FR-3777")
+def test_the_retired_constant_is_refused_by_name():
+    with pytest.raises(AttributeError, match="SWEEP_TABLE_NAME of pyflightstream.run") as refused:
+        run.SWEEP_TABLE_NAME  # noqa: B018 - the access is the behaviour under test
+    assert SUCCESSOR in str(refused.value)
+    assert not hasattr(run, "SWEEP_TABLE_NAME")
+
+
+@pytest.mark.requirement("FR-3777")
+def test_the_run_leaves_no_campaign_sweep_table(tmp_path):
     workspace = _run(tmp_path)
-    assert (workspace.sweep_dir("warm") / SWEEP_TABLE_NAME).is_file()
+    assert list(workspace.root.rglob("campaign_sweep.csv")) == []
+    assert workspace.read_manifest(), "the run recorded nothing, so the absence proves nothing"

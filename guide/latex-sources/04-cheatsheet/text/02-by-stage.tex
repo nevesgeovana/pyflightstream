@@ -449,7 +449,6 @@ One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need
 \opt{--polar-sweep}{run the receipt's jobs, one per polar; \fl{--batch N}: its N jobs (left).}
 \opt{--hpc NAME}{\file{inputs/hpc/NAME.toml}, when several exist.}
 \opt{--progress-every N}{a local unsteady point reports every N steps (default 10; 0 is silent).}
-\opt{--sweep-csv FILE}{the sweep table (default \file{post/<matrix>/campaign_sweep.csv}).}
 \opt{--workflow CODE=NAME}{a legacy script code to a run type: \texttt{steady}, \texttt{unsteady}, \texttt{unsteady\_rotor}, \texttt{qsteady\_rotor} (repeatable).}
 \opt{--workspace DIR}{\fl{--name NAME}, \fl{--fs-version V}, \fl{--fs-exe PATH}, \fl{--recipe CODE=MODULE:FUNCTION}, \fl{--point-name TPL}: as in plan; give the plan's values.}
 \opt{--ignore-missing-families [true|false]}{and \fl{--no-ignore-missing-families}: as in plan.}
@@ -469,7 +468,6 @@ A correction that does not change a point's name (a pproc, a geometry, a solver 
 \wf{sims/sim_<POL>/scripts/}{the generated solver scripts, \file{P<sim>-<point>.txt}.}
 \wf{sims/sim_<POL>/datapoints/DP-<point>/}{the point's outputs, its descriptor when submitted, its wall-clock state.}
 \wf{runs.json}{one record per point or steady job; \file{runs.json.lock} while it is written.}
-\wf{post/<matrix>/campaign_sweep.csv}{the sweep table of this matrix.}
 \wf{archive/runs-<stamp>.json}{the manifest before a forced re-run; each redone point's outputs go to its own \file{archive/<stamp>/}.}
 
 \hd{Common errors}
@@ -592,22 +590,21 @@ Collect reads the job's descriptor, log and end files in its folder and complete
 \begin{tikzpicture}
 \tn{0}{0}{post/<matrix>/}{}
 \tn{1}{1}{plan.json}{the plan receipt (stage 4)}
-\tn{1}{2}{campaign_sweep.csv}{the sweep table}
-\tn{1}{3}{products.json}{every file, its run ids, skips}
-\tn{1}{4}{post.log post.log.json}{warnings and refusals}
-\tn{1}{5}{polars/}{one polar table per group}
-\tn{1}{6}{sections/}{\pth{<point>_sections.csv}}
-\tn{1}{7}{probes/}{\pth{<point>_plots.csv}, \pth{<point>_probes.csv}}
-\tn{1}{8}{series/}{per-step series of an unsteady point}
-\tn{1}{9}{fields/}{sampled velocity fields}
-\tn{2}{10}{<stem>.vtk}{VTK vertex cloud}
-\tn{2}{11}{<stem>.dat}{Tecplot}
-\tn{2}{12}{<stem>.inflow.dat}{reusable inflow, SI}
-\tn{2}{13}{<file>.provenance.json}{beside each field file}
-\tn{1}{14}{archive/<stamp>/}{what each rebuild replaced}
-\tn{0}{15}{post/<matrix>@sims/}{products of \fl{--from-sims}}
-\tv{0}{1}{14}
-\tv{1}{10}{13}
+\tn{1}{2}{products.json}{every file, its run ids, skips}
+\tn{1}{3}{post.log post.log.json}{warnings and refusals}
+\tn{1}{4}{polars/}{one polar table per group}
+\tn{1}{5}{sections/}{\pth{<point>_sections.csv}}
+\tn{1}{6}{probes/}{\pth{<point>_plots.csv}, \pth{<point>_probes.csv}}
+\tn{1}{7}{series/}{per-step series of an unsteady point}
+\tn{1}{8}{fields/}{sampled velocity fields}
+\tn{2}{9}{<stem>.vtk}{VTK vertex cloud}
+\tn{2}{10}{<stem>.dat}{Tecplot}
+\tn{2}{11}{<stem>.inflow.dat}{reusable inflow, SI}
+\tn{2}{12}{<file>.provenance.json}{beside each field file}
+\tn{1}{13}{archive/<stamp>/}{what each rebuild replaced}
+\tn{0}{14}{post/<matrix>@sims/}{products of \fl{--from-sims}}
+\tv{0}{1}{13}
+\tv{1}{9}{12}
 \end{tikzpicture}
 
 \hd{Sampled fields and their provenance}
