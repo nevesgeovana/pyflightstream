@@ -527,6 +527,7 @@
       "tests/tier1_offline/test_p0580_l1_run_block.py",
       "tests/tier1_offline/test_p0580_l3_manifest_schema.py",
       "tests/tier1_offline/test_p0580_l3_run_block.py",
+      "tests/tier1_offline/test_p0580_l3_sections.py",
       "tests/tier1_offline/test_p0580_l3_tree.py",
       "tests/tier1_offline/test_post_diagnostics.py",
       "tests/tier1_offline/test_post_log.py",

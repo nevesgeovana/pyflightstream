@@ -53,7 +53,7 @@ from pyflightstream.post._admit import (
     _admit,
     _Admitted,
 )
-from pyflightstream.post._block_rows import run_block_scope
+from pyflightstream.post._block_rows import rotor_ids_of, run_block_scope
 from pyflightstream.post._condition import (
     _advance_ratio_of,
     _effective_pproc,
@@ -87,6 +87,7 @@ from pyflightstream.post._rotor_products import (
     _the_sections_writer,
     _wheel_harmonics,
 )
+from pyflightstream.post._sections_stage import finish_sections, split_of
 from pyflightstream.post._stage import (
     POLARS_DIR,
     PROBES_DIR,
@@ -879,7 +880,9 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
     # MT-01: scope ProductError to this export's product. Products already
     # written for the simulation must retain their manifest entries when
     # another export is unreadable.
+    family_files: list[Path] = []
     try:
+        split = split_of(ctx)
         done = write_sections_table(
             target,
             sloads_path.read_text(encoding="utf-8", errors="replace"),
@@ -906,6 +909,10 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
             layout=record.sections_layout,
             rotors=_section_rotors(ctx.live, ctx.aliases, record),
             pol=ctx.sim_id,
+            inventory=record.inventory,
+            rotor_ids=rotor_ids_of(ctx),
+            split=split,
+            family_files=family_files,
         )
     except (ProductError, OSError) as error:
         ctx.skipped[relative] = str(error)
@@ -919,6 +926,7 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
         )
         return
     _sections_cut_products(ctx, point, done)
+    finish_sections(ctx, point, done, family_files, split)
 
 
 def _retire_unwritten(ctx: SimContext, relative: str, target: Path, reason: str) -> None:

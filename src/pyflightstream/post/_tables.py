@@ -186,8 +186,17 @@ def rotor_advance_ratio(speed_m_s: object, rpm: object, diameter_m: object) -> f
 #: Columns distinguishing sections rows before their shared condition.
 #: AZIMUTH is NA without a rotor, not zero, which is a real rotor angle.
 #: STEP names the solver step, or solver iteration on a steady run.
-#: FAMILY, PLANE and ROTOR identify the distribution.
-_SECTION_IDENTITY_COLUMNS: tuple[str, ...] = ("STEP", "FAMILY", "PLANE", "ROTOR", "AZIMUTH")
+#: FAMILY and FAMILY_ID (the family and its index in the boundary inventory),
+#: PLANE and ROTOR_ID (with its alias, ROTOR) identify the distribution.
+_SECTION_IDENTITY_COLUMNS: tuple[str, ...] = (
+    "FAMILY",
+    "FAMILY_ID",
+    "STEP",
+    "PLANE",
+    "ROTOR_ID",
+    "ROTOR",
+    "AZIMUTH",
+)
 
 #: G16: the polar first, as in every table the post writes.
 SECTION_COLUMNS: tuple[str, ...] = (

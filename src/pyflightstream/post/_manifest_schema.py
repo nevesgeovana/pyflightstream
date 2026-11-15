@@ -81,6 +81,55 @@ TREE: dict[str, dict[str, Any]] = {
 }
 
 
+_CP_PAGE = "docs/pproc/cp.md"
+
+#: Unit and meaning of each column of the surface-section export, as the export
+#: prints it (``results.exports.SURFACE_SECTION_COLUMNS``): length columns in the
+#: simulation's length unit and in the REFERENCE coordinates.
+_CP_EXPORT: dict[str, tuple[str, str | None, str]] = {
+    "Section_direction_value": ("model length", "section", "station along the section's direction"),
+    "X": ("model length", "reference", "x of the cut point"),
+    "Y": ("model length", "reference", "y of the cut point"),
+    "Z": ("model length", "reference", "z of the cut point"),
+    "nx": ("-", "reference", "x of the unit surface normal"),
+    "ny": ("-", "reference", "y of the unit surface normal"),
+    "nz": ("-", "reference", "z of the unit surface normal"),
+    "L": ("-", None, "normalized position along the cut"),
+    "Cp": ("-", None, "pressure coefficient against the free stream"),
+    "Mach": ("-", None, "local Mach number"),
+    "vx": ("m/s", "reference", "x velocity at the point"),
+    "vy": ("m/s", "reference", "y velocity at the point"),
+    "vz": ("m/s", "reference", "z velocity at the point"),
+    "vtot": ("m/s", None, "speed at the point"),
+    "Cp_ref": ("-", None, "pressure coefficient against the reference velocity"),
+    "Theta": ("model length", None, "momentum thickness"),
+    "CF": ("-", None, "skin-friction coefficient"),
+    "Delta*": ("model length", None, "displacement thickness"),
+    "Delta": ("model length", None, "boundary-layer thickness"),
+    "H": ("-", None, "shape factor"),
+}
+
+
+def cp_export_specs() -> tuple[ColumnSpec, ...]:
+    """Return the columns of the surface-section export as the Cp table carries them.
+
+    Examples
+    --------
+    >>> [spec.name for spec in cp_export_specs()][:3]
+    ['Section_direction_value', 'X', 'Y']
+    """
+    return tuple(
+        ColumnSpec(
+            name,
+            unit,
+            frame,
+            quantity,
+            f"{_CP_PAGE}#{name.lower().replace('*', '-star').replace('_', '-')}",
+        )
+        for name, (unit, frame, quantity) in _CP_EXPORT.items()
+    )
+
+
 def tree_section() -> dict[str, dict[str, Any]]:
     """Return the ``tree`` section: every folder, what it holds and its kinds.
 
@@ -216,13 +265,21 @@ def kinds_section(
             keys=[*grp_keys, "ROTOR_ID"],
         )
     section_keys = [*fam_keys, "STEP", "PLANE", "ROTOR_ID", "AZIMUTH"]
+    sections = list(sections_columns(integrated=integrated_sections))
+    at = next(i for i, spec in enumerate(sections) if spec.name == "ROTOR_ID") + 1
+    sections.insert(
+        at,
+        ColumnSpec(
+            "ROTOR", "-", None, "the rotor's alias, NA off a rotor", sections[at - 1].definition
+        ),
+    )
     out["sections"] = kind_entry(
-        sections_columns(integrated=integrated_sections),
+        sections,
         rows="one per cut station of a distribution",
         keys=section_keys,
     )
     out["cp"] = kind_entry(
-        cp_columns(cp_export_columns),
+        cp_columns(tuple(cp_export_columns) or cp_export_specs()),
         rows="one per surface point of a cut",
         keys=[*section_keys, "SECTION"],
     )

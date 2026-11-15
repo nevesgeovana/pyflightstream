@@ -61,6 +61,12 @@ from pyflightstream._tokens import POLAR_ID_COLUMN, REDUCTION_COLUMNS, ROTOR_ID_
 from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_POSITIONS_MARKER
 from pyflightstream.post._condition import _stated_iteration
+from pyflightstream.post._section_tables import (
+    family_cell,
+    family_file_name,
+    rotor_id_cell,
+    sections_split,
+)
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
     _PLOTS_CLOCK_COLUMNS,
@@ -153,6 +159,10 @@ def write_sections_table(
     layout: Sequence[Mapping[str, object]] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
     pol: str | int | None = None,
+    inventory: Sequence[str] | None = None,
+    rotor_ids: Mapping[str, int] | None = None,
+    split: str = "point",
+    family_files: list[Path] | None = None,
     overwrite: bool = True,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
@@ -249,6 +259,18 @@ def write_sections_table(
         ``blade1_azimuth_deg`` and signed ``rpm``.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    inventory : sequence of str, optional
+        The geometry's boundary inventory, in file order: ``FAMILY_ID`` is the
+        1-based index of the family in it, ``NA`` where it names none.
+    rotor_ids : mapping of str to int, optional
+        Each rotor alias to its declared id, for ``ROTOR_ID``.
+    split : {'point', 'family', 'both'}, optional
+        ``[sections] split``. The point table is always written; ``family`` and
+        ``both`` also write one table per family,
+        ``<point>_FAM-<FAMILY>_sections.csv``, and the caller drops the point
+        table where only the family files are asked for.
+    family_files : list of Path, optional
+        Where the per-family paths written are appended.
     overwrite : bool, optional
         Replace a file that already exists, as the writer always did (the default).
         False refuses an existing file, naming it, before it is replaced.
@@ -256,7 +278,7 @@ def write_sections_table(
     Returns
     -------
     Path or None
-        The file written, or None when the export declares no section.
+        The point table written, or None when the export declares no section.
 
     Raises
     ------
@@ -318,11 +340,36 @@ def write_sections_table(
     )
     context = context_row(stated, None if reference is None else reference.as_lengths())
     identity = section_identity(len(table), layout, rotors, step, azimuth_deg)
+    split = sections_split(split)
     rows = [
-        (pol, step, *identity[at], *context, *(float(v) for v in row[:7]))
+        (
+            pol,
+            identity[at][0],
+            family_cell(identity[at][0], inventory),
+            step,
+            identity[at][1],
+            rotor_id_cell(identity[at][2], rotor_ids),
+            identity[at][2],
+            identity[at][3],
+            *context,
+            *(float(v) for v in row[:7]),
+        )
         for at, row in enumerate(table)
     ]
-    return write_csv_table(path, SECTION_COLUMNS, rows, overwrite=overwrite)
+    written = write_csv_table(path, SECTION_COLUMNS, rows, overwrite=overwrite)
+    if split in ("family", "both"):
+        point = Path(path).name.removesuffix("_sections.csv")
+        by_family: dict[object, list[tuple[object, ...]]] = {}
+        for row in rows:
+            by_family.setdefault(row[1], []).append(row)
+        for family, own in by_family.items():
+            name = family_file_name(point, "NA" if family is None else family, "sections")
+            made = write_csv_table(
+                Path(path).with_name(name), SECTION_COLUMNS, own, overwrite=overwrite
+            )
+            if family_files is not None:
+                family_files.append(made)
+    return written
 
 
 def write_plots_table(
