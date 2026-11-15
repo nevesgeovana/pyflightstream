@@ -214,15 +214,14 @@ def test_g43_a_submitting_run_with_a_failed_point_writes_no_table(tmp_path, monk
     def fails_after_submitting(matrix, workspace, **keywords):
         raise CampaignErrors([failed], [queued, failed])
 
-    tables = []
     monkeypatch.setattr(cli_mod, "run_matrix", fails_after_submitting)
     monkeypatch.setattr(cli_mod, "plan_receipt_error", lambda *args, **kwargs: None)
-    # The table the command would derive, stood in, so the only thing between the
-    # error and the writer is the submission check this test is about.
-    monkeypatch.setattr(cli_mod, "sweep_table", lambda *args, **kwargs: "a table")
-    monkeypatch.setattr(cli_mod, "write_sweep_table", lambda *args, **kwargs: tables.append(args))
     matrix = tmp_path / "m.fs"
     matrix.write_text("", encoding="utf-8")
     status = cli_mod.main(["run", str(matrix), "--workspace", str(tmp_path / "ws"), "--name", "m"])
     assert status == 2
-    assert tables == [], "the command wrote a table for a run that submitted a point"
+    # 0.58.0 (D30, FR-3777): the command derives and writes no sweep table at all,
+    # campaign_sweep.csv being retired; none appears for this run either.
+    assert not list((tmp_path / "ws").rglob("campaign_sweep.csv")), (
+        "the command wrote a table for a run that submitted a point"
+    )

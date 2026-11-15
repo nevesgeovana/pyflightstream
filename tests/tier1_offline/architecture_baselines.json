@@ -1114,7 +1114,7 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 161,
+ "monkeypatch_targets": 159,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
@@ -1167,7 +1167,7 @@
   "pyflightstream.run._rebuild": 2,
   "pyflightstream.run._runtime": 4,
   "pyflightstream.run._solver_windows": 2,
-  "pyflightstream.run.cli": 14,
+  "pyflightstream.run.cli": 12,
   "pyflightstream.run.collect": 3,
   "pyflightstream.run.matrix": 8,
   "pyflightstream.run.records": 3,
