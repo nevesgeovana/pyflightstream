@@ -95,6 +95,18 @@ def test_p0580_the_family_file_name_is_made_safe():
     assert family_file_name("AL+000", "Blade 1", "cp") == "AL+000_FAM-Blade_1_cp.csv"
 
 
+@pytest.mark.parametrize("split", ["family", "both"])
+@pytest.mark.parametrize("names", [("Blade/1", "Blade_1"), ("Wing", "wing")])
+def test_family_file_collisions_are_refused_before_any_write(tmp_path, split, names):
+    point = tmp_path / "AL_sections.csv"
+    point.write_text("existing point", encoding="utf-8")
+    layout = [{"families": [name], "plane": "XZ", "count": 1, "frame": "MRP"} for name in names]
+    with pytest.raises(ProductError, match="same family file"):
+        write_sections_table(point, SLOADS, mach=0.2, layout=layout, split=split)
+    assert point.read_text(encoding="utf-8") == "existing point"
+    assert list(tmp_path.iterdir()) == [point]
+
+
 def test_p0580_the_cp_table_keys_every_cut_point_by_family_and_section(tmp_path):
     layout = [{"families": ["Wing"], "plane": "XZ", "count": 1, "frame": "MRP"}]
     done = write_cp_table(
