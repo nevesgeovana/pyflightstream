@@ -98,6 +98,33 @@ def test_the_retired_layout_is_told_from_the_new():
         assert not is_retired_layout(f"polars/{name}"), name
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "P6001-PROP-RCOEF_corrected.csv",
+        "P6001-PROP_qs_avg_corrected.csv",
+        "P6001-PROP_qs_avg.csv",
+        "P6001-PROP_qs_positions.csv",
+    ],
+)
+def test_a_corrected_product_of_a_current_file_is_of_the_current_layout(tmp_path, name):
+    """Lane I3: the post's own corrected files are never migrated nor warned as 0.57.0 files.
+
+    The quasi-steady corrections write ``<raw>_corrected.csv`` beside the rotor group's
+    RCOEF file and the average table (post.corrections); both raw files are of the
+    current layout (design of the post outputs, section 1), and so are their corrected
+    twins. The snapshot of the qsteady_correction campaign named
+    ``P6001-PROP-RCOEF_corrected.csv`` "the 0.57.0 per-group, per-Mach polar" and mapped
+    it to ``polars/P6001-corrected-ACOEF.csv``.
+    """
+    from pyflightstream.post._retired_polars import is_retired_layout, retired_polar_files
+
+    assert not is_retired_layout(f"polars/{name}")
+    (tmp_path / "polars").mkdir()
+    (tmp_path / "polars" / name).write_text("POL\n", encoding="utf-8")
+    assert retired_polar_files(tmp_path) == []
+
+
 SWEEP_SENTENCE = (
     "campaign_sweep.csv is retired: each polar's TOTAL group file is complete, and the guide "
     "(docs/pproc/index.md#joining-polars) joins several."

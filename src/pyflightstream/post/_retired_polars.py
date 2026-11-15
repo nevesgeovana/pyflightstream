@@ -27,9 +27,11 @@ __all__ = [
 #: What every warning of the migration ends with.
 UPGRADE_POINTER = "See docs/upgrading.md#0580-post-tree."
 
-#: The file names of the new layout, which are never the old one's.
+#: The file names of the new layout, which are never the old one's; a corrected
+#: product (``<name>_corrected.csv``, post.corrections) is its raw file's.
 _NEW = re.compile(
-    r"^(FAM-(DIM|ACOEF|RCOEF)-P.+\.csv|P[^-]+-.+-(DIM|ACOEF|RCOEF)(_trim|_at_[^/]+|_merge)?\.(csv|dat))$"
+    r"^(FAM-(DIM|ACOEF|RCOEF)-P.+\.csv|"
+    r"P[^-]+-.+-(DIM|ACOEF|RCOEF)(_trim|_at_[^/]+|_merge)?(_corrected)?\.(csv|dat))$"
 )
 
 #: The campaign sweep table of 0.57.0, beside the products of a matrix (design section 2.2).
@@ -55,7 +57,7 @@ _GROUP = re.compile(
 _KEPT_QUIET = re.compile(r"^P.+(_merge|_cn_slope)\.csv$")
 #: The quasi-steady rotor tables, which 0.58.0 still writes under these names
 #: (design section 1): current products, never of the earlier layout.
-_CURRENT = re.compile(r"^P.+(_qs_avg|_qs_positions)\.csv$")
+_CURRENT = re.compile(r"^P.+(_qs_avg|_qs_positions)(_corrected)?\.csv$")
 
 
 @dataclass(frozen=True)
