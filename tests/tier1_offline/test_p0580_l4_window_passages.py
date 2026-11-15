@@ -81,3 +81,31 @@ def test_p0580_l4_a_row_with_two_rotors_names_only_the_rotor_that_fails():
     # THE CONTROL: a whole revolution is whole passages of both rotors.
     whole = case.model_copy(update={"variables": {**case.variables, "LAST_REVS_AVG": "1.0"}})
     require_whole_passages(whole)
+
+
+def _sector_case(**variables):
+    """One meshed blade of a six-bladed wheel: SYMMETRY PERIODIC, PERIODIC_COPIES 6."""
+    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
+
+    sector = FIXTURE_ROTOR.model_copy(update={"families_blades": ["Blade1"]})
+    variables = {"SYMMETRY": "PERIODIC", **variables}
+    case = rotor_case(BLADES=None, PERIODIC_COPIES="6", **variables)
+    return case.model_copy(update={"rotors": {sector.alias: sector}})
+
+
+def test_p0580_l4_a_periodic_sector_counts_the_wheels_blades_as_passages():
+    """500 steps a revolution over six blades is a passage of 83.33 steps."""
+    require_whole_passages(_sector_case(LAST_REVS_AVG="0.166667"))
+    with pytest.raises(CampaignConfigError) as refused:
+        require_whole_passages(_sector_case(LAST_REVS_AVG="0.083333"))
+    text = str(refused.value)
+    assert "`6` blades" in text
+    assert (
+        "The nearest valid window is `LAST_REVS_AVG = 0.166667` (`1` passages, `83` steps)." in text
+    )
+
+
+def test_p0580_l4_without_periodic_symmetry_the_copies_are_not_blades():
+    case = _sector_case(LAST_REVS_AVG="0.166667", SYMMETRY="NONE")
+    with pytest.raises(CampaignConfigError, match="`1` blades"):
+        require_whole_passages(case)

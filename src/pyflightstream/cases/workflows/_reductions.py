@@ -55,6 +55,7 @@ from ._vocabulary import (
     PERIODIC_COPIES_VARIABLE,
     ROTORS_KEY,
     RPM_VARIABLE,
+    SYMMETRY_VARIABLE,
     _refuse_retired_window_keys,
 )
 
@@ -1127,11 +1128,21 @@ def require_whole_passages(case: SimCase) -> None:
     else:
         flat = _the_rotor_a_flat_row_turns(case)
         blocks = [(flat.alias if flat is not None else "ROTOR", plan)]
+    # A SYMMETRY PERIODIC row meshes a sector: its PERIODIC_COPIES is the wheel's
+    # blades per meshed blade, so the passages are those of the whole wheel.
+    periodic = str(_variable(case, SYMMETRY_VARIABLE) or "").strip().upper() == "PERIODIC"
+    copies = (
+        _required_int(case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies")
+        if periodic and _variable(case, PERIODIC_COPIES_VARIABLE) is not None
+        else 1
+    )
     for alias, block in blocks:
         blades, clock = block.get("blades"), block.get("steps_per_revolution")
         if isinstance(blades, int) and blades >= 1 and isinstance(clock, int | float) and clock > 0:
             declared = (case.rotors or {}).get(alias)
-            known.append((alias, int(getattr(declared, "id", 0) or 0), blades, float(clock)))
+            if declared is not None and declared.families_blades:
+                blades = len(declared.families_blades) * copies
+            known.append((alias, declared.id if declared is not None else 0, blades, float(clock)))
     refusals = _windows.whole_passage_refusals(case.sim_id, case.variables, known)
     if refusals:
         raise CampaignConfigError("\n".join(refusals))

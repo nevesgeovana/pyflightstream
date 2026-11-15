@@ -52,7 +52,9 @@ table then holds the continuation's own export, as it states its steps. On 26.12
 A point that continues nothing is averaged exactly as before.
 
 **The window of an `unsteady_rotor` row spans whole blade passages of every rotor the row
-turns.** A passage is `steps_per_revolution / blades` steps of that rotor, and the window of
+turns.** A passage is `steps_per_revolution / blades` steps of that rotor, where `blades` is
+the rotor block's blade count, times `PERIODIC_COPIES` on a `SYMMETRY: PERIODIC` row (the
+meshed sector stands for the whole wheel), and the window of
 `L` steps spans `k = L / passage` passages. It is valid when `round(k)` is at least 1 and
 `round(round(k) * passage)` equals `L`, so a fractional passage is judged on the steps the
 solver can take. A row that fails for any rotor is refused at plan, naming the window, the
