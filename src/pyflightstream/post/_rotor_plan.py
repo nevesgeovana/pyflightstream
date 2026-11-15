@@ -756,39 +756,41 @@ def _recorded_rotor_rpm(record: RunRecord, alias: str, rotor_count: int) -> floa
 
 
 def _warn_rotor_advance_ratio(
-    ctx: _RotorTablePlan,
     point: PolarPoint,
     alias: str,
-    rotor: RotorReference,
     *,
-    rpm: float,
+    diameter_m: float,
+    rpm: float | None,
+    rotor_id: int,
+    rotor_count: int,
+    matrix_row: object | None,
 ) -> None:
     # BOTH ADVANCE RATIOS ARE IN THE ROW, and the stage says when they part
-    # (NL-09). `J` is what the row REQUESTED; `J_<alias>` is what this
-    # rotor RAN at, from its own speed and diameter, and it is the one every
-    # coefficient of the table uses. On the rotor the row sweeps the two
-    # should agree; on a second rotor of the row they are not expected to,
-    # so nothing is said about it.
+    # (NL-09). `J` is what the row REQUESTED; `J<id>` is what this rotor RAN
+    # at, from its own speed and diameter, and it is the one every coefficient
+    # of its RCOEF files uses. On the rotor the row sweeps the two should
+    # agree; on a second rotor of the row they are not expected to, so nothing
+    # is said about it.
     """Warn when the swept rotor's actual advance ratio differs from the row."""
     requested = (point.point or {}).get("advance_ratio")
     flight = point.loads.freestream_velocity_m_s if point.loads is not None else None
-    span = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
-    clock = str(getattr(ctx.matrix_row, "variables", {}).get("CLOCK_MOTION", "") or "")
+    span = float(diameter_m or 0.0)
+    clock = str(getattr(matrix_row, "variables", {}).get("CLOCK_MOTION", "") or "")
     if (
         isinstance(requested, int | float)
         and isinstance(flight, int | float)
         and span > 0.0
         and rpm
         # CASE-FOLDED, as clock_rotor_facts resolves the same name.
-        and (len(ctx.rotors) == 1 or clock.casefold() == str(alias).casefold())
+        and (rotor_count == 1 or clock.casefold() == str(alias).casefold())
     ):
         ran = float(flight) / (abs(rpm) / 60.0 * span)
         if abs(ran - float(requested)) > 5e-4 * max(1.0, abs(float(requested))):
             warn(
                 f"{point.name}: the row asks for J = {float(requested):g} and rotor "
-                f"{alias} ran at J_{alias} = {ran:.5g} ({float(flight):g} m/s, "
-                f"{abs(rpm):g} rev/min, D {span:g} m). The coefficients of its rotor "
-                f"table use J_{alias}.",
+                f"{alias} ran at J{rotor_id} = {ran:.5g} ({float(flight):g} m/s, "
+                f"{abs(rpm):g} rev/min, D {span:g} m). The coefficients of its RCOEF "
+                f"files use J{rotor_id}.",
                 PyflightstreamWarning,
                 stacklevel=4,
             )
@@ -955,7 +957,15 @@ def _plan_rotor_row(
             )
         )
         return None
-    _warn_rotor_advance_ratio(ctx, point, alias, rotor, rpm=rpm)
+    _warn_rotor_advance_ratio(
+        point,
+        alias,
+        diameter_m=float(getattr(rotor, "diameter_m", 0.0) or 0.0),
+        rpm=rpm,
+        rotor_id=int(getattr(rotor, "id", 0) or 0),
+        rotor_count=len(ctx.rotors),
+        matrix_row=ctx.matrix_row,
+    )
     selected = _rotor_row_surfaces(
         ctx,
         point,

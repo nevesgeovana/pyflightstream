@@ -115,6 +115,27 @@ def _rotor_speeds(
     return speeds
 
 
+def _say_the_advance_ratio(
+    ctx: SimContext,
+    point: PolarPoint,
+    rotors: Sequence[PolarRotor],
+    speeds: Mapping[int, float | None],
+) -> None:
+    """Warn where the swept rotor did not run at the advance ratio the row asked for."""
+    from pyflightstream.post import _rotor_plan
+
+    for rotor in rotors:
+        _rotor_plan._warn_rotor_advance_ratio(
+            point,
+            rotor.alias,
+            diameter_m=rotor.diameter_m,
+            rpm=speeds.get(rotor.rotor_id),
+            rotor_id=rotor.rotor_id,
+            rotor_count=len(rotors),
+            matrix_row=ctx.matrix_row,
+        )
+
+
 def _number(value: object) -> float | None:
     if isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value):
         return float(value)
@@ -458,6 +479,7 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
             continue
         family_loads, own, split, declined, values = found
         speeds = _rotor_speeds(ctx, point, rotors)
+        _say_the_advance_ratio(ctx, point, rotors, speeds)
         # ONE RUN BLOCK FOR EVERY TABLE OF THE POINT (FR-3778): the row the stage's
         # scope laid out over the whole sweep, so POINT_ID is the point's place in
         # it even where this step reads a filtered list of points.
