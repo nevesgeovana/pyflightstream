@@ -290,6 +290,12 @@ def register_delegated_commands(build: str, entry: str) -> None:
     """
     if not _DELEGATED:
         _DELEGATED.append((build, entry))
+    elif _DELEGATED[0] != (build, entry):
+        first_build, first_entry = _DELEGATED[0]
+        raise RuntimeError(
+            f"delegated commands are already registered as ({first_build!r}, {first_entry!r}); "
+            f"a second registration ({build!r}, {entry!r}) differs"
+        )
 
 
 def _resolved(target: str) -> Callable[..., Any]:
