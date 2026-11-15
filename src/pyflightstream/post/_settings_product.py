@@ -18,11 +18,13 @@ files are not written and ``post.log`` says so once.
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._tokens import POLAR_ID_COLUMN
 from pyflightstream.post._block_scope import collected_block, run_block_text
+from pyflightstream.post._run_block import RUN_BLOCK_SPEC
 from pyflightstream.post._stage import post_note
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.settings_table import write_settings_table
@@ -86,6 +88,15 @@ def _table_sources(
     return sources
 
 
+_BLOCK_NAMES = {column.name for column in RUN_BLOCK_SPEC if "<" not in column.name}
+_PER_ROTOR_NAME = re.compile(r"(?:RPM|J|MTIP|MHEL|D|ADISC|PITCH|TOE)[0-9]+")
+
+
+def _is_block_name(name: str) -> bool:
+    """Whether name is a column of the run block (a rotor's by id), not an identifier."""
+    return name == "RUN_ID" or name in _BLOCK_NAMES or bool(_PER_ROTOR_NAME.fullmatch(name))
+
+
 def _held_keys(path: Path) -> dict[str, dict[str, str]]:
     """Return the key columns each run's row holds in the table at ``path``, by ``RUN_ID``.
 
@@ -100,8 +111,9 @@ def _held_keys(path: Path) -> dict[str, dict[str, str]]:
         return {}
     header = table[0]
     keys = header[: header.index("codebook_version")]
+    keys = [name for name in keys if _is_block_name(name)]  # the IDENTIFIERS are the funnel's
     return {
-        row[header.index("RUN_ID")]: dict(zip(keys, row, strict=False))
+        row[header.index("RUN_ID")]: {name: row[header.index(name)] for name in keys}
         for row in table[1:]
         if len(row) == len(header)
     }
