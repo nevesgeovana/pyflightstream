@@ -1251,6 +1251,33 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     captured[plan_name] = captured[plan_name].replace(
         old_boundary, b'"wake_termination": {},\n      "boundaries_file": null\n'
     )
+    # 0.58.0 takes four setup keys out of the setup inspection and adds a paragraph to one
+    # command note; every other setting keeps its bytes. PFS-2250 refuses the PHYSICS
+    # switches by name and PFS-2251 sonic_velocity_m_per_s; PFS-2256 declares
+    # thin_boundaries in the boundaries file; PFS-2255 makes the row's SYMMETRY_LOADS column
+    # the one route to SET_ANALYSIS_SYMMETRY_LOADS, inspected as a workflow setting after
+    # the setup's; VV-F3 (PFS-2258) states what REMOVE_INITIALIZATION prints (its line
+    # break reads "/n" once the comparison turns backslashes into slashes).
+    plan_data = json.loads(captured[plan_name])
+    assert (json.dumps(plan_data, indent=2) + "\n").encode() == captured[plan_name]
+    settings = plan_data["setup_inspections"][0]["settings"]
+    for key in (
+        "thin_boundaries",
+        "sonic_velocity_m_per_s",
+        "physics_auto_trailing_edges",
+        "physics_auto_wake_nodes",
+    ):
+        del settings[key]
+    settings["symmetry_loads"] = {
+        **settings.pop("symmetry_loads"),
+        "evidence": "Package/workflow setting; applicability depends on the selected row.",
+    }
+    settings["remove_initialization"]["evidence"] += (
+        "/nPrints `Solution cleared. Initialization removed.` mid-job "
+        "(tests/tier1_offline/fixtures/batch0350/logs, 2026-10-02 probes); not yet probed "
+        "as the last command before CLOSE_FLIGHTSTREAM (PFS-2258)."
+    )
+    captured[plan_name] = (json.dumps(plan_data, indent=2) + "\n").encode()
     # FR-3292 writes the post's measurement reports beside its products. The 0.38.0
     # capture held none (the workspace-root reports/ was never compared), so they are
     # left out here, and products.json names their new place.
