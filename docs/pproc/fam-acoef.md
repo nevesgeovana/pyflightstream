@@ -18,7 +18,11 @@ the moment reference point, right-hand about the frame's forward, right and
 down axes ([airframe coefficients](../definitions/airframe-coefficients.md#airframe-coefficients),
 [axes and signs](../definitions/axes-and-signs.md#axes-and-signs)). The
 coefficients are taken against `q_ref = 0.5 RHO VREF^2`, the export's own
-normalisation, so they are finite at a static point.
+normalisation, so they are finite at a static point. The density cancels in
+them: a steady point that records no density `RHO` states the export's own
+coefficients, with its DIM rows and the RCOEF `T`, `Q` and `P` as `NA`, and is
+warned. An unsteady point's loads are window-averaged plots in N, so without
+`RHO` its coefficients read `NA`, warned naming `RHO`.
 
 A family whose induced drag the solver did not compute writes `NA` in `CDI`
 and in every coefficient the x force reaches at that point's angles; the

@@ -75,6 +75,9 @@ Loads = tuple[tuple[float, float, float], tuple[float, float, float]]
 #: The tables of one entity being assembled, by kind: header and rows.
 _Tables = dict[str, tuple[tuple[str, ...], list[tuple[object, ...]]]]
 
+#: The RCOEF cells in N, N m and kW, NA where the loads are of a unit density.
+_DIMENSIONAL_RCOEF: tuple[str, ...] = ("T", "Q", "P")
+
 _NAN_LOADS: Loads = ((math.nan,) * 3, (math.nan,) * 3)  # type: ignore[assignment]
 
 
@@ -200,6 +203,10 @@ class PolarPointLoads:
         Each rotor's speed on this point, signed about its declared axis.
     mesh_faces : object
         The face count of the geometry, ``NA`` where none is stated.
+    dimensional : bool
+        False where the loads are those of a unit density, because the point
+        records no density: the coefficients, in which the density cancels, are
+        stated, and every dimensional cell (DIM, ``T``, ``Q``, ``P``) is NA.
     """
 
     run_block: Mapping[str, object]
@@ -214,6 +221,7 @@ class PolarPointLoads:
     declined: Collection[str] = ()
     rpm: Mapping[int, float | None] = field(default_factory=dict)
     mesh_faces: object = ""
+    dimensional: bool = True
 
 
 @dataclass(frozen=True)
@@ -750,7 +758,8 @@ class _Assembler:
         point = self.points[index]
         turns = self.turns[index]
         lead = [point.run_block.get(name, NOT_APPLICABLE) for name in self.block]
-        forces = list(loads[0]) + list(loads[1]) if loads is not None else [math.nan] * 6
+        stated = loads is not None and point.dimensional
+        forces = list(loads[0]) + list(loads[1]) if stated else [math.nan] * 6  # type: ignore[index]
         tables["DIM"][1].append(tuple(_cells([*lead, *identity, *forces, point.mesh_faces])))
         declined = any(member in point.declined for member in members)
         acoef = _acoef(loads, point, turns, self.reference, declined=declined)
@@ -764,6 +773,10 @@ class _Assembler:
         if rotor is None or "RCOEF" not in tables:
             return
         rcoef = _rcoef(loads, point, rotor, turns, self.reference)
+        if not point.dimensional:
+            # UNIT-DENSITY LOADS: the coefficients stand (the density cancels), the
+            # thrust, torque and power do not exist without the density.
+            rcoef.update(dict.fromkeys(_DIMENSIONAL_RCOEF, NOT_APPLICABLE))
         rnames = tables["RCOEF"][0][len(self.block) + 3 : -1]
         cells = [rcoef.get(name, NOT_APPLICABLE) for name in rnames]
         tables["RCOEF"][1].append(

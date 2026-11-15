@@ -121,6 +121,18 @@ def _number(value: object) -> float | None:
     return None
 
 
+def _steady_density(condition: Mapping[str, object]) -> tuple[float, bool]:
+    """Return the density a steady point's loads are formed with, and whether it is recorded.
+
+    THE DENSITY CANCELS IN A COEFFICIENT (i2 #10): the export states its
+    coefficients against ``0.5 RHO VREF^2``, so a point that records no density
+    forms its loads with a unit density; every coefficient is the export's own,
+    and every dimensional cell is NA.
+    """
+    density = _number(condition.get("RHO"))
+    return (1.0, False) if density is None else (density, True)
+
+
 def _drag_split(point: PolarPoint, declined: Sequence[str]) -> dict[str, dict[str, float]]:
     induced_key, profile_key = drag_pair(point.loads.total)
     names = DRAG_PRODUCT_COLUMNS[(induced_key, profile_key)]
@@ -319,6 +331,29 @@ def _say_the_na_points(ctx: SimContext, gathered: _Gathered) -> None:
             PyflightstreamWarning,
             stacklevel=3,
         )
+    unit = [name for name, row in zip(names, gathered.rows, strict=True) if not row.dimensional]
+    if unit:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(unit)} point(s) record no density RHO "
+            f"({', '.join(unit)}): the coefficients are the loads export's own, in which the "
+            "density cancels, and the DIM files and the RCOEF T, Q and P read NA there.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    unweighed = [
+        name
+        for name, row in zip(names, gathered.rows, strict=True)
+        if row.dimensional and _number(row.density_kg_m3) is None
+    ]
+    if unweighed:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(unweighed)} point(s) record no density RHO "
+            f"({', '.join(unweighed)}): their window-averaged loads are in N, so every "
+            "coefficient of the ACOEF and RCOEF files (the W, S, B and R<id> axes) reads NA "
+            "there; the DIM files keep the loads.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     at_rest = [
         name
         for name, row in zip(names, gathered.rows, strict=True)
@@ -388,7 +423,7 @@ def _point_loads(
     declined = declined_induced_drag(point.loads, point.vorticity_selection)
     family_loads = steady_family_loads(
         surfaces,
-        density_kg_m3=_number(condition.get("RHO")),
+        density_kg_m3=_steady_density(condition)[0],
         vref_m_s=vref,
         sref_m2=ctx.reference.sref_m2,
         cref_m=ctx.reference.cref_m,
@@ -429,12 +464,17 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
         if block is None:
             built = point_block_rows(ctx) if built is None else built
             block = built[point.name]
+        density, recorded = _steady_density(condition)
+        if ctx.window is not None:
+            # Window-averaged plots are loads in N: without the density no coefficient.
+            density, recorded = (density if recorded else math.nan), True
         gathered.rows.append(
             PolarPointLoads(
                 run_block=block,
                 alpha_deg=point.alpha_deg,
                 beta_deg=point.beta_deg,
-                density_kg_m3=_number(condition.get("RHO")),
+                dimensional=recorded,
+                density_kg_m3=density,
                 vref_m_s=_number(condition.get("VREF")),
                 vinf_m_s=_number(condition.get("VINF")),
                 family_loads=family_loads,

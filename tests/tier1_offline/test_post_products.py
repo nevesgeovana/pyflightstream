@@ -3218,9 +3218,9 @@ def test_a_nan_in_a_rotor_row_is_refused_not_written_f4_07(tmp_path):
     """X-F-0353: NaN passes a test written as less than or equal to zero.
 
     0.58.0: the rotor's rows are the RCOEF file of its group, written by the post stage;
-    a diameter, a speed or a density that is NaN states no coefficient (the cell is NA, or
-    the file is not written), writes no non-finite number, and the stage names the point it
-    left out.
+    a diameter or a speed that is NaN states no coefficient (the cell is NA, or the file
+    is not written), writes no non-finite number, and the stage names the point it left
+    out; a density that is NaN is no recorded density, in which the coefficients stand.
     """
     from tests.tier1_offline.test_goal026_item06_rotor_loads import _stage_rotor, _surfaces
 
@@ -3234,7 +3234,20 @@ def test_a_nan_in_a_rotor_row_is_refused_not_written_f4_07(tmp_path):
     assert rows, "the good case wrote no RCOEF file"
     for name in ("CT", "CQ", "CP"):
         assert math.isfinite(float(rows[0][name])), (name, rows[0][name])
-    for case, stated in (("d", {"diameter": nan}), ("n", {"rpm": nan}), ("rho", {"density": nan})):
+    # A DENSITY THAT IS NaN IS NO RECORDED DENSITY, and the density cancels in every
+    # coefficient (i2 #10): CT, CQ, CP are the export's own; T, Q, P do not exist.
+    left_out = {}
+    _columns, rows, said = _stage_rotor(
+        tmp_path / "rho", surfaces, velocity=10.0, rpm=600.0, density=nan, skipped=left_out
+    )
+    assert rows, left_out
+    for row in rows:
+        for name in ("CT", "CQ", "CP"):
+            assert math.isfinite(float(row[name])), (name, row[name])
+        assert all(row[name] == "NA" for name in ("T", "Q", "P")), row
+        assert not [cell for cell in row.values() if cell.lower() in ("nan", "inf", "-inf")]
+    assert any("RHO" in str(text) for text in said), said
+    for case, stated in (("d", {"diameter": nan}), ("n", {"rpm": nan})):
         left_out = {}
         _columns, rows, _said = _stage_rotor(
             tmp_path / case, surfaces, velocity=10.0, **{"rpm": 600.0, **stated}, skipped=left_out
