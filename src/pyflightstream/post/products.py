@@ -210,7 +210,6 @@ from pyflightstream.post._tables import (
 )
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
 from pyflightstream.post._tables import ReferenceValues as ReferenceValues
-from pyflightstream.post._tables import polar_file_name as polar_file_name
 from pyflightstream.post._tables import write_fixed_width_table as write_fixed_width_table
 from pyflightstream.post.custom_polar import (
     CUSTOM_DATE_FORMAT as _CUSTOM_DATE_FORMAT,  # noqa: F401
@@ -264,8 +263,6 @@ from pyflightstream.post.polar import (
     PolarPoint,
     swept_axes,
     trimmed_polar_row,
-    write_polar_table,
-    write_recorded_polar,
     write_trimmed_polar,
 )
 from pyflightstream.post.polar import declined_induced_drag as declined_induced_drag
@@ -388,7 +385,6 @@ __all__ = [
     "custom_polar_file_name",
     "plots_table_series",
     "point_name_of",
-    "polar_file_name",
     "swept_axes",
     "GEOMETRY_ANALYSIS_FRAMES",
     "provenance_file_name",
@@ -400,9 +396,7 @@ __all__ = [
     "write_probes_table",
     "write_phase_locked_table",
     "write_reduction_table",
-    "write_polar_table",
     "write_campaign_products",
-    "write_recorded_polar",
     "write_sections_table",
     # The per-revolution product (P0310-G2-PER-REV), appended so the
     # inventory recorded before it keeps its order.

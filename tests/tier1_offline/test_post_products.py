@@ -20,16 +20,12 @@ from pyflightstream.post.products import (
     COEFFICIENT_COLUMNS,
     CONTEXT_COLUMNS,
     NOT_APPLICABLE,
-    POLAR_COLUMNS,
     SECTION_COLUMNS,
     ProductError,
     ReferenceValues,
-    polar_file_name,
     read_csv_table,
     write_campaign_products,
     write_plots_table,
-    write_polar_table,
-    write_recorded_polar,
     write_sections_table,
 )
 from pyflightstream.results import parse_loads
@@ -97,61 +93,105 @@ HER_ROW = (
     "-0.09694 0.00000 0.01964 0.00124"
 ).split()
 
-REFERENCE = ReferenceValues(sref_m2=50.0, cref_m=2.526, bref_m=20.0, xmom_m=9.152)
-
 
 def _loads():
     return parse_loads(LOADS)
 
 
-_REFERENCE_MAP = {
-    "SREF": 50.0,
-    "CREF": 2.526,
-    "BREF": 20.0,
-    "XMOM": 9.152,
-    "YMOM": 0.0,
-    "ZMOM": 0.0,
-}
+def posted_polar(tmp_path, groups, *, points=None, aliases=None, sref_m2=50.0):
+    """Post one recorded simulation, polar 3207, through the campaign route.
 
-
-def _recorded_rows(tmp_path, groups, *, loads_text=None, aliases=None):
-    """The one row of each group table that ``write_recorded_polar`` writes for the point.
-
-    The public route to the polar row: a point folder holding the loads table, the groups
-    asked for by number, each table read back. A key of the result is a group's number.
+    The public route to a group's polar row since 0.58.0 (the recorded-folder writer is
+    retired): a workspace holding each point's loads export and its record, the pproc
+    ``[groups]`` mapping each group to ONE selector (an alias of ``aliases``, a surface or
+    family, or ``"all"``), posted. ``points`` is ``(name, alpha, loads text)`` per point;
+    by default the one point of :data:`LOADS` at alpha -2. ``sref_m2`` is the reference
+    area the records state. Returns the workspace.
     """
-    polar = tmp_path / "POLAR-3207"
-    point = polar / "POLAR-3207_M20AL-020BE+000"
-    point.mkdir(parents=True)
-    (point / "POLAR-3207_M20AL-020BE+000.txt").write_text(
-        LOADS if loads_text is None else loads_text, encoding="utf-8"
-    )
-    out = tmp_path / "out"
-    write_recorded_polar(
-        polar,
-        out,
-        groups=groups,
-        reference=_REFERENCE_MAP,
-        description="STEADY_WB",
-        mach=0.2,
-        sections=False,
-        aliases=aliases,
-    )
+    import json
+
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "posted")
+    lines = (f"{json.dumps(key)} = {json.dumps(value)}\n" for key, value in groups.items())
+    pproc = "[groups]\n" + "".join(lines)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(pproc, encoding="utf-8")
+    raw = workspace.sim_dir("3207") / "outputs"
+    raw.mkdir(parents=True)
+    for name, alpha, text in points or [("AL-020", -2.0, LOADS)]:
+        export = f"POLAR-3207_{name}.txt"
+        (raw / export).write_text(text, encoding="utf-8")
+        workspace.append_record(
+            RunRecord(
+                run_id=f"camp/sim_3207/{name}",
+                point_name=name,
+                sweep_name="AL+sweep",
+                sim_id="3207",
+                point={"alpha": alpha},
+                fs_version_requested="26.120",
+                package_version="0.13.0.dev0",
+                script_sha256="",
+                raw_flag=False,
+                status=RunStatus.CONVERGED,
+                outputs=[f"outputs/{export}"],
+                pproc="p001",
+                description="STEADY_WB",
+                mach=0.2,
+                density_kg_m3=1.225,
+                reference={"SREF": sref_m2, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
+                aliases=aliases or {},
+            )
+        )
+    write_campaign_products(workspace)
+    return workspace
+
+
+def posted_polars_dir(workspace):
+    """The ``polars/`` folder of a workspace :func:`posted_polar` posted."""
+    return workspace.root / "post" / "products" / "polars"
+
+
+def _group_rows(tmp_path, groups, *, loads_text=None, aliases=None):
+    """The one row of each group's ACOEF file the post writes for the point.
+
+    The groups are asked for by number, so a key of the result is a group's number and
+    its file ``P3207-g<NN>-ACOEF.csv``.
+    """
+    points = None if loads_text is None else [("AL-020", -2.0, loads_text)]
+    workspace = posted_polar(tmp_path, groups, points=points, aliases=aliases)
     rows = {}
     for number in groups:
-        _, found = read_csv_table(out / polar_file_name("3207", 0.2, number))
+        path = posted_polars_dir(workspace) / f"P3207-g{int(number):02d}-ACOEF.csv"
+        _, found = read_csv_table(path)
         (rows[number],) = found
     return rows
 
 
+#: 0.58.0 renamed the moment columns of the polar (CR<f>25 -> Cl<f>, CM<f>25 -> Cm<f>,
+#: CN<f>25 -> Cn<f>); the twenty-four of :data:`HER_ROW` are read under the new names.
+_ACOEF_NAMES = {
+    column: (
+        {"CR": "Cl", "CM": "Cm", "CN": "Cn"}[column[:2]] + column[2:-2]
+        if column[:2] in ("CR", "CM", "CN") and column.endswith("25")
+        else column
+    )
+    for column in COEFFICIENT_COLUMNS
+}
+
+
 def _her_cells(row):
-    return [f"{float(row[c]):.5f}" for c in COEFFICIENT_COLUMNS]
+    return [f"{float(row[_ACOEF_NAMES[c]]):.5f}" for c in COEFFICIENT_COLUMNS]
+
+
+def _without_the_group(row):
+    return {key: value for key, value in row.items() if key not in ("GROUP", "GROUP_ID")}
 
 
 def test_a_polar_row_carries_her_numbers(tmp_path):
     """Body, stability and wind axes from the loads table, at five decimals, equal the author's
-    row; the families the table lacks are left out of the group."""
-    rows = _recorded_rows(tmp_path, {"1": ["Blade1", "S", "N", "W", "B"]})
+    row in the group file; the families the table lacks are left out of the group."""
+    aliases = {"wing_body": ["Blade1", "S", "N", "W", "B"]}
+    rows = _group_rows(tmp_path, {"1": "wing_body"}, aliases=aliases)
     assert _her_cells(rows["1"]) == HER_ROW
 
 
@@ -167,25 +207,20 @@ def test_p0450_ci3_polar_beta_removal_fulfils_the_ledger_promise(tmp_path):
     assert _loads().sideslip_deg == 0.0, "fixture sideslip moved; the BETA check is the zero case"
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        rows = _recorded_rows(tmp_path, {"1": ["W", "B"]})
+        rows = _group_rows(tmp_path, {"1": "wing_body"}, aliases={"wing_body": ["W", "B"]})
     assert [w for w in caught if "sideslip" in str(w.message).casefold()] == []
     assert float(rows["1"]["BETA"]) == 0.0
 
 
-def test_a_group_the_table_carries_none_of_sums_to_zero(tmp_path):
-    row = _recorded_rows(tmp_path, {"1": ["Blade1", "S"]})["1"]
-    for column in ("CDB", "CLB", "CMB25", "CDS", "CLS", "CDW", "CLW"):
-        assert float(row[column]) == 0.0, column
-
-
-def test_an_empty_group_sums_every_family_the_table_carries(tmp_path):
-    """The author's decision of 2026-09-09 (PFS-2005.02): a group written empty is every
-    family, so its row is the sum over every surface row of the loads table,
-    here W and B, and equals the group that names them; the Total row is not
-    a surface and is not summed twice. The reading is the ARTIFACT's, which is the
-    one this public route (``write_recorded_polar``) takes."""
-    rows = _recorded_rows(tmp_path, {"1": [], "2": ["W", "B"]})
-    assert rows["1"] == {**rows["2"], "GROUP": "1"}, "every family is the group that names W and B"
+def test_all_sums_every_family_the_table_carries(tmp_path):
+    """The author's decision of 2026-09-09 (PFS-2005.02): a group of every family is the sum
+    over every surface row of the loads table, here W and B, and equals the group that names
+    them; the Total row is not a surface and is not summed twice. Since 0.26.0 the artifact
+    writes every family as ``"all"`` (a member list is refused)."""
+    rows = _group_rows(tmp_path, {"1": "all", "2": "wing_body"}, aliases={"wing_body": ["W", "B"]})
+    assert _without_the_group(rows["1"]) == _without_the_group(rows["2"]), (
+        "every family is the group that names W and B"
+    )
     assert _her_cells(rows["1"]) == HER_ROW
 
 
@@ -205,16 +240,23 @@ def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup(tmp_path):
     )
     assert text.count("Blade") == 2, "the fixture's surface rows moved"
     wing_cz, body_cz = float(wing_row.split(",")[2]), float(body_row.split(",")[2])
-    aliases = {"airframe": ["W", "B", "Nothing"], "rotor": ["Blade"], "one": ["Blade2"]}
-    rows = _recorded_rows(
+    aliases = {
+        "airframe": ["W", "B", "Nothing"],
+        "rotor": ["Blade"],
+        "one": ["Blade2"],
+        "four": ["one", "airframe"],
+    }
+    rows = _group_rows(
         tmp_path,
-        {"1": ["Blade"], "2": ["rotor"], "3": ["airframe"], "4": ["one", "airframe"], "5": []},
+        {"1": "Blade", "2": "rotor", "3": "airframe", "4": "four", "5": "all"},
         loads_text=text,
         aliases=aliases,
     )
     by_family = float(rows["1"]["CLB"])
     assert by_family == pytest.approx(wing_cz + body_cz, abs=1e-4)
-    assert rows["2"] == {**rows["1"], "GROUP": "2"}, "the alias of the family is the family"
+    assert _without_the_group(rows["2"]) == _without_the_group(rows["1"]), (
+        "the alias of the family is the family"
+    )
     assert float(rows["3"]["CLB"]) == pytest.approx(wing_cz + body_cz, abs=1e-4), (
         "W and B, Nothing ignored"
     )
@@ -224,45 +266,21 @@ def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup(tmp_path):
     assert float(rows["5"]["CLB"]) == pytest.approx(2 * wing_cz + 2 * body_cz, abs=1e-4), (
         "every surface"
     )
-    # Without the setup's alias the words are families the table does not carry.
-    bare = _recorded_rows(tmp_path / "bare", {"1": ["airframe"], "2": ["blades"]}, loads_text=text)
-    assert float(bare["1"]["CLB"]) == 0.0 and float(bare["2"]["CLB"]) == 0.0
+    # Without the setup's alias the words are families the table does not carry: the group
+    # selects nothing, and its files are not written but named (0.58.0).
+    bare = posted_polar(
+        tmp_path / "bare",
+        {"1": "airframe", "2": "blades"},
+        points=[("AL-020", -2.0, text)],
+    )
+    skipped = _products_manifest(bare)["skipped"]
+    for token in ("g01", "g02"):
+        assert "selects no family" in skipped[f"polars/P3207-{token}"], skipped
+        assert not list(posted_polars_dir(bare).glob(f"P3207-{token}-*"))
 
 
-def test_polar_table_round_trips(tmp_path):
-    """The CSV a reader takes apart is the one written: columns, rows, values."""
-    row = tuple(float(value) for value in HER_ROW)
-    target = write_polar_table(
-        tmp_path / polar_file_name("3207", 0.2, "1"),
-        polar="3207",
-        description="STEADY_WB",
-        group="1",
-        reference=REFERENCE,
-        rows=[row],
-    )
-    assert target.name == "3207_M20_g01.csv"
-    columns, rows = read_csv_table(target)
-    assert columns == POLAR_COLUMNS
-    # THE POLAR ONCE, as `POL` (G16, 0.27.0): `POLAR`, its name until 0.26.x, is gone.
-    assert "POLAR" not in columns
-    assert len(rows) == 1
-    assert (
-        rows[0]["POL"] == "3207"
-        and rows[0]["DESCRIPTION"] == "STEADY_WB"
-        and rows[0]["GROUP"] == "1"
-    )
-    assert rows[0]["SREF"] == "50.00000" and rows[0]["XMOM"] == "9.15200"
-    assert [f"{float(rows[0][c]):.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
-    # A row of the wrong width is refused, and so is a file whose rows do not fit its header.
-    with pytest.raises(ProductError, match="values"):
-        write_polar_table(
-            tmp_path / "bad.csv",
-            polar="1",
-            description="x",
-            group="1",
-            reference=REFERENCE,
-            rows=[row[:3]],
-        )
+def test_a_torn_csv_is_refused_naming_its_line(tmp_path):
+    """A file whose rows do not fit its header is refused by the post's one CSV reader."""
     (tmp_path / "torn.csv").write_text("A,B\n1,2,3\n", encoding="utf-8")
     with pytest.raises(ProductError, match="line 2"):
         read_csv_table(tmp_path / "torn.csv")
@@ -443,69 +461,37 @@ def test_an_unreadable_plots_export_is_refused_naming_it(tmp_path):
         write_plots_table(tmp_path / "plots" / "P_plots.csv", "not an export at all\n")
 
 
-def test_write_recorded_polar_writes_one_table_per_group_and_the_sections(tmp_path):
-    """The whole polar: a point folder with its loads table and its sectional export."""
-    polar = tmp_path / "POLAR-3207"
-    point = polar / "POLAR-3207_M20AL-020BE+000"
-    point.mkdir(parents=True)
-    (point / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
-    (point / "POLAR-3207_M20AL-020BE+000_sloads.txt").write_text(SLOADS, encoding="utf-8")
-    written = write_recorded_polar(
-        polar,
-        tmp_path / "out",
-        groups={"1": ["W", "B"], "3": ["W"], "5": ["Blade1"]},
-        reference={
-            "SREF": 50.0,
-            "CREF": 2.526,
-            "BREF": 20.0,
-            "XMOM": 9.152,
-            "YMOM": 0.0,
-            "ZMOM": 0.0,
-        },
-        description="STEADY_WB",
-        mach=0.2,
-    )
-    names = [p.relative_to(tmp_path / "out").as_posix() for p in written]
-    assert names == [
-        "3207_M20_g01.csv",
-        "3207_M20_g03.csv",
-        "3207_M20_g05.csv",
-        "sections/POLAR-3207_M20AL-020BE+000_sections.csv",
-    ]
-    _, rows = read_csv_table(tmp_path / "out" / "3207_M20_g01.csv")
-    assert [f"{float(rows[0][c]):.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
-    _, empty = read_csv_table(tmp_path / "out" / "3207_M20_g05.csv")
-    assert empty[0]["CLB"] == "0.00000", "a group of absent families sums to zero"
+@pytest.mark.parametrize(
+    ("module", "name"),
+    [
+        ("pyflightstream.post.polar", "write_polar_table"),
+        ("pyflightstream.post.polar", "write_recorded_polar"),
+        ("pyflightstream.post.polar", "polar_file_name"),
+        ("pyflightstream.post.products", "write_polar_table"),
+        ("pyflightstream.post.products", "write_recorded_polar"),
+        ("pyflightstream.post.products", "polar_file_name"),
+        ("pyflightstream.post", "write_polar_table"),
+        ("pyflightstream.post", "write_recorded_polar"),
+    ],
+)
+def test_the_0_57_polar_writers_are_refused_by_name(module, name):
+    """REL1-004: the writers of the 0.57.0 polar layout (``3207_M20_g01.csv`` with
+    DESCRIPTION, GROUP and CMB25) are retired; the old name is refused naming the FAM and
+    group files the post writes, on every module that exported it."""
+    import importlib
 
+    from pyflightstream._retired_names import RetiredAttributeError
 
-def test_recorded_polar_refuses_named_groups_before_replacing_any_table(tmp_path):
-    polar = tmp_path / "POLAR-3207"
-    point = polar / "POLAR-3207_M20AL-020BE+000"
-    point.mkdir(parents=True)
-    (point / f"{point.name}.txt").write_text(LOADS, encoding="utf-8")
-    out = tmp_path / "out"
-    out.mkdir()
-    existing = out / "3207_M20_g01.csv"
-    existing.write_text("previous result", encoding="utf-8")
-    with pytest.raises(ProductError, match="Wing") as refused:
-        write_recorded_polar(
-            polar,
-            out,
-            groups={"1": ["W"], "Wing": ["W"]},
-            reference={
-                "SREF": 50.0,
-                "CREF": 2.526,
-                "BREF": 20.0,
-                "XMOM": 9.152,
-                "YMOM": 0.0,
-                "ZMOM": 0.0,
-            },
-            description="STEADY_WB",
-            mach=0.2,
-        )
-    assert existing.read_text(encoding="utf-8") == "previous result"
-    assert list(out.iterdir()) == [existing]
-    assert "swept_polar_file_name" not in str(refused.value)
+    owner = importlib.import_module(module)
+    with pytest.raises(RetiredAttributeError, match=name) as refused:
+        getattr(owner, name)
+    said = str(refused.value)
+    assert "no longer accepted since v0.58.0" in said, said
+    assert "FAM and group files" in said and "0580-post-tree" in said, said
+    assert name not in getattr(owner, "__all__", ()), module
+    # The from-import a script wrote is refused the same way.
+    with pytest.raises(ImportError, match=name):
+        exec(f"from {module} import {name}", {})
 
 
 def test_a_point_under_sideslip_is_a_row_stating_its_sideslip(tmp_path):
@@ -521,8 +507,24 @@ def test_a_point_under_sideslip_is_a_row_stating_its_sideslip(tmp_path):
         "Side-slip angle (Deg)                      2.000",
     )
     assert text != LOADS, "the fixture's sideslip line moved"
-    row = _recorded_rows(tmp_path, {"1": ["W"]}, loads_text=text)["1"]
+    row = _group_rows(tmp_path, {"1": "W"}, loads_text=text)["1"]
     assert float(row["BETA"]) == 2.0, "BETA is the sideslip the export states"
+
+
+def test_a_point_in_a_rotated_analysis_frame_is_no_row_and_is_named(tmp_path):
+    """A loads export in a frame of unknown rotation (a rotor's ``PROP_SMRP``) gives no polar
+    row: its vectors are not in the geometry's axes. The post names the frame."""
+    text = LOADS.replace(
+        "Coordinate frame for analysis:              MRP",
+        "Coordinate frame for analysis:              PROP_SMRP",
+    )
+    assert text != LOADS, "the fixture's frame line moved"
+    with pytest.warns(Warning, match="PROP_SMRP"):
+        workspace = posted_polar(tmp_path, {"1": "all"}, points=[("AL-020", -2.0, text)])
+    skipped = _products_manifest(workspace)["skipped"]
+    reasons = [why for key, why in skipped.items() if key.startswith("polars/P3207-TOTAL")]
+    assert reasons and all("PROP_SMRP" in why for why in reasons), skipped
+    assert not list(posted_polars_dir(workspace).glob("P3207-*-ACOEF.csv"))
 
 
 def test_the_mach_code_rounds_rather_than_truncates():
@@ -2608,7 +2610,7 @@ def test_goal019_the_configuration_reaches_the_polar_title_and_takes_no_line(tmp
     writes unreadable by the reference tooling. The label joins line 1
     after ` - `, which is the separator the title prefix already uses.
     """
-    from pyflightstream.post.products import ReferenceValues, write_custom_polar_format
+    from pyflightstream.post.products import write_custom_polar_format
 
     reference = ReferenceValues.from_mapping(
         {"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152}
@@ -3364,36 +3366,6 @@ def test_a_family_name_is_made_safe_in_the_spanwise_file_name_f4_07(tmp_path):
     named = sorted(root.rglob("*_trefftz_a_b.csv"))
     assert [path.parent.name for path in named] == ["sections"]
     assert not list(root.rglob("a"))
-
-
-def test_rb8_a_refused_recorded_polar_leaves_none_of_its_tables(tmp_path):
-    """NFR-49 (RB8, TAIL2-PARTIAL): overwrite=False refuses the call before any table stays.
-
-    The group tables are written in order, so the third one already there was met after the
-    first two were written; the refusal leaves the folder as the call found it.
-    """
-    from pyflightstream._errors import ProductExistsError
-
-    polar = tmp_path / "POLAR-3207"
-    point = polar / "POLAR-3207_M20AL-020BE+000"
-    point.mkdir(parents=True)
-    (point / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
-    out = tmp_path / "out"
-    out.mkdir()
-    (out / "3207_M20_g05.csv").write_text("kept\n", encoding="utf-8")
-    reference = {"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152, "YMOM": 0.0, "ZMOM": 0.0}
-    with pytest.raises(ProductExistsError, match="3207_M20_g05.csv"):
-        write_recorded_polar(
-            polar,
-            out,
-            groups={"1": ["W", "B"], "3": ["W"], "5": ["Blade1"]},
-            reference=reference,
-            description="STEADY_WB",
-            mach=0.2,
-            overwrite=False,
-        )
-    assert sorted(path.name for path in out.iterdir()) == ["3207_M20_g05.csv"]
-    assert (out / "3207_M20_g05.csv").read_text(encoding="utf-8") == "kept\n"
 
 
 # ------------------------------------------- P0530 the placement check (FR-3416) --

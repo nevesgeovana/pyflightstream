@@ -12,20 +12,14 @@ are neutral. The recorded 26.124 export is the committed ``rpt128/rigid.txt``.
 
 from __future__ import annotations
 
-import csv
 import warnings
 from pathlib import Path
 
 import pytest
 
 from pyflightstream.post.custom_polar import write_custom_polar_format
-from pyflightstream.post.polar import (
-    POLAR_COLUMNS,
-    declined_induced_drag,
-    write_polar_table,
-    write_recorded_polar,
-)
-from pyflightstream.post.products import COEFFICIENT_COLUMNS, ReferenceValues
+from pyflightstream.post.polar import declined_induced_drag
+from pyflightstream.post.products import COEFFICIENT_COLUMNS, ReferenceValues, read_csv_table
 from pyflightstream.qa.physics import PointResult, phy01_metrics, phy05_metrics
 from pyflightstream.results import (
     VersionMismatchWarning,
@@ -43,32 +37,11 @@ from pyflightstream.run import (
     check_solver_identity,
 )
 from pyflightstream.versions import resolve
+from tests.tier1_offline.test_post_products import LOADS, posted_polar, posted_polars_dir
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 S10 = FIXTURES / "s10_26125"
 RECORDED_26124 = FIXTURES / "rpt128" / "rigid.txt"
-
-
-def test_p0430_public_polar_writer_forwards_row_conditions(tmp_path):
-    import inspect
-
-    assert "conditions" in inspect.signature(write_polar_table).parameters
-    reference = ReferenceValues.from_mapping(
-        {"SREF": 1, "CREF": 1, "BREF": 1, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
-    )
-    path = write_polar_table(
-        tmp_path / "polar.csv",
-        polar=1,
-        description="sample",
-        group=1,
-        reference=reference,
-        rows=[(0.0,) * 24, (1.0,) * 24],
-        conditions=[{"VINF": 23.0, "ALT": 150.0, "J": 0.4}, {}],
-    )
-    with path.open(encoding="utf-8", newline="") as handle:
-        first, second = list(csv.DictReader(handle))
-    assert [float(first[key]) for key in ("VINF", "ALT", "J")] == [23.0, 150.0, 0.4]
-    assert [second[key] for key in ("VINF", "ALT", "J")] == ["NA", "NA", "NA"]
 
 
 def _text(name: str) -> str:
@@ -111,72 +84,30 @@ def test_the_26125_loads_keep_the_drag_split_under_its_printed_names():
     assert list(loads.surfaces["S1"]) == list(loads.total)
 
 
-def test_a_26125_recorded_polar_writes_cdv_and_cdp_with_its_numbers(tmp_path):
-    """P0370-S10-DRAG-COLUMNS (FR-423): the polar of a 26.125 point names its split CDV, CDP."""
-    point = tmp_path / "POLAR-1" / "pt1"
-    point.mkdir(parents=True)
-    (point / "pt1.txt").write_text(_text("loads_26.125.txt"), encoding="utf-8")
-    reference = {"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
-    (table,) = write_recorded_polar(
-        tmp_path / "POLAR-1",
-        tmp_path / "out",
-        groups={"1": []},
-        reference=reference,
-        description="d",
-        mach=0.144,
-    )
-    header, row = table.read_text(encoding="utf-8").splitlines()
-    columns = header.split(",")
-    assert columns[-2:] == ["CDV", "CDP"] and "CD0" not in columns and "CDI" not in columns
-    assert row.split(",")[-2:] == ["0.87000", "-0.66000"]
+def _group_acoef(tmp_path, points):
+    """The drag-split columns and rows of the all-family group file of polar 3207."""
+    workspace = posted_polar(tmp_path, {"1": "all"}, points=points)
+    columns, rows = read_csv_table(posted_polars_dir(workspace) / "P3207-g01-ACOEF.csv")
+    split = [name for name in columns if name in ("CD0", "CDI", "CDV", "CDP")]
+    return split, [[row[name] for name in split] for row in rows]
+
+
+def test_a_26125_polar_writes_cdv_and_cdp_with_its_numbers(tmp_path):
+    """P0370-S10-DRAG-COLUMNS (FR-423): a 26.125 point's group file names its split CDV, CDP."""
+    split, rows = _group_acoef(tmp_path, [("AL000", 0.0, _text("loads_26.125.txt"))])
+    assert split == ["CDV", "CDP"]
+    assert rows == [["0.87000", "-0.66000"]]
 
 
 def test_a_polar_of_both_builds_carries_both_splits_na_where_absent(tmp_path):
-    """P0370-S10-DRAG-COLUMNS (FR-423): one table, both pairs, the absent one NA and never 0."""
-    rows = [(1.0,) * 22 + (0.01, 0.02), (2.0,) * 22 + (0.03, 0.04)]
-    reference = ReferenceValues.from_mapping(
-        {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
-    )
-    path = write_polar_table(
-        tmp_path / "mixed.csv",
-        polar=1,
-        description="d",
-        group=1,
-        reference=reference,
-        rows=rows,
-        drag_columns=[("CD0", "CDI"), ("CDV", "CDP")],
-    )
-    header, legacy, simcenter = path.read_text(encoding="utf-8").splitlines()
-    assert header.split(",")[-4:] == ["CD0", "CDI", "CDV", "CDP"]
-    assert legacy.split(",")[-4:] == ["0.01000", "0.02000", "NA", "NA"]
-    assert simcenter.split(",")[-4:] == ["NA", "NA", "0.03000", "0.04000"]
-
-
-def test_a_26124_polar_is_written_as_it_always_was(tmp_path):
-    """P0370-S10-DRAG-COLUMNS (FR-423): a 26.124 table keeps POLAR_COLUMNS and its bytes."""
-    point = tmp_path / "POLAR-2" / "pt1"
-    point.mkdir(parents=True)
-    (point / "pt1.txt").write_text(RECORDED_26124.read_text(encoding="utf-8"), encoding="utf-8")
-    (recorded,) = write_recorded_polar(
-        tmp_path / "POLAR-2",
-        tmp_path / "recorded",
-        groups={"1": ["Wing"]},
-        reference={"SREF": 1.0, "CREF": 1.0, "BREF": 10.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0},
-        description="d",
-        mach=0.144,
-    )
-    header, row = recorded.read_text(encoding="utf-8").splitlines()
-    assert header.split(",")[-2:] == ["CD0", "CDI"]
-    assert row.split(",")[-2:] == ["0.0098384", "0.0338634"]
-    reference = ReferenceValues.from_mapping(
-        {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
-    )
-    rows = [(1.0,) * 22 + (0.01, 0.02)]
-    common = {"polar": 1, "description": "d", "group": 1, "reference": reference, "rows": rows}
-    unstated = write_polar_table(tmp_path / "a.csv", **common)
-    stated = write_polar_table(tmp_path / "b.csv", drag_columns=[("CD0", "CDI")], **common)
-    assert unstated.read_bytes() == stated.read_bytes()
-    assert unstated.read_text(encoding="utf-8").splitlines()[0].split(",") == list(POLAR_COLUMNS)
+    """P0370-S10-DRAG-COLUMNS (FR-423): one file, both pairs, the absent one NA and never 0."""
+    points = [("AL-020", -2.0, LOADS), ("AL000", 0.0, _text("loads_26.125.txt"))]
+    split, rows = _group_acoef(tmp_path, points)
+    assert split == ["CD0", "CDI", "CDV", "CDP"]
+    assert rows == [
+        ["0.0196424", "0.0012418", "NA", "NA"],
+        ["NA", "NA", "0.87000", "-0.66000"],
+    ]
 
 
 def test_a_26125_table_declines_no_drag_and_a_26124_table_still_does():

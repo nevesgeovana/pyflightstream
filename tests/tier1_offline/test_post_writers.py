@@ -456,8 +456,6 @@ _OVERWRITE_WRITERS = (
     ("point_tables", "write_unsteady_probes_table"),
     ("point_tables", "write_reduction_table"),
     ("point_tables", "write_phase_locked_table"),
-    ("polar", "write_polar_table"),
-    ("polar", "write_recorded_polar"),
     ("harmonics", "write_harmonics_table"),
     ("boundary_layer", "write_boundary_layer_table"),
     ("boundary_layer", "write_boundary_layer_products"),

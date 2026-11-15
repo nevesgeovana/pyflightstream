@@ -73,6 +73,8 @@ The public helpers of the retired polar writers are now private, and the old pub
 
 Four public functions that lost every caller with the retired SUPER file and sweep table are removed and refused by name, each naming its successor: `post.superfile.superfile_row`, `post.superfile.write_superfile_report` and `post.superfile.union_the_workspace_knows` (the SUPER file and its superset report: every family is in FAM-DIM and FAM-ACOEF), and `results.tables.write_sweep_table` (the group files of each polar; `Table.to_csv` writes the derived `sweep_table`). migration: read the FAM and group files; docs/upgrading.md#0580-post-tree.
 
+The writers of the 0.57.0 polar table are removed and refused by name in `post.polar`, `post.products` and `post`, each naming the FAM and group files: `write_polar_table` (the table with DESCRIPTION, GROUP and CMB25), `write_recorded_polar` (the `<polar>_M<mach>_g<NN>.csv` tables of a recorded folder) and `polar_file_name` (that file name). migration: post the recorded runs of a workspace and read `polars/P<POL>-<GROUP>-<KIND>.csv`; docs/upgrading.md#0580-post-tree.
+
 Every deprecated form of the package is removed, and the old form is refused by name with the new spelling (the deprecation ledger holds no entry). Each refusal says what the form became.
 
 `analysis_setup(vorticity_drag_boundaries=...)` is refused. migration: pass the selection to `solver_settings(vorticity_drag_boundaries=...)`.

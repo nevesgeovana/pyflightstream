@@ -74,6 +74,15 @@ functions left with the SUPER file and the sweep table, refused by name in the s
 and `results.tables.write_sweep_table` (join the `TOTAL` group files; `Table.to_csv` writes
 the derived `sweep_table`).
 
+The writers of the 0.57.0 polar table and its file name are removed and refused by name,
+in `post.polar`, `post.products` and `post`:
+
+| 0.57.0 name | 0.58.0 |
+| --- | --- |
+| `write_polar_table`, one table with `DESCRIPTION`, `GROUP` and `CMB25` | the group files `polars/P<POL>-<GROUP>-DIM.csv`, `-ACOEF.csv` and `-RCOEF.csv` the post writes for each group |
+| `write_recorded_polar`, the tables `<polar>_M<mach>_g<NN>.csv` of a recorded folder and its sections and plots tables | record the runs in a workspace and post them (`write_campaign_products` or `pyfs-matrix post`): the FAM and group files, `sections/` and `time_history/` |
+| `polar_file_name`, `<polar>_M<mach>_g<NN>.csv` | `P<POL>-<GROUP>-<KIND>.csv`; a numbered group is `g<NN>` |
+
 ### The tree
 
 | 0.57.0 file | 0.58.0 |
@@ -94,8 +103,7 @@ the derived `sweep_table`).
 
 The tables of `time_history/`, `reductions/`, `probes/`, `sections/`, `series/` and
 `farfield/` take their header from the run block, then their own columns (a far-field
-row takes the block of its point); `write_recorded_polar` writes a recorded folder's plots
-history to `time_history/` too; a reduction that named its rotor by alias keeps
+row takes the block of its point); a reduction that named its rotor by alias keeps
 the alias and gains `ROTOR_ID` before it, and the sections table names it by `ROTOR_ID`
 only (a rotor that declares no `id` is rotor 0). The averaged surface carries the run block as
 Tecplot auxiliary data and VTK field data. The settings table opens each row with the run

@@ -313,13 +313,10 @@
     "pyflightstream.post.disc_maps.write_disc_map",
     "pyflightstream.post.passage_windows",
     "pyflightstream.post.point_tables.is_force_or_moment_column",
-    "pyflightstream.post.products.polar_file_name",
     "pyflightstream.post.qsteady_noise.azimuth_from_moment",
     "pyflightstream.post.read_custom_polar_format",
     "pyflightstream.post.read_timestep_series",
     "pyflightstream.post.settings_table.read_settings_table",
-    "pyflightstream.post.write_polar_table",
-    "pyflightstream.post.write_recorded_polar",
     "pyflightstream.post.write_reduction",
     "pyflightstream.post.write_series"
    ]

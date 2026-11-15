@@ -244,8 +244,6 @@ from pyflightstream.post.products import (
     write_csv_table,
     write_custom_polar_format,
     write_plots_table,
-    write_polar_table,
-    write_recorded_polar,
     write_sections_table,
     write_trimmed_polar,
 )
@@ -294,8 +292,6 @@ __all__ = [
     "write_csv_table",
     "write_custom_polar_format",
     "write_plots_table",
-    "write_polar_table",
-    "write_recorded_polar",
     "INPUT_GLOSSARY_NAME",
     "INPUT_TEMPLATE_NAME",
     "PPROC_GUIDE_NAMES",

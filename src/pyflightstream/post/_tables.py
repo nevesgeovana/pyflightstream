@@ -899,45 +899,6 @@ def _mach_code(mach: float) -> int:
     return round(mach * 100)
 
 
-def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
-    """``<polar>_M<mach code:02d>_g<group:02d>.csv``: one polar table per group.
-
-    THE RECORDED CONVENTION, and the one the reference tooling wrote
-    before this package existed. :func:`write_recorded_polar` regenerates
-    the recorded tables under it and is compared with what those files name for
-    name, which is why it stays. A polar table of a WORKSPACE is named by
-    the retired ``swept_polar_file_name``, the standard point convention (FR-85).
-
-    Parameters
-    ----------
-    polar : str or int
-        The polar's number.
-    mach : float
-        The Mach number, written as its two-digit code.
-    group : str or int
-        The plot group's number, as an int or as the text of one.
-
-    Returns
-    -------
-    str
-        The polar table's file name.
-
-    Raises
-    ------
-    ProductError
-        If ``group`` is a name: the convention states a group by number.
-    """
-    try:
-        number = int(group)
-    except (TypeError, ValueError):
-        raise ProductError(
-            f"the recorded polar file name states a group by NUMBER and {group!r} is a name; "
-            "use numbered groups for recorded polar tables; "
-            "workspace products use the FAM and named group files"
-        ) from None
-    return f"{polar}_M{_mach_code(mach):02d}_g{number:02d}.csv"
-
-
 # --- the post's one CSV reader (AD-10: moved from post.products) ---
 
 
