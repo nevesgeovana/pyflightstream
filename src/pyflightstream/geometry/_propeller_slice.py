@@ -37,6 +37,9 @@ COARSE_MARGIN = 0.01
 MIN_STEP = 1e-3
 #: The trailing-edge base region: points within this many chords of the aftmost point.
 BASE_BAND = 5e-4
+#: Two section ends whose widths at 5 percent of the chord differ by less than this fraction of
+#: the wider are equally round, and the direction of motion then names the leading edge.
+ROUND_TIE = 0.05
 #: Points per side of a written normalized profile, at x = s**2 for s uniform in [0, 1].
 PROFILE_POINTS = 161
 #: A triangle is blade surface when its normal has at least this azimuthal component; a
@@ -263,11 +266,15 @@ def _leading_edge(points, k, te):
     return curve[best], dense[best], s[2]
 
 
-def edges_and_sides(flat):
+def edges_and_sides(flat, ahead=None):
     """Return leading edge, trailing-edge midpoint and the two sides of a closed section.
 
     The extreme pair of the section gives the chord's ends; the rounder end (wider at 5
-    percent of the chord) is the leading edge. The trailing-edge midpoint is the middle of
+    percent of the chord) is the leading edge. When ``ahead`` (the direction of motion in the
+    section's plane) is given and the widths of the two ends differ by less than
+    ``ROUND_TIE`` of the wider, the end farther along ``ahead`` is the leading edge, so a
+    section with two equally sharp or round ends keeps its leading edge from station to
+    station; a real round nose decides as before. The trailing-edge midpoint is the middle of
     the base region at the aftmost abscissa (:func:`_trailing_edge`), and the leading edge
     is the point farthest from it, the builder's definition; both are found twice, the
     second time along the refined chord. Each side runs from the leading edge to the base
@@ -277,9 +284,12 @@ def edges_and_sides(flat):
     i, j = _diameter(flat)
     chord = float(np.linalg.norm(flat[j] - flat[i]))
     direction = (flat[j] - flat[i]) / chord
-    if _spread(flat, flat[i], direction, chord, (0.0, 0.05)) < _spread(
-        flat, flat[i], direction, chord, (0.95, 1.0)
-    ):
+    near = _spread(flat, flat[i], direction, chord, (0.0, 0.05))
+    far_end = _spread(flat, flat[i], direction, chord, (0.95, 1.0))
+    if ahead is not None and abs(near - far_end) <= ROUND_TIE * max(near, far_end):
+        if (flat[j] - flat[i]) @ np.asarray(ahead, float) > 0:
+            i, j = j, i
+    elif near < far_end:
         i, j = j, i
     le, far = flat[i], flat[j]
     for _ in range(2):
@@ -319,7 +329,8 @@ def section_parameters(flat, sense, r, radius):
     """Measure one section in the builder's frame; ``sense`` is +1 when it turns toward +motion."""
     plane = np.column_stack((sense * flat[:, 0], flat[:, 1]))
     centre, _ = _polygon_centroid(plane)
-    le, te, sides = edges_and_sides(plane)
+    # in this frame the section moves toward +x, so a tie of the two ends goes to the larger x
+    le, te, sides = edges_and_sides(plane, ahead=(1.0, 0.0))
     chord = float(np.linalg.norm(te - le))
     axis = (te - le) / chord
     normal = np.array([axis[1], -axis[0]])
