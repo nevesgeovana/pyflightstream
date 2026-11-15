@@ -1532,6 +1532,7 @@ def _f3_0203_coupled_workspace(tmp_path, *, history: bytes | None = None):
     work = workspace.sim_dir(original.sim_id) / "structural"
     work.mkdir()
     config = steady_wing_case(tmp_path).fsi
+    assert config is not None
     (work / "config.json").write_text(config.model_dump_json())
     layout = generate_node_layout(config)
     local = np.zeros((9, 3, 3))
