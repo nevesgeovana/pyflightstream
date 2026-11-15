@@ -61,12 +61,29 @@ and off the list. The
 fixed-width custom polar carries the same missing value as `nan` in the
 column's own width, since its format writes every number `%10.5f`.
 
-**`CLW` is NOT the solver's `CL`.** The `CL` an export prints sits
-between 0.10 and 0.25 per cent above the wind-axis lift of the vector printed
-beside it on 27 of the 28 lifting recorded exports (lift above 0.05) in
+**`CLW` is NOT the solver's `CL`.** The observed steady differences reach
+4.10 per cent of the projected lift, rather than being bounded by 0.71 per cent.
+The `CL` an export prints sits between 0.10 and 0.25 per cent above the
+wind-axis lift of the vector printed beside it on 27 of the 28 lifting
+recorded exports (lift above 0.05) in
 `tests/tier1_offline/fixtures/recorded_total_rows.csv`; one sits at 0.71 per cent.
-The cause is not known. The polar states the vector's, so that every column of a row
-comes from one source and `CDB`, `CLB` agree with the `Cx`, `Cz` of the
+A retained 26.127 steady workflow at `ALPHA = 2`, `BETA = 0` prints
+`Cx = 0.1951`, `Cz = 0.7030` and `CL = 0.7243`: the projection
+`Cz cos(2 deg) - Cx sin(2 deg)` is `0.695763`, so the solver's `CL` is
+4.10 per cent above it (the projection is 3.94 per cent below the solver's).
+The difference can also have the other sign: a retained 26.127 rotor history
+averages to plotted `CL = 0.0337907` and projected `CLW = 0.0340691`,
+the projection 0.82 per cent above the plotted lift. These are observations,
+not a bound or a correction factor. In the steady case, integrating the retained
+`Cp_reference` with the exported panel areas and normals gives pressure lift
+`0.7242754`, matching the solver log's `0.72428`. Subtracting that pressure
+vector from the printed body vector gives a drag projection of `0.3581058`,
+matching the export's viscous and separation drag `CDv = 0.3581`, and a lift
+projection of `-0.0285125`. Thus the pressure lift and the vector including
+viscous and separation loads differ in this case. The separate skin-friction
+and separation contributions are not identified by these integrated columns.
+The polar states the vector's lift, so that every column of a
+row comes from one source and `CDB`, `CLB` agree with the `Cx`, `Cz` of the
 export. See [the steady-polar migration](../upgrading.md#older-layouts) for the correction to historical `CLS` and `CLW`.
 
 <a id="the-trimmed-polar"></a>
