@@ -83,8 +83,7 @@ from pyflightstream.post.farfield_fields import (
     ledger_values,
     rotor_lattice,
 )
-from pyflightstream.post.products import read_csv_table as _rfixb_madv__read_csv_table
-from pyflightstream.post.products import write_rotor_table
+from pyflightstream.post.rotor_table import _mach_cells as _rfixb_madv__mach_cells
 from pyflightstream.probes import ProbeLattice, build_lattice
 from pyflightstream.probes.geometry import points_inside
 from pyflightstream.probes.layouts import (
@@ -113,14 +112,9 @@ from pyflightstream.workspace.naming import PointName
 from tests.tier1_offline.test_aeroelastic_typed_setup import (
     verified_marking_registry as verified_marking_registry,
 )
-from tests.tier1_offline.test_goal026_item06_rotor_loads import (
-    _reference as _rfixb_madv___reference,
-)
-from tests.tier1_offline.test_goal026_item06_rotor_loads import _rotor as _rfixb_madv___rotor
 from tests.tier1_offline.test_goal035_rotor_mach import (
     SEA_LEVEL_SOUND as _RFIXB_MADV__SEA_LEVEL_SOUND,
 )
-from tests.tier1_offline.test_goal035_rotor_mach import _row as _rfixb_madv___row
 from tests.tier1_offline.test_house_style import (
     RECORDED_WAKE_FIXTURES as _LITB_WAKE__RECORDED_WAKE_FIXTURES,
 )
@@ -2698,29 +2692,23 @@ class TestRfixBMadv:
             assert mach["mach_advancing_bound"] == "edgewise"
         assert f"M_adv {advancing:.3f}" in plan.summary() and "edgewise bound" in plan.summary()
         assert any("M_adv >= 1" in str(w.message) for w in caught)
-        rotor = _rfixb_madv___rotor("Z").model_copy(update={"diameter_m": 1.2})
-        csv = write_rotor_table(
-            tmp_path / "rotor.csv",
-            rotor=rotor,
-            rows=[_rfixb_madv___row(rpm=1200.0, air=(300.0, _RFIXB_MADV__SEA_LEVEL_SOUND))],
-            reference=_rfixb_madv___reference(),
+        # 0.58.0: the rotor table is retired; the post's Mach cells (MTIP and MHEL are the
+        # run block's, no file column carries M_adv) of the same row, shaft along z.
+        (_tip, post_helical), post_advancing = _rfixb_madv__mach_cells(
+            (300.0, _RFIXB_MADV__SEA_LEVEL_SOUND), 1200.0, 1.2, (0.0, 0.0), (0.0, 0.0, 1.0)
         )
-        _, rows = _rfixb_madv__read_csv_table(csv)
-        assert float(rows[0]["MADV_PUSHER"]) == pytest.approx(advancing, abs=1e-5)
-        assert float(rows[0]["MHEL_PUSHER"]) == pytest.approx(helical, abs=1e-5)
+        assert post_advancing == pytest.approx(advancing, abs=1e-5)
+        assert post_helical == pytest.approx(helical, abs=1e-5)
 
     @staticmethod
     @pytest.mark.requirement("FR-176")
     def test_p0400_rfixb_madv_without_resolved_air_is_na(tmp_path):
         """P0400-RFIXB-MADV: unavailable Mach stays NA while the loads row survives."""
-        csv = write_rotor_table(
-            tmp_path / "rotor.csv",
-            rotor=_rfixb_madv___rotor("Z"),
-            rows=[_rfixb_madv___row(air=None)],
-            reference=_rfixb_madv___reference(),
-        )
-        _, rows = _rfixb_madv__read_csv_table(csv)
-        assert rows[0]["MADV_PUSHER"] == "NA" and rows[0]["MHEL_PUSHER"] == "NA"
+        # The row-survives half is test_goal035_rotor_mach::
+        # test_a_point_whose_air_did_not_resolve_reads_na_and_keeps_its_row (RCOEF row kept,
+        # MTIP0 and MHEL0 NA); here the Mach cells of a row without air, M_adv included.
+        machs, advancing = _rfixb_madv__mach_cells(None, 3000.0, 2.0, (0.0, 0.0), (0.0, 0.0, 1.0))
+        assert advancing is None and machs == (None, None)
 
 
 class TestRfixR5Quadrature:

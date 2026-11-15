@@ -2093,28 +2093,14 @@ class TestSweep1Contracts:
     @staticmethod
     def test_p0400_rotor_efficiency_warns(tmp_path):
         """P0400-SWEEP-ETA-BOUND: an efficiency above one is a point-naming warning."""
-        import warnings
+        from tests.tier1_offline.test_goal036_rotor_in_plane import FORWARD, _posted
 
-        from pyflightstream.post.products import write_rotor_table
-        from tests.tier1_offline.test_goal026_item06_rotor_loads import (
-            _reference,
-            _rotor,
-            _surfaces,
-        )
-        from tests.tier1_offline.test_regression_post_rotor_acoustics import (
-            _post_1_rotor_table___row as _row,
-        )
-
-        row = _row("camp/sim_1/P1", surfaces=_surfaces(Blade1={"Cz": 100.0, "CMz": 0.001}))
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            written = write_rotor_table(
-                tmp_path / "rotor.csv", rotor=_rotor("Z"), rows=[row], reference=_reference()
-            )
-        assert written is not None
-        assert any(
-            "camp/sim_1/P1" in str(w.message) and "exceeds 1" in str(w.message) for w in caught
-        )
+        # 0.58.0: through the post stage. A thrust of 0.5 q S on the shaft with a torque of
+        # 1e-5 q S c at 1200 rev/min and 68 m/s gives ETA = J CT / CP far above one.
+        row, said = _posted(tmp_path, FORWARD, {"Cx": -0.5, "CMx": 0.00001})
+        assert row["ETA"] != "NA" and float(row["ETA"]) > 1.0, row
+        run_id = "camp/sim_6001/M200RE1177AL+000BE+000"
+        assert any(run_id in text and "exceeds 1" in text for text in said), said
 
     @staticmethod
     @pytest.mark.parametrize("live", [True, False])

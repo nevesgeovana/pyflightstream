@@ -15,7 +15,9 @@ from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 # Captured with git show HEAD:src/pyflightstream/post/products.py before S02, plus
 # ProductArgumentError, which the exceptions catalogue added in the same release,
 # plus the six names of the per-revolution product 0.31.0 added (P0310-G2-PER-REV),
-# appended at the end, plus rotor_advance_ratio, which 0.32.0 added to post._tables
+# appended at the end, minus the four writers 0.58.0 retired (the swept polar name, the
+# unsteady polar, per-blade and rotor-table writers), plus
+# rotor_advance_ratio, which 0.32.0 added to post._tables
 # for the quasi-steady tables' advance ratio (package J). Keep the order too: the
 # extraction must not edit the
 # existing export inventory, and an addition goes after it.
@@ -58,9 +60,7 @@ _ORIGINAL_ALL = [
     "polar_file_name",
     "polar_row",
     "swept_axes",
-    "swept_polar_file_name",
     "unsteady_polar_file_name",
-    "write_unsteady_polar",
     "GEOMETRY_ANALYSIS_FRAMES",
     "provenance_file_name",
     "read_csv_table",
@@ -69,7 +69,6 @@ _ORIGINAL_ALL = [
     "write_custom_polar_format",
     "write_plots_table",
     "write_probes_table",
-    "write_per_blade_table",
     "write_phase_locked_table",
     "write_reduction_table",
     "write_polar_table",
@@ -236,7 +235,6 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 "polar_table_columns",
                 "polar_table_rows",
                 "swept_axes",
-                "swept_polar_file_name",
                 "write_polar_table",
                 "write_recorded_polar",
                 "GCI_SAFETY_FACTOR",
@@ -263,7 +261,6 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 "rotor_frame_coefficients",
                 "rotor_shaft_loads",
                 "warn_rotor_declared_aft",
-                "write_rotor_table",
             },
         ),
         # 0.33.0 (AD-13, WP5): a product family cut out of post.products.
@@ -273,7 +270,6 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 "UNSTEADY_AXIS_COLUMNS",
                 "global_frame_plot_groups",
                 "unsteady_polar_file_name",
-                "write_unsteady_polar",
             },
         ),
         # 0.33.0 (AD-13, WP5): a product family cut out of post.products.
@@ -289,7 +285,6 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 "per_revolution_table",
                 "read_probe_positions",
                 "revolution_drift_pct",
-                "write_per_blade_table",
                 "write_phase_locked_table",
                 "write_plots_table",
                 "write_probes_table",

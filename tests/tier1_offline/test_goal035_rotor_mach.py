@@ -26,13 +26,15 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.cases.workflows import rotor_mach_numbers, rotor_machs, workflow_registry
 from pyflightstream.post._condition import _free_stream_and_sound
-from pyflightstream.post.products import read_csv_table, write_rotor_table
+from pyflightstream.post.products import read_csv_table
+from pyflightstream.post.rotor_table import _mach_cells
 from pyflightstream.run import CampaignErrors
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import RunRecord
 from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
 from tests.tier1_offline.test_goal024_rpm import _rotor_matrix
-from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _rotor, _surfaces
+from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference
+from tests.tier1_offline.test_p0580_l2_polar_files import _reference as _rotor_reference
 
 #: The ISA speed of sound at sea level, m/s, by hand: sqrt(1.4 * 287.05287 * 288.15).
 SEA_LEVEL_SOUND = math.sqrt(1.4 * 287.05287 * 288.15)
@@ -300,65 +302,77 @@ def test_a_rotor_point_run_through_the_workflow_records_its_mach_numbers(tmp_pat
 # --- the rotor table ---------------------------------------------------------
 
 
-def _row(**update):
-    row = {
-        "run_id": "camp/sim_1/P1",
-        "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-        "condition": {"MACH": 0.15, "ALPHA": 0.0, "BETA": 0.0, "VINF": 50.0},
-        "rpm": 3000.0,
-        "density": 1.225,
-        "speed": 50.0,
-        "free_stream": 50.0,
-        "air": (50.0, 340.0),
-    }
-    row.update(update)
-    return row
+def _posted_pusher(tmp_path, *, flight_condition=None):
+    """Polar 6002 (unsteady, 2200 rev/min) with the rotor PUSHER of 2 m, posted.
+
+    ``flight_condition`` replaces the record's condition, so that the point's air
+    cannot be resolved. Returns the rotor group's RCOEF rows and its columns.
+    """
+    import warnings
+
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
+
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "references" / "r002.toml").write_text(
+        _rotor_reference(("PUSHER", None, "B")), encoding="utf-8"
+    )
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.sim_id == "6002" and flight_condition is not None:
+            record = record.model_copy(update={"flight_condition": flight_condition})
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _post(workspace)
+    polars = workspace.root / "post" / "matriz" / "polars"
+    return read_csv_table(polars / "P6002-PUSHER-RCOEF.csv")
 
 
 def test_the_rotor_table_states_both_numbers_last(tmp_path):
-    """3000 rev/min on the 2 m fixture rotor at 50 m/s, sound at 340 m/s.
+    """2200 rev/min on the 2 m fixture rotor at 49.036 m/s, sound at 340.294 m/s (288.15 K).
 
-    By hand: Omega R = 3000 * 2 pi / 60 * 1.0 = 100 pi = 314.159 m/s, so
-    M_tip = 0.923998 and M_hel = sqrt(50^2 + (100 pi)^2) / 340 = 0.935627.
+    By hand: Omega R = 2200 * 2 pi / 60 * 1.0 = 230.3835 m/s, so
+    M_tip = 0.677013 and M_hel = sqrt(49.036^2 + 230.3835^2) / 340.294 = 0.692179.
+    0.58.0: both numbers are in the run block of every row of the rotor's files
+    (``MTIP<id>``, ``MHEL<id>``, beside ``RPM<id>`` and ``J<id>``).
     """
-    rotor = _rotor("Z")
-    assert rotor.diameter_m == 2.0
-    written = write_rotor_table(
-        tmp_path / "P1-PUSHER_rotor.csv", rotor=rotor, rows=[_row()], reference=_reference()
-    )
-    columns, rows = read_csv_table(written)
-    # 0.31.0 (G8): the owner's requirement puts the four in-plane coefficients
-    # after the two Mach numbers, which stay last of every column 0.30.0 wrote.
-    assert tuple(columns[-7:]) == (
-        "MTIP_PUSHER",
-        "MHEL_PUSHER",
-        "CN_PUSHER",
-        "CS_PUSHER",
-        "CMN_PUSHER",
-        "CMS_PUSHER",
-        "MADV_PUSHER",
+    columns, rows = _posted_pusher(tmp_path)
+    assert tuple(columns[columns.index("RPM0") : columns.index("RPM0") + 4]) == (
+        "RPM0",
+        "J0",
+        "MTIP0",
+        "MHEL0",
     ), columns
-    assert float(rows[0]["MTIP_PUSHER"]) == pytest.approx(100.0 * math.pi / 340.0, abs=1e-5)
-    assert float(rows[0]["MHEL_PUSHER"]) == pytest.approx(
-        math.hypot(50.0, 100.0 * math.pi) / 340.0, abs=1e-5
-    )
-    assert float(rows[0]["MTIP_PUSHER"]) == pytest.approx(0.923998, abs=1e-5)
-    assert float(rows[0]["MHEL_PUSHER"]) == pytest.approx(0.935627, abs=1e-5)
-    assert float(rows[0]["MADV_PUSHER"]) == pytest.approx(
-        (100.0 * math.pi + 50.0) / 340.0, abs=1e-5
-    )
+    sound = math.sqrt(1.4 * 287.05287 * 288.15)
+    tip_speed = 2200.0 * 2.0 * math.pi / 60.0 * 1.0
+    assert float(rows[0]["MTIP0"]) == pytest.approx(tip_speed / sound, abs=1e-5)
+    assert float(rows[0]["MHEL0"]) == pytest.approx(math.hypot(49.036, tip_speed) / sound, abs=1e-5)
+    assert float(rows[0]["MTIP0"]) == pytest.approx(0.677013, abs=1e-5)
+    assert float(rows[0]["MHEL0"]) == pytest.approx(0.692179, abs=1e-5)
+
+
+def test_the_advancing_tip_number_of_a_row_is_the_hand_calculation():
+    """3000 rev/min on the 2 m rotor at 50 m/s, sound at 340 m/s, shaft along z, no attitude.
+
+    The tip numbers by hand: M_tip = 100 pi / 340 = 0.923998, M_hel =
+    sqrt(50^2 + (100 pi)^2) / 340 = 0.935627. The advancing tip adds the free stream
+    to the tangential speed: M_adv = (100 pi + 50) / 340.
+
+    0.58.0 has no file column for M_adv (the design maps MTIP and MHEL to the run block
+    and names no successor), so this pins the helper the post still calls.
+    """
+    machs, madv = _mach_cells((50.0, 340.0), 3000.0, 2.0, (0.0, 0.0), (0.0, 0.0, 1.0))
+    assert machs[0] == pytest.approx(0.923998, abs=1e-5)
+    assert machs[1] == pytest.approx(0.935627, abs=1e-5)
+    assert madv == pytest.approx((100.0 * math.pi + 50.0) / 340.0, abs=1e-5)
+    assert _mach_cells(None, 3000.0, 2.0, (0.0, 0.0), (0.0, 0.0, 1.0)) == ((None, None), None)
 
 
 def test_a_point_whose_air_did_not_resolve_reads_na_and_keeps_its_row(tmp_path):
-    written = write_rotor_table(
-        tmp_path / "P1-PUSHER_rotor.csv",
-        rotor=_rotor("Z"),
-        rows=[_row(air=None)],
-        reference=_reference(),
-    )
-    _columns, rows = read_csv_table(written)
-    assert rows[0]["MTIP_PUSHER"] == "NA" and rows[0]["MHEL_PUSHER"] == "NA"
-    assert rows[0]["CT_PUSHER"] != "NA"
+    _columns, rows = _posted_pusher(tmp_path, flight_condition={})
+    assert rows[0]["MTIP0"] == "NA" and rows[0]["MHEL0"] == "NA"
+    assert rows[0]["CT"] != "NA"
 
 
 def test_the_table_takes_the_air_the_point_resolved_to():
