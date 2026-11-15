@@ -92,8 +92,6 @@ def refuse_what_a_saved_point_cannot_give(pproc: PprocSpec, *, pproc_id: str, wh
     * ``[[probes]]`` and ``[volume_section]``, the field off the body (RPT-062);
     * ``[plots]`` and ``[time_averaging]``, which fill during a march, and the
       additional post runs none;
-    * ``base_regions``, which marks a mesh before its solve, and a saved
-      simulation carries the marks it was saved with;
     * an ``[exports]`` turning the sections or the sectional loads off, which the
       additional post always computes and exports, or turning on a kind it never
       writes: the probe points, the per-panel force distribution, the solver's

@@ -107,7 +107,8 @@ points updated or created after reopening differ from the run's
 , and the
 field off the body does not come back as the run left it. `[plots]` or
 `[time_averaging]`, which fill during a march the extraction does not run.
-`base_regions`, a mark made on a mesh before its solve. An `[exports]` turning
+`base_regions`, which no pproc artifact states: a base region is declared with
+the geometry, in the boundaries file. An `[exports]` turning
 the sections or the sectional loads off, which the extraction always writes, or
 turning on the probe points, the force distribution or a solver plot, which it
 never writes

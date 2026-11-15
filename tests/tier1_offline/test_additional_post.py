@@ -301,9 +301,8 @@ def test_g12_an_additional_pproc_with_probes_is_refused_naming_rpt062(tmp_path):
     assert "[[probes]]" in str(refused.value)
 
 
-#: Each table a march fills, or that marks a mesh before its solve, or an
-#: export the extraction always writes or never writes, with the words its
-#: refusal names it by.
+#: Each table a march fills, or an export the extraction always writes or never
+#: writes, with the words its refusal names it by.
 MARCH_ONLY = {
     "plots": (
         '[plots]\n[[plots.groups]]\nname = "WING"\nfamilies = ["W"]\nframe = "MRP"\n',
@@ -318,7 +317,6 @@ MARCH_ONLY = {
         'corners_m = [0.0, 0.0, 1.0, 1.0]\nformat = "vtk"\n',
         "[volume_section]",
     ),
-    "base_regions": ('base_regions = ["B"]\n', "base_regions"),
 }
 
 
@@ -332,6 +330,20 @@ def test_g12_an_additional_pproc_that_asks_what_a_reopened_file_cannot_give_is_r
     with pytest.raises(CampaignConfigError) as refused:
         plan_of(workspace, matrix)
     assert named in str(refused.value), str(refused.value)
+
+
+def test_g12_an_additional_pproc_stating_base_regions_is_refused_at_plan(tmp_path):
+    """A base region marks a mesh before its solve, and no pproc states one (PFS-2252).
+
+    The additional pproc's own refusal of ``base_regions`` left with the key:
+    every pproc artifact refuses it by name, so the additional one is refused
+    at plan, naming the key and its home, before a seat is spent.
+    """
+    workspace, matrix = a_campaign(tmp_path, additional='base_regions = ["B"]\n' + SECTIONS_TOML)
+    with pytest.raises(InputArtifactError) as refused:
+        plan_of(workspace, matrix)
+    assert "base_regions" in str(refused.value), str(refused.value)
+    assert "[base_regions.<family>]" in str(refused.value), str(refused.value)
 
 
 def test_g12_the_key_on_a_legacy_row_is_warned_and_skipped(tmp_path):
