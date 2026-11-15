@@ -209,7 +209,9 @@ def _written(tmp_path, group="MRP_TOTAL", name="P6002-TOTAL-ACOEF.csv", **option
 def _expected() -> dict[str, float]:
     force_unit = 0.5 * RHO * VINF**2 * REFERENCE.sref_m2
     force = [value / force_unit for value in MEAN[:3]]
-    moment = [value / (force_unit * REFERENCE.cref_m) for value in MEAN[3:]]
+    # The oracle normalises the moment by the span or the chord itself (the airframe
+    # coefficients of the ACOEF files take N and N m), so it is given over q S only.
+    moment = [value / force_unit for value in MEAN[3:]]
     # imported here: that module skips itself without scipy, and an import at the top
     # would skip every scipy-free test of every module that borrows this one's helpers
     from tests.tier1_offline.test_goal028_polar_from_the_vector import _oracle
