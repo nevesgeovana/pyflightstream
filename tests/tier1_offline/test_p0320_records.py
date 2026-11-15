@@ -152,6 +152,28 @@ def test_rebuild_takes_the_campaign_name_and_version_from_the_post_provenance(
     workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
     assert not list(workspace.root.rglob("campaign_sweep.csv"))
     _lose_the_manifest(workspace)
+    stamped = 0
+    for sheet in (workspace.root / "post").rglob("*.prov.json"):
+        document = json.loads(sheet.read_text(encoding="utf-8"))
+        for key, agent in (document.get("agent") or {}).items():
+            if key.startswith("pyfs:package/") and isinstance(agent, dict):
+                agent["pyfs:version"] = "0.57.9"
+                stamped += 1
+        sheet.write_text(json.dumps(document), encoding="utf-8")
+    assert stamped, "the post wrote no provenance agent for the package"
+    # THE VERSION IS THE SHEET'S: a record is rebuilt only by the version that ran, so a
+    # sheet naming another version refuses the simulation by that version, which nothing
+    # but the sheet can have supplied.
+    entry = records.rebuild(workspace.root)
+    assert entry["records"] == []
+    (why,) = entry["refused"].values()
+    assert "recorded by pyflightstream 0.57.9" in why
+    for sheet in (workspace.root / "post").rglob("*.prov.json"):
+        document = json.loads(sheet.read_text(encoding="utf-8"))
+        for key, agent in (document.get("agent") or {}).items():
+            if key.startswith("pyfs:package/") and isinstance(agent, dict):
+                agent["pyfs:version"] = entry["package_version"]
+        sheet.write_text(json.dumps(document), encoding="utf-8")
     (rebuilt,) = records.rebuild(workspace.root)["records"]
     assert rebuilt["run_id"] == original["run_id"]
     assert rebuilt["run_id"].startswith("local/")
