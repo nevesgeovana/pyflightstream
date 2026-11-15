@@ -562,15 +562,6 @@ class SolverSettings(BaseModel):
             )
         return self
 
-    #: Refused on every build: SONIC_VELOCITY, a legacy explicit speed
-    #: of sound in metres per second, has no recorded evidence on any registered
-    #: build, and 26.101 onward removed it (the solver warns and ignores it).
-    #:
-    #: The sound speed follows from the resolved temperature and specific-heat
-    #: ratio. Kept so a setup stating it is refused by the build guard, naming the
-    #: command, rather than read as a setting a run applied; with
-    #: ``freestream_input = "mach"`` a differing value is refused before that.
-    sonic_velocity_m_per_s: float | None = Field(default=None, gt=0)
     max_threads: int | None = Field(default=None, ge=1)
     runtime: RuntimeSettings | None = None
 

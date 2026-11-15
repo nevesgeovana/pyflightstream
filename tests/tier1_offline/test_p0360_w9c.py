@@ -12,7 +12,11 @@ from tests.tier1_offline.test_matrix_run import RECIPES, make_library
 FIXTURES = Path(__file__).parent / "fixtures"
 
 #: The solver-settings fields 0.58.0 removed with their setup keys (PFS-2176 review).
-REMOVED_SOLVER_FIELDS = ("physics_auto_trailing_edges", "physics_auto_wake_nodes")
+REMOVED_SOLVER_FIELDS = (
+    "physics_auto_trailing_edges",
+    "physics_auto_wake_nodes",
+    "sonic_velocity_m_per_s",
+)
 
 
 @pytest.mark.parametrize("fixture", ["matrix.fs", "matrix_registry.fs"])

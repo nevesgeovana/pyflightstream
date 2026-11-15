@@ -85,6 +85,8 @@ The probe kinds `normal` and `unsteady` of a `[[probes]]` or `[volume_section]` 
 
 The setup keys `physics_auto_trailing_edges` and `physics_auto_wake_nodes` (the `PHYSICS` command, which has no row on the current builds) are refused by name. PFS-2250. migration: declare the detection in the boundaries file, `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry).
 
+The setup key `sonic_velocity_m_per_s` (the `SONIC_VELOCITY` command, removed by build 26.101) is refused by name when the setup is read. PFS-2251. migration: remove the key; the speed of sound follows from the air state of the flight-condition columns.
+
 The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.
 
 ### Fixed

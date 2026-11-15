@@ -113,13 +113,6 @@ def test_mach_route_refuses_inconsistent_pinned_sound_speed():
         _settings(case, Script("26.124"))
 
 
-def test_mach_route_refuses_a_conflicting_explicit_sonic_override():
-    case = _resolved_mach_case()
-    case.solver.sonic_velocity_m_per_s = 500.0
-    with pytest.raises(ValueError, match="sonic_velocity_m_per_s changes the sound speed"):
-        _settings(case, Script("26.124"))
-
-
 def test_freestream_route_default_and_inspection_value_are_explicit():
     assert SolverSettings().model_dump()["freestream_input"] == "velocity"
     assert _resolved_mach_case().solver.model_dump()["freestream_input"] == "mach"

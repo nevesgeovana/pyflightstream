@@ -173,9 +173,6 @@ def _resolved_native_mach(case: SimCase, script: Script) -> float | None:
                 f"{prefix}: resolved sound speed disagrees with gamma * pressure / density; "
                 "use freestream_input='velocity' to preserve an independently pinned state"
             )
-    override = case.solver.sonic_velocity_m_per_s
-    if override is not None and not math.isclose(override, sound, rel_tol=1e-7, abs_tol=1e-9):
-        raise CampaignConfigError(f"{prefix}: sonic_velocity_m_per_s changes the sound speed")
     velocity = _velocity(case)
     values = (mach, velocity, fluid.velocity_m_per_s)
     if any(not math.isfinite(value) or value < 0 for value in values):
@@ -237,8 +234,6 @@ def _settings(
             "mark_wake_termination_nodes = true selects no node; "
             "use the [wake_termination] file route"
         )
-    if solver.sonic_velocity_m_per_s is not None:
-        script.emit("SONIC_VELOCITY", solver.sonic_velocity_m_per_s)
     for inlet in solver.delete_inlets or ():
         script.emit("DELETE_INLET", inlet)
     for outlet in solver.delete_outlets or ():

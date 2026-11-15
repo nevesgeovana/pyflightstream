@@ -774,6 +774,20 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         why=_THE_PHYSICS_COMMAND,
         instead="Declare",
     ),
+    "setup.sonic_velocity_m_per_s": RetiredName(
+        owner="a setup",
+        old="sonic_velocity_m_per_s",
+        new=(
+            "nothing: the speed of sound follows from the air state, the flight-condition "
+            "columns of the row (temperature and specific-heat ratio)"
+        ),
+        retired_in="0.58.0",
+        why=(
+            "The SONIC_VELOCITY command was removed by build 26.101 and has no row on any "
+            "registered build."
+        ),
+        instead="Write",
+    ),
 }
 
 

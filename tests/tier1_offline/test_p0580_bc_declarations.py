@@ -99,6 +99,18 @@ def test_p0580_pfs2250_physics_switches_are_refused_naming_the_detection(tmp_pat
         assert '[wake_termination] detect = "auto"' in said, said
 
 
+def test_p0580_pfs2251_sonic_velocity_is_refused_naming_the_air_state(tmp_path):
+    """PFS-2251: the speed of sound follows from the air state; the key is refused at read."""
+    key = "sonic_velocity_m_per_s"
+    for said in (
+        _setup_refusal(tmp_path, f"{key} = 340.0\n"),
+        _binding_refusal({key: 340.0}),
+        _python_refusal(**{key: 340.0}),
+    ):
+        assert key in said and "no longer accepted" in said, said
+        assert "air state" in said and "flight-condition columns" in said, said
+
+
 @pytest.mark.parametrize("build", ["26.122", "26.127"])
 def test_p0580_pfs2249_bluntness_angle_is_refused_on_a_build_with_no_row(tmp_path, build):
     """PFS-2249: 26.122 removed the command and 26.127 has no row, so the build refuses it."""

@@ -13,6 +13,7 @@ condition at another home is refused by name, and the refusal names the home.
 | Condition | Its home | Refused elsewhere |
 | --- | --- | --- |
 | Automatic trailing-edge and wake-termination detection | the boundaries file: `[trailing_edges] detect = "auto"` and `[wake_termination] detect = "auto"` (`wake_termination_nodes = "auto"` on a named entry) | setup `physics_auto_trailing_edges`, `physics_auto_wake_nodes` |
+| Speed of sound of the free stream | the air state of the flight-condition columns (temperature and specific-heat ratio) | setup `sonic_velocity_m_per_s` |
 
 Keep `[ports]` identity-to-surface mappings beside the mesh. In an
 `inputs/setups/s<>.toml` file, use ordered `[[ports]]` tables with `port`,
