@@ -85,8 +85,10 @@ so `CFZ = CN`, `CFY = -CS`, `CMZ = -CMN` and `CMY = -CMS`.
 
 ### Signs in every frame
 
-- **Airframe coefficients** (the ACOEF files): `CD` positive aft, `CL`
-  positive up, `CY` positive right, in W, S, B and R<id> alike. The moments
+- **Airframe coefficients** (the ACOEF files): `CD` positive along `-x` of
+  the frame, `CL` along `-z` of the frame, `CY` along `+y` of the frame, in
+  W, S, B and R<id> alike; in B these are aft, up and right, in R<id> they
+  follow the shaft. The moments
   keep the right-hand rule about each frame's forward-right-down axes:
   positive roll is right wing down, positive pitch nose up, positive yaw nose
   right.

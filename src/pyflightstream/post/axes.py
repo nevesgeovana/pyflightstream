@@ -40,8 +40,10 @@ THE ROTOR FRAMES R<id>: body axes turned by a rotor's toe about z and
 then its pitch about y, ``C_R/B = C2(theta) C3(psi)``, so ``x_R`` lies along the
 shaft in the sense that makes thrust positive forward (:func:`rotor_frame`).
 :func:`frame_rotations` gives every frame of a polar file from the export frame,
-and :func:`airframe_axis_coefficients` the six coefficients in each, CD positive
-aft and CL positive up in all of them (``docs/definitions/axes-and-signs.md``).
+and :func:`airframe_axis_coefficients` the six coefficients in each: CD positive
+along ``-x`` of the frame, CL along ``-z`` of the frame, CY along ``+y`` of the
+frame, in W, S, B and R<id> alike; in B these are aft, up and right, in R<id>
+they follow the shaft (``docs/definitions/axes-and-signs.md``).
 """
 
 from __future__ import annotations
@@ -983,7 +985,9 @@ def airframe_axis_coefficients(
         CY<f> =  F_f,y / (q SREF)        Cm<f> = M_f,y / (q SREF CREF)
         CL<f> = -F_f,z / (q SREF)        Cn<f> = M_f,z / (q SREF BREF)
 
-    so CD is positive aft and CL positive up in every frame, and the moments
+    so ``CD`` is positive along ``-x`` of the frame, ``CL`` along ``-z`` of the
+    frame and ``CY`` along ``+y`` of the frame, in W, S, B and R<id> alike; in B
+    these are aft, up and right, in R<id> they follow the shaft. The moments
     keep the right-hand rule about the frame's axes.
 
     Parameters
@@ -1012,6 +1016,14 @@ def airframe_axis_coefficients(
     ...                                  q_ref_pa=1.0, sref_m2=1.0, cref_m=1.0, bref_m=1.0)
     >>> row["CDB"], row["CLB"], row["CDW"], row["CLW"]
     (2.0, 10.0, 2.0, 10.0)
+
+    In a rotor frame the signs follow the shaft: a shaft up the export z axis
+    puts ``x_R`` along the export-up force, so that force is a negative ``CD``:
+
+    >>> shaft_up = frame_rotations(0.0, 0.0, [rotor_frame((0.0, 0.0, 1.0), 0)])
+    >>> airframe_axis_coefficients((0.0, 0.0, 10.0), (0.0, 0.0, 0.0), shaft_up,
+    ...                            q_ref_pa=1.0, sref_m2=1.0, cref_m=1.0, bref_m=1.0)["CDR0"]
+    -10.0
     """
     usable = _positive_finite(q_ref_pa, sref_m2, cref_m, bref_m)
     scale = float(q_ref_pa) * float(sref_m2)
