@@ -94,8 +94,10 @@ LEAN_CAPS = {
     "tracked_files": 2351,
     "reports_files": 121,
     "reports_lines": 208338,
-    "tests_files": 1167,
-    "tests_lines": 406996,
+    # PFS-2177 (the owner, 2026-10-26: "sobre o limites de testes, pode abrir para o tanto
+    # que voce precisar ... por enquanto segue sem esse limite"): the measured 0.58.0 values.
+    "tests_files": 1298,
+    "tests_lines": 475485,
 }
 
 #: Measured and reported, not enforced, in 0.46.0: the tests review before 1.0.0 (PFS-2177)
