@@ -2527,6 +2527,10 @@ class TestSweep1Routes:
         assert "out_dir" in refine.format_help()
 
 
+#: What the removed pyfs-matrix aliases wrote at d7992ef90 on the fixture wing OBJ (QA-F1).
+_GEOM_GROUP_GOLDENS = Path(__file__).parent / "goldens" / "p0400_geom_group"
+
+
 def _geometry_group___options(run, argv: list[str], capsys) -> set[str]:
     """Return the options a command's --help lists."""
     with pytest.raises(SystemExit):
@@ -2550,7 +2554,7 @@ class TestGeometryGroup:
         ours = _geometry_group___options(workspace_cli.main, ["geometry", name], capsys)
         parser = _cli_geometry.matrix_parsers()[verb]
         theirs = set(re.findall(r"(?<![\w-])--[a-z][a-z-]*", parser.format_help()))
-        assert ours and ours <= theirs | {"--help"}, (ours, theirs)
+        assert ours and ours | {"--help"} == theirs | {"--help"}, (ours, theirs)
         assert set(_cli_geometry.matrix_parsers()) == set(
             _cli_geometry.PYFS_MATRIX_ALIASES.values()
         )
@@ -2558,20 +2562,32 @@ class TestGeometryGroup:
     @staticmethod
     @pytest.mark.requirement("FR-477")
     def test_p0400_geom_group_audit_writes_the_audit(tmp_path, monkeypatch, capsys):
-        """P0400-GEOM-GROUP (PFS-2081.41): the group's audit writes the audit beside the OBJ."""
+        """P0400-GEOM-GROUP (PFS-2081.41): the group's audit writes the audit beside the OBJ.
+
+        Byte for byte the audit the removed ``pyfs-matrix audit-mesh`` wrote at
+        d7992ef90 on this fixture (QA-F1); the golden names the mesh by its
+        relative name and carries no timestamp, so nothing is normalised.
+        """
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
         assert workspace_cli.main(["geometry", "audit", str(mesh)]) == 0
-        assert (tmp_path / "wing.audit.json").is_file()
+        golden = _GEOM_GROUP_GOLDENS / "wing.audit.json"
+        assert (tmp_path / "wing.audit.json").read_bytes() == golden.read_bytes()
 
     @staticmethod
     @pytest.mark.requirement("FR-477")
     def test_p0400_geom_group_inventory_writes_the_sidecar(tmp_path, monkeypatch):
-        """P0400-GEOM-GROUP (PFS-2081.41): the group's inventory of an OBJ writes its sidecar."""
+        """P0400-GEOM-GROUP (PFS-2081.41): the group's inventory of an OBJ writes its sidecar.
+
+        Byte for byte the sidecar the removed ``pyfs-matrix inventory`` wrote at
+        d7992ef90 on this fixture (QA-F1); it names the OBJ by its file name and
+        records its sha256, so nothing is normalised.
+        """
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
         assert workspace_cli.main(["geometry", "inventory", str(mesh)]) == 0
-        assert (tmp_path / "wing.obj.boundaries.toml").is_file()
+        golden = _GEOM_GROUP_GOLDENS / "wing.obj.boundaries.toml"
+        assert (tmp_path / "wing.obj.boundaries.toml").read_bytes() == golden.read_bytes()
 
     @staticmethod
     @pytest.mark.requirement("FR-477")

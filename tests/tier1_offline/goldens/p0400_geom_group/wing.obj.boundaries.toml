@@ -1,0 +1,19 @@
+# Written by pyflightstream from the groups of wing.obj, which had no sidecar;
+# the OBJ's sha256 was e65ed977d613aa9d8e3c75db3c535c2e9b5c59e9b08c9f05ba58ca5396cd4800.
+# One boundary per `o` or `g` group holding a face, named by the group, in the
+# order of the file: how the solver numbers an OBJ's surfaces on import
+# (RPT-078). The package rewrites this file only for inventory --refresh, and then
+# only its counted keys. Add fs_build at the top level and [import] units.
+# Add named [trailing_edges.<label>] entries, each
+# with type and file or detect; optionally add [base_regions.<family>] entries.
+# For no trailing edges, declare [trailing_edges] none = true.
+# See docs/mesh-inputs.md for the declaration syntax.
+boundaries = [
+    "Wing",
+]
+# The faces of the mesh, counted when this inventory was taken, and the sha256 of
+# the file they were counted in; the post carries mesh_faces as MESH_FACES for a
+# run whose recorded sha256 of this geometry is that one (FR-348).
+mesh_faces = 816
+boundary_faces = [816]
+mesh_sha256 = "e65ed977d613aa9d8e3c75db3c535c2e9b5c59e9b08c9f05ba58ca5396cd4800"

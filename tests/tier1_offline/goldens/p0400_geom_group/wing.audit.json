@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "mesh": "wing.obj",
+  "source": null,
+  "passed": true,
+  "gates": [
+    {
+      "name": "G1",
+      "family": "(whole mesh)",
+      "verdict": "pass",
+      "values": {
+        "edges_of_more_than_two_faces": 0,
+        "node_pairs_at_one_position": 0,
+        "faces_of_zero_area": 0,
+        "faces_under_1_degree": 8
+      }
+    },
+    {
+      "name": "G2",
+      "family": "(whole mesh)",
+      "verdict": "pass",
+      "values": {
+        "neighbours_of_opposite_orientation": 0,
+        "inward_closed_shells": 0
+      }
+    },
+    {
+      "name": "G2",
+      "family": "Wing",
+      "verdict": "pass",
+      "values": {
+        "enclosed_volume": 0.6462124686900884
+      }
+    },
+    {
+      "name": "G3",
+      "family": "(whole mesh)",
+      "verdict": "not judged",
+      "values": {
+        "open_loops": 0
+      }
+    },
+    {
+      "name": "G4",
+      "family": "(whole mesh)",
+      "verdict": "pass",
+      "values": {
+        "points": 0,
+        "points_on_edges": 0,
+        "points_sharing_an_edge": 0,
+        "chains": 0,
+        "points_file": "none found",
+        "length": 0.0
+      }
+    },
+    {
+      "name": "G5",
+      "family": "(whole mesh)",
+      "verdict": "not judged",
+      "values": {
+        "family_pairs_sharing_nodes": 0
+      }
+    },
+    {
+      "name": "G6",
+      "family": "(whole mesh)",
+      "verdict": "not judged",
+      "values": {
+        "grid_families_at_factor_1": 0
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "skewness",
+      "family": "Wing",
+      "verdict": "not judged",
+      "values": {
+        "p95": 0.9671400216202307,
+        "source_p95": null
+      }
+    },
+    {
+      "name": "warp",
+      "family": "Wing",
+      "verdict": "not judged",
+      "values": {
+        "p95": null,
+        "source_p95": null
+      }
+    },
+    {
+      "name": "growth",
+      "family": "Wing",
+      "verdict": "not judged",
+      "values": {
+        "p95": 1.588579312061674,
+        "source_p95": null
+      }
+    },
+    {
+      "name": "skewness",
+      "family": "(whole mesh)",
+      "verdict": "not judged",
+      "values": {
+        "p95": 0.9671400216202307,
+        "source_p95": null
+      }
+    },
+    {
+      "name": "warp",
+      "family": "(whole mesh)",
+      "verdict": "not judged",
+      "values": {
+        "p95": null,
+        "source_p95": null
+      }
+    },
+    {
+      "name": "growth",
+      "family": "(whole mesh)",
+      "verdict": "not judged",
+      "values": {
+        "p95": 1.588579312061674,
+        "source_p95": null
+      }
+    }
+  ],
+  "figures": {
+    "Wing": {
+      "faces": 816,
+      "triangles": 816,
+      "quadrilaterals": 0,
+      "skewness_p95": 0.9671400216202307,
+      "warp_p95": null,
+      "growth_p95": 1.588579312061674,
+      "aspect_p95": 29.06630462122846,
+      "aspect_max": 29.066304621228472,
+      "aspect_over_8": 272,
+      "aspect_over_20": 68,
+      "skewness_over_0p5": 816,
+      "warp_over_10_degrees": 0,
+      "warp_over_45_degrees": 0,
+      "quad_min_angle_under_45_degrees": 0,
+      "tri_min_angle_under_30_degrees": 816,
+      "quality_ratio_p95": 4.056740109543504,
+      "quality_ratio_over_2": 148,
+      "aspect_over_50": 0,
+      "trailing_edge_triangles_aspect_over_50": 0,
+      "faces_on_y0_plane": 0
+    },
+    "(whole mesh)": {
+      "faces": 816,
+      "triangles": 816,
+      "quadrilaterals": 0,
+      "skewness_p95": 0.9671400216202307,
+      "warp_p95": null,
+      "growth_p95": 1.588579312061674,
+      "aspect_p95": 29.06630462122846,
+      "aspect_max": 29.066304621228472,
+      "aspect_over_8": 272,
+      "aspect_over_20": 68,
+      "skewness_over_0p5": 816,
+      "warp_over_10_degrees": 0,
+      "warp_over_45_degrees": 0,
+      "quad_min_angle_under_45_degrees": 0,
+      "tri_min_angle_under_30_degrees": 816,
+      "quality_ratio_p95": 4.056740109543504,
+      "quality_ratio_over_2": 148,
+      "aspect_over_50": 0,
+      "trailing_edge_triangles_aspect_over_50": 0,
+      "faces_on_y0_plane": 0
+    }
+  },
+  "degenerate_faces": [
+    {
+      "family": "Wing",
+      "face": 768,
+      "centroid": [
+        0.827654304,
+        4.0,
+        -0.000816417
+      ],
+      "area_ratio": 0.0304233,
+      "min_angle_degrees": 0.290562
+    },
+    {
+      "family": "Wing",
+      "face": 769,
+      "centroid": [
+        0.805325205,
+        4.0,
+        -0.00392692
+      ],
+      "area_ratio": 0.0856143,
+      "min_angle_degrees": 0.943982
+    },
+    {
+      "family": "Wing",
+      "face": 790,
+      "centroid": [
+        0.805325205,
+        4.0,
+        0.00392692
+      ],
+      "area_ratio": 0.0856143,
+      "min_angle_degrees": 0.943982
+    },
+    {
+      "family": "Wing",
+      "face": 791,
+      "centroid": [
+        0.827654304,
+        4.0,
+        0.000816417
+      ],
+      "area_ratio": 0.0304233,
+      "min_angle_degrees": 0.290562
+    },
+    {
+      "family": "Wing",
+      "face": 792,
+      "centroid": [
+        0.827654304,
+        -4.0,
+        -0.000816417
+      ],
+      "area_ratio": 0.0304233,
+      "min_angle_degrees": 0.290562
+    },
+    {
+      "family": "Wing",
+      "face": 793,
+      "centroid": [
+        0.805325205,
+        -4.0,
+        -0.00392692
+      ],
+      "area_ratio": 0.0856143,
+      "min_angle_degrees": 0.943982
+    },
+    {
+      "family": "Wing",
+      "face": 814,
+      "centroid": [
+        0.805325205,
+        -4.0,
+        0.00392692
+      ],
+      "area_ratio": 0.0856143,
+      "min_angle_degrees": 0.943982
+    },
+    {
+      "family": "Wing",
+      "face": 815,
+      "centroid": [
+        0.827654304,
+        -4.0,
+        0.000816417
+      ],
+      "area_ratio": 0.0304233,
+      "min_angle_degrees": 0.290562
+    }
+  ]
+}
