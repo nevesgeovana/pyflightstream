@@ -11,7 +11,7 @@ says it and returns the old path of each file with the new one, for the manifest
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -229,10 +229,3 @@ def warn_retired_polar_files(
         sentences = list(dict.fromkeys(retired.sentence for retired in retired_kind))
         warn(" ".join([*sentences, UPGRADE_POINTER]), PyflightstreamWarning, stacklevel=3)
     return {retired.old: retired.new for retired in found}
-
-
-def rotor_ids_of(rotors: Mapping[str, object]) -> dict[str, int]:
-    """Return each rotor's declared id by alias, case-folded."""
-    return {
-        str(alias).casefold(): int(getattr(block, "id", 0) or 0) for alias, block in rotors.items()
-    }

@@ -1093,7 +1093,8 @@ def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
     """
     write_settings_product(ctx)
     write_refinement_studies(ctx)
-    from pyflightstream.post._retired_polars import rotor_ids_of, warn_retired_polar_files
+    from pyflightstream.post._block_scope import rotor_ids_from
+    from pyflightstream.post._retired_polars import warn_retired_polar_files
 
     ids: dict[str, dict[str, int]] = {}
 
@@ -1108,7 +1109,12 @@ def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
                     artifact = resolve_reference(ctx.workspace.inputs_dir, row.ref_code)
                 except PyflightstreamError:
                     artifact = None
-                ids[pol] = rotor_ids_of(getattr(artifact, "rotors", None) or {})
+                ids[pol] = {
+                    alias.casefold(): rid
+                    for alias, rid in rotor_ids_from(
+                        getattr(artifact, "rotors", None) or {}
+                    ).items()
+                }
         return ids[pol].get(alias.casefold())
 
     # THE MIGRATED FILES OF THE POLAR LAYOUT join those of the tree in the manifest.

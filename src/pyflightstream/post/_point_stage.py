@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from pyflightstream._errors import ProductError, PyflightstreamError
 from pyflightstream._tokens import CONTEXT_COLUMNS
 from pyflightstream.cases import classify_outputs
-from pyflightstream.post._block_scope import collect_block, run_blocks
+from pyflightstream.post._block_scope import collect_block, rotor_ids_from, run_blocks
 from pyflightstream.post._run_block import RUN_TYPES, RotorRunValues, run_block_row
 from pyflightstream.post._section_tables import sections_split, write_cp_table
 from pyflightstream.post._stage import SECTIONS_DIR
@@ -48,8 +48,7 @@ def rotor_ids_of(ctx: SimContext) -> dict[str, int]:
     >>> rotor_ids_of.__name__
     'rotor_ids_of'
     """
-    rotors = getattr(ctx.live, "rotors", None) or {}
-    return {str(alias): int(getattr(block, "id", 0) or 0) for alias, block in rotors.items()}
+    return rotor_ids_from(getattr(ctx.live, "rotors", None) or {})
 
 
 def run_block_identifiers(ctx: SimContext) -> dict[str, object]:

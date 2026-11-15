@@ -41,6 +41,7 @@ __all__ = [
     "collected_block",
     "collecting_blocks",
     "rotor_ids_for",
+    "rotor_ids_from",
     "run_blocks",
     "scope_rotor_ids",
     "with_rotor_alias",
@@ -179,6 +180,19 @@ def scope_rotor_ids() -> dict[str, int]:
     """
     scope = _SCOPE.get()
     return {} if scope is None else dict(scope.rotor_ids)
+
+
+def rotor_ids_from(rotors: Mapping[str, object]) -> dict[str, int]:
+    """Return each rotor's declared id by alias, the alias as written.
+
+    A caller that compares aliases case-insensitively folds the key itself.
+
+    Examples
+    --------
+    >>> rotor_ids_from({"Prop1": type("B", (), {"id": 3})()})
+    {'Prop1': 3}
+    """
+    return {str(alias): int(getattr(block, "id", 0) or 0) for alias, block in rotors.items()}
 
 
 def rotor_ids_for(
