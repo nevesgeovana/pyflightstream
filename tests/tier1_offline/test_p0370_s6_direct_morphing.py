@@ -115,7 +115,10 @@ SET_AEROELASTIC_ITERATIONS 50"""
 #: (rel/0-37 at cb59b941) on 26.124.
 MAPPED_SCRIPT_SHA256 = "2a677fb53754e6e1e06d96dc72671d47adecd51c860eb054a2356d7ddd2d4714"
 # F-127 adds the explicit null moment origin to DP_qsteady.json; other bytes are unchanged.
-MAPPED_STAGED_SHA256 = "79adea4247fff56764d60eefd02c2e20a86211756194799ce7c5d0f5899a57cd"
+# FR-68 sector rule: the sector's block lists Blade1 only, so DP_qsteady.json's
+# families_blades is ["Blade1"]; with the three families restored the old digest
+# 79adea42... is reproduced, so no other byte moved.
+MAPPED_STAGED_SHA256 = "dee1ad53f01d0e671b326d52adcb8430a977b28d06c603ce9c9c81effe9f2526"
 
 
 def _sector(tmp_path: Path, *, morphing: str | None = None, **variables) -> SimCase:
@@ -141,7 +144,12 @@ def _sector(tmp_path: Path, *, morphing: str | None = None, **variables) -> SimC
         outputs=["DP.txt", "DP_log.txt"],
         variables={key: value for key, value in stated.items() if value is not None},
         point={"alpha": 0.0},
-        rotors={ROTOR.alias: ROTOR},
+        # A SECTOR'S BLOCK LISTS ONLY THE MESHED FAMILIES (FR-68); a wheel lists all.
+        rotors={
+            ROTOR.alias: ROTOR.model_copy(update={"families_blades": ["Blade1"]})
+            if stated.get("SYMMETRY") == "PERIODIC"
+            else ROTOR
+        },
         reference=ReferenceData(area=3.14, length=0.2),
         geometry=str(geometry),
         mesh_import=MeshImport(units="METER"),

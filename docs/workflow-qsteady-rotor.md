@@ -26,6 +26,12 @@ The row's `SYMMETRY` decides which of two cases it is:
 
 A `MIRROR` symmetry is refused: a turning rotor is not its own mirror image.
 
+**The sector's rotor block lists only the meshed blade families**, and the
+wheel has those families times `PERIODIC_COPIES` blades, the count its record
+and its inflow harmonics carry. A sector stating `PERIODIC_COPIES` whose block
+lists a blade family the mesh does not contain is refused at plan, naming the
+families to remove.
+
 **The sector** stands for the wheel only in an inflow that is the same at
 every azimuth. An angle of attack or of sideslip is refused on it, and a
 custom inflow (`FREESTREAM`) is accepted only where it varies with the

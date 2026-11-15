@@ -33,6 +33,7 @@ from ._rows import (
     _require_the_averaging_window,
     _required_float,
     _required_int,
+    _sector_copies,
     _the_rotor_a_flat_row_turns,
     _variable,
     rotor_speed,
@@ -428,8 +429,17 @@ def _the_count_the_block_declares(case: SimCase, block: RotorBlock, stated: int 
     stated as six copies), is not contradicted by ``BLADES: 6``: the families
     times the copies is that count, and the row is valid as it was before
     the block became the count. Any other disagreement is refused, naming both.
+
+    ON A ``SYMMETRY: PERIODIC`` ROW THE BLOCK'S FAMILIES ARE THE MESHED SECTOR
+    and the wheel has the families times ``PERIODIC_COPIES`` blades (FR-68).
+    That count is returned when the row states no ``BLADES``, or states the
+    meshed families' count (which is what a motion view fills in), or the
+    wheel's own; the whole-passage gate and every passage cut read it here.
     """
     declared = len(block.families_blades)
+    sector = _sector_copies(case)
+    if sector is not None and stated in (None, declared, declared * sector):
+        return declared * sector
     if stated is None or stated == declared:
         return declared
     copies = (
@@ -442,7 +452,8 @@ def _the_count_the_block_declares(case: SimCase, block: RotorBlock, stated: int 
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {BLADES_VARIABLE}: {stated} and its reference "
         f"declares rotor {block.alias!r} with {declared} blade(s) "
-        f"({', '.join(block.families_blades)}). The block is the count (FR-68); "
+        f"({', '.join(block.families_blades)}). The block is the count (FR-68), times "
+        f"{PERIODIC_COPIES_VARIABLE} on a {SYMMETRY_VARIABLE} PERIODIC row; "
         f"remove {BLADES_VARIABLE} from the row, or correct the block."
     )
 
@@ -452,10 +463,11 @@ def _blade_count(case: SimCase) -> int | None:
 
     THE BLOCK FIRST (FR-68). A row whose reference declares its one rotor has
     said how many blades it has, in the file where the study's vocabulary
-    lives. ``PERIODIC_COPIES`` is what the FILE is, not the rotor: a 4-blade
-    rotor meshed as a 2-blade half states two copies, and reading those as
-    blades halved its passage and its per-blade table. A row ``BLADES`` that
-    disagrees with the block is refused, naming both.
+    lives. On a ``SYMMETRY: PERIODIC`` row the block lists the MESHED blade
+    families and ``PERIODIC_COPIES`` the sector copies round the wheel: a
+    4-blade rotor meshed as a 2-blade half lists two families and states two
+    copies, and its wheel has four blades. A row ``BLADES`` that disagrees with
+    both the meshed and the wheel's count is refused, naming both.
 
     PFS-2015.04.01: an isolated
     rotor meshed as one blade and stated as ``PERIODIC_COPIES: 6``, with no
@@ -1128,22 +1140,15 @@ def require_whole_passages(case: SimCase) -> None:
     else:
         flat = _the_rotor_a_flat_row_turns(case)
         blocks = [(flat.alias if flat is not None else "ROTOR", plan)]
-    # A SYMMETRY PERIODIC row meshes a sector: PERIODIC_COPIES is the number of
-    # sector copies round the wheel, so the wheel has families x copies blades and
-    # the passages are those of the whole wheel. A row with no rotor block takes
-    # BLADES, else PERIODIC_COPIES, as the whole wheel's count.
-    periodic = str(_variable(case, SYMMETRY_VARIABLE) or "").strip().upper() == "PERIODIC"
-    copies = (
-        _required_int(case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies")
-        if periodic and _variable(case, PERIODIC_COPIES_VARIABLE) is not None
-        else 1
-    )
+    # ONE COUNT FOR THE GATE AND THE CUT: the plan's blades come from
+    # `_blade_count`, which on a SYMMETRY PERIODIC row is the whole wheel's
+    # (PERIODIC_COPIES is the number of sector copies round the wheel and the
+    # block lists the meshed families, so the wheel has families x copies
+    # blades); the gate reads that same number.
     for alias, block in blocks:
         blades, clock = block.get("blades"), block.get("steps_per_revolution")
         if isinstance(blades, int) and blades >= 1 and isinstance(clock, int | float) and clock > 0:
             declared = (case.rotors or {}).get(alias)
-            if declared is not None and declared.families_blades:
-                blades = len(declared.families_blades) * copies
             known.append((alias, declared.id if declared is not None else 0, blades, float(clock)))
     refusals = _windows.whole_passage_refusals(case.sim_id, case.variables, known)
     if refusals:

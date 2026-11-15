@@ -103,7 +103,7 @@ x_m = {float(hub[0])}
 y_m = {float(hub[1])}
 z_m = {float(hub[2])}
 rpm_sign = {-1 if rpm < 0 else 1}
-families_blades = {json.dumps(names)}
+families_blades = {json.dumps(names[:1] if sector else names)}
 blade1 = {{ zero = "{"X" if axis == "Z" else "Y"}", azimuth_deg = 0.0 }}
 ''',
         encoding="utf-8",

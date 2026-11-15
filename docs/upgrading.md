@@ -121,6 +121,12 @@ The plan refuses an `unsteady_rotor` row whose `LAST_REVS_AVG` or `LAST_ITERS_AV
 whole number of blade passages, at least one, of every rotor the row turns. The refusal names
 the nearest valid window; write it. A window that already spans whole passages needs no edit.
 
+On a `SYMMETRY: PERIODIC` row the rotor block's `families_blades` lists only the meshed blade
+families, and the wheel has those families times `PERIODIC_COPIES` blades. A sector block that
+listed every blade of the wheel beside its copies now counts the wheel that many times over:
+keep only the families the mesh carries (a sector meshing one blade of a four-blade wheel writes
+`families_blades = ["Blade1"]` and `PERIODIC_COPIES: 4`).
+
 ## Removed forms (0.58)
 
 | Old form | Write instead |

@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 from collections.abc import (
     Mapping,
+    Sequence,
 )
 from dataclasses import (
     dataclass,
@@ -1079,6 +1080,49 @@ def _uses_letter_frame(rotor: RotorBlock) -> bool:
 def _rotor_frame_axis(rotor: RotorBlock) -> str:
     """Return the shaft axis in the basis selected for this rotor."""
     return rotor.shaft
+
+
+def _sector_copies(case: SimCase) -> int | None:
+    """Return ``PERIODIC_COPIES`` of a ``SYMMETRY: PERIODIC`` row, else None.
+
+    The copies are the number of sector copies round the wheel, so a periodic
+    row's rotor block lists only the meshed blade families and its wheel has
+    those families times this many blades (FR-68).
+    """
+    periodic = str(_variable(case, SYMMETRY_VARIABLE) or "").strip().upper() == "PERIODIC"
+    if not periodic or _variable(case, PERIODIC_COPIES_VARIABLE) is None:
+        return None
+    return _required_int(
+        case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies"
+    )
+
+
+def _wheel_blade_count(case: SimCase, rotor: RotorBlock) -> int:
+    """Return the blades of a rotor's whole wheel: its block's families, times a sector's copies.
+
+    ONE COUNT FOR EVERY READER OF THE WHEEL (FR-68): the whole-passage check,
+    every passage cut and the blade frames' spacing read it, so a sector
+    meshing two blades of a four-blade wheel places its second blade a
+    quarter turn after the first and cuts quarter-turn passages.
+    """
+    copies = _sector_copies(case)
+    return rotor.blade_count * (copies if copies is not None else 1)
+
+
+def sector_block_refusal(case: SimCase, rotor: RotorBlock, missing: Sequence[str]) -> str:
+    """Return the refusal of a sector whose rotor block lists blades the mesh lacks (FR-68).
+
+    On a ``SYMMETRY: PERIODIC`` row the block lists only the meshed blade
+    families and the wheel is those times ``PERIODIC_COPIES``, so a block
+    listing the whole wheel would count it that many times over.
+    """
+    return (
+        f"case {case.sim_id!r} solves a periodic sector ({SYMMETRY_VARIABLE} PERIODIC) and rotor "
+        f"{rotor.alias} lists the blade families {', '.join(missing)}, which the mesh does not "
+        f"contain. On a sector the rotor block lists only the meshed blade families and the "
+        f"wheel has those times {PERIODIC_COPIES_VARIABLE} blades; remove "
+        f"{', '.join(missing)} from families_blades."
+    )
 
 
 def _the_rotor_a_flat_row_turns(case: SimCase) -> RotorBlock | None:

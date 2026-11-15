@@ -112,6 +112,7 @@ from pyflightstream.cases.workflows import (
     refuse_what_a_saved_point_cannot_give as refuse_what_a_saved_point_cannot_give,
 )
 from pyflightstream.cases.workflows import row_outputs as row_outputs
+from pyflightstream.cases.workflows._custom_motion import bind_motion_tables
 from pyflightstream.workspace import MATRIX_FOLDERS as MATRIX_FOLDERS
 from pyflightstream.workspace import CampaignWorkspace as CampaignWorkspace
 from pyflightstream.workspace import InputArtifactError as InputArtifactError
@@ -728,8 +729,10 @@ def resolve_matrix(
     )
     _bind_artifacts(binding)
     _bind_rows(binding)
+    # PFS-2254: each table motion's file of inputs/motions/, bound as a profile is.
+    sims = [bind_motion_tables(case, binding.workspace.inputs_dir) for case in binding.sims]
     return ResolvedMatrix(
-        campaign=binding.campaign.model_copy(update={"sims": binding.sims}),
+        campaign=binding.campaign.model_copy(update={"sims": sims}),
         conditions=binding.conditions,
         references=binding.references,
         setups=binding.setups,

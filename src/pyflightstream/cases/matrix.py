@@ -139,6 +139,7 @@ from pyflightstream.cases.naming import POINT_AXIS_KEYS as POINT_AXIS_KEYS
 from pyflightstream.cases.workflows import (
     IGNORE_MISSING_FAMILIES_VARIABLE,
     LOG_OUTPUT_VARIABLE,
+    MOTION_TABLE_KEY,
     MOTIONS_VARIABLE,
     RAW_BEFORE_KEY,
     RAW_COMMAND_KEY,
@@ -161,6 +162,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.cases.workflows import ROW_KEY_MEANINGS as ROW_KEY_MEANINGS
 from pyflightstream.cases.workflows import WALLTIME_UNITS_GLOSS as WALLTIME_UNITS_GLOSS
 from pyflightstream.cases.workflows import WALLTIME_VARIABLE as WALLTIME_VARIABLE
+from pyflightstream.cases.workflows._custom_motion import custom_motion_record_refusal
 
 __all__ = [
     "MATRIX_COLUMNS",
@@ -259,6 +261,9 @@ class MatrixRow:
     #: The rotor motions the cell's ``MOTIONS`` list states, one record
     #: each, in cell order (PFS-2029.11.01); empty for a flat row.
     motions: list[dict[str, str]] = field(default_factory=list)
+    #: The table motions of the cell's ``MOTIONS`` list, the records naming
+    #: a ``TABLE`` (PFS-2254), in cell order; empty for a row stating none.
+    custom_motions: list[dict[str, str]] = field(default_factory=list)
     #: The mesh rotations the cell's ``ROTATE`` list states, one record
     #: each, in cell order (PFS-2034.02); empty for a row stating none.
     rotations: list[dict[str, str]] = field(default_factory=list)
@@ -583,14 +588,22 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     text = variables.pop(MOTIONS_VARIABLE, None)
     if text is None:
         return []
+    records = _parse_records(text, pol, MOTIONS_VARIABLE, "rotor")
+    # A TABLE MOTION (PFS-2254) is not a rotor: a list of table motions alone
+    # leaves the flat rotor keys to the row, and each record is checked here.
+    for entry in records:
+        if MOTION_TABLE_KEY in entry:
+            refusal = custom_motion_record_refusal(entry)
+            if refusal is not None:
+                raise MatrixError(f"POL {pol}: {refusal}")
     flat = sorted(key for key in variables if key in MOTION_RECORD_KEYS)
-    if flat:
+    if flat and any(MOTION_TABLE_KEY not in entry for entry in records):
         raise MatrixError(
             f"POL {pol}: the cell states {MOTIONS_VARIABLE} and also the flat key(s) "
             f"{', '.join(flat)}; a row with a motion list states every rotor inside "
             "its record, so the flat key would be a second statement of one rotor."
         )
-    return _parse_records(text, pol, MOTIONS_VARIABLE, "rotor")
+    return records
 
 
 def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
@@ -1188,6 +1201,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         variables = _fold_columns_into_variables(record, variables, record["POL"])
         _refuse_the_packages_continuation_keys(variables, record["POL"])
         motions = _parse_motions(variables, record["POL"])
+        custom_motions = [entry for entry in motions if MOTION_TABLE_KEY in entry]
+        motions = [entry for entry in motions if MOTION_TABLE_KEY not in entry]
         malformed: list[MatrixError] = []
         rotations = _parse_rotations(variables, record["POL"], malformed=malformed)
         translations = _parse_translations(variables, record["POL"], malformed=malformed)
@@ -1252,6 +1267,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             workflow=_check_workflow(record["WORKFLOW"], record["POL"]),
             variables=variables,
             motions=motions,
+            custom_motions=custom_motions,
             rotations=rotations,
             translations=translations,
             raw=raw,
@@ -1764,6 +1780,7 @@ def to_campaign(
                 recipe=recipe,
                 outputs=_declared_outputs(row, required=require_outputs),
                 motions=[dict(record) for record in row.motions],
+                custom_motions=[dict(record) for record in row.custom_motions],
                 rotations=[dict(record) for record in row.rotations],
                 translations=[dict(record) for record in row.translations],
                 # A COMMAND record is resolved and rides on the case. A FILE record

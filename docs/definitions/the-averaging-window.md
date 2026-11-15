@@ -53,17 +53,18 @@ A point that continues nothing is averaged exactly as before.
 
 **The window of an `unsteady_rotor` row spans whole blade passages of every rotor the row
 turns.** A passage is `steps_per_revolution / blades` steps of that rotor, where `blades` is
-the whole wheel's count. On a `SYMMETRY: PERIODIC` row `PERIODIC_COPIES` is the number of
-sector copies round the wheel, so the wheel has the block's blade families times the copies
-blades; a row with no rotor block takes `BLADES`, else `PERIODIC_COPIES`, as the whole
-wheel's count. The window of
+the whole wheel's count. On a `SYMMETRY: PERIODIC` row the rotor block lists only the meshed
+blade families and `PERIODIC_COPIES` is the number of sector copies round the wheel, so the
+wheel has the block's blade families times the copies blades (two meshed families and two
+copies are a four-blade wheel); a row with no rotor block takes `BLADES`, else
+`PERIODIC_COPIES`, as the whole wheel's count. The window of
 `L` steps spans `k = L / passage` passages. It is valid when `round(k)` is at least 1 and
 `round(round(k) * passage)` equals `L`, so a fractional passage is judged on the steps the
 solver can take. A row that fails for any rotor is refused at plan, naming the window, the
 passages it spans, each failing rotor and the nearest valid window, as `LAST_REVS_AVG` in
 revolutions or `LAST_ITERS_AVG` in steps. A row with no window key, and a row whose clock is
-unknown, are judged where they were before. The phase-locked passages are cut by the same
-rounding: a passage counts as whole when its length, rounded to the step the solver takes,
+unknown, are judged where they were before. One blade count serves this check and every
+passage cut, and the phase-locked passages are cut by the same rounding: a passage counts as whole when its length, rounded to the step the solver takes,
 fits the window, so a window this check accepts is cut into the passages it was accepted for.
 
 ---

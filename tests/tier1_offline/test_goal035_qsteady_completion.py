@@ -198,7 +198,10 @@ def _sector_fsi_case(tmp_path: Path, *, omega: float = 0.0, **variables) -> SimC
     """
     geometry = tmp_path / "blade.obj"
     geometry.write_text("o Blade1\nv 0 0 0.2\nv 0 .1 .2\nv 0 0 1.2\nf 1 2 3\n")
-    rotor = ROTOR.model_copy(update={"blade1": BladeDatum(azimuth_deg=0.0, zero="Z")})
+    # A SECTOR'S BLOCK LISTS ONLY THE MESHED FAMILIES (FR-68): one blade of three.
+    rotor = ROTOR.model_copy(
+        update={"blade1": BladeDatum(azimuth_deg=0.0, zero="Z"), "families_blades": ["Blade1"]}
+    )
     base = _case(rotor=rotor, SYMMETRY="PERIODIC", PERIODIC_COPIES="3", **variables)
     case = base.model_copy(
         update={

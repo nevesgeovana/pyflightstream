@@ -106,10 +106,13 @@ from ._rows import (
     _refuse_unregistered_keys,
     _required_int,
     _rotor_frame_axis,
+    _sector_copies,
     _the_isolated_rotor,
     _variable,
     _velocity,
+    _wheel_blade_count,
     qsteady_case_kind,
+    sector_block_refusal,
 )
 from ._skeleton import (
     _initialize,
@@ -378,6 +381,11 @@ def _refuse_what_is_not_the_rotor(
             "meshes every blade; a mesh of one blade is a sector: state "
             f"{SYMMETRY_VARIABLE} PERIODIC and PERIODIC_COPIES."
         )
+    # A SECTOR STATING ITS COPIES LISTS ONLY THE MESHED FAMILIES (FR-68): a family
+    # the mesh lacks is an old-style block listing the whole wheel, which would
+    # count the wheel PERIODIC_COPIES times over.
+    if kind == "sector" and missing and _sector_copies(case) is not None:
+        raise CampaignConfigError(sector_block_refusal(case, rotor, missing))
     if kind == "sector" and not blades_found:
         raise CampaignConfigError(
             f"case {case.sim_id!r} solves a periodic sector of rotor {rotor.alias} and its "
@@ -780,7 +788,7 @@ def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
         n95=orders,
         k_1p=k_1p,
         strips_m=widths,
-        blades=rotor.blade_count,
+        blades=_wheel_blade_count(case, rotor),
     )
     return {**harmonics.record(declared_positions=declared), "note": note}
 
@@ -824,7 +832,7 @@ def _park_the_qsteady_record(
     record = _qsteady.QsteadyRecord(
         case=kind,
         rotor_alias=rotor.alias,
-        blades=rotor.blade_count,
+        blades=_wheel_blade_count(case, rotor),
         rpm=speed.rpm,
         shaft_frame_axis=_the_shaft_letter(rotor),
         hub_m=rotor.origin,
@@ -983,7 +991,7 @@ def _qsteady_blade_frames(
     for number, family in enumerate(rotor.families_blades, start=1):
         if family.casefold() not in inventory:
             continue
-        angle = rotor.blade1.azimuth_deg + (number - 1) * 360.0 / rotor.blade_count
+        angle = rotor.blade1.azimuth_deg + (number - 1) * 360.0 / _wheel_blade_count(case, rotor)
         x_axis, y_axis, z_axis = (turned_about(each, shaft, angle) for each in hub.axes)
         created[f"{rotor.alias}_RMRP{number}"] = helpers.coordinate_frame(
             script,
@@ -1307,7 +1315,7 @@ def qsteady_inflow_map_inputs(case: SimCase) -> dict[str, object] | None:
         diameter_m=rotor.diameter_m,
         v_inf_m_s=speed,
         advance_ratios=[speed / (abs(rpm) / 60 * rotor.diameter_m)],
-        blades=rotor.blade_count,
+        blades=_wheel_blade_count(case, rotor),
         chords_m=chords,
         sense=1 if rpm > 0 else -1,
     )

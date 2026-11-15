@@ -1370,6 +1370,7 @@
     "_skeleton",
     "_streamlines",
     "_sixdof",
+    "_custom_motion",
     "_gap_evidence",
     "_batch_script",
     "_pproc",
