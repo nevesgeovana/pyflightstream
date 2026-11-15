@@ -717,6 +717,7 @@ def family_polar_products(ctx: SimContext) -> None:
     entry = _entry(ctx, gathered, instant=instant)
     if unsteady:
         _equations(ctx, files, gathered.plotted)
+    files = [_with_the_farfield_cells(ctx, polar) for polar in files]
     rotor_groups = {group.name for group in groups if group.origin == "rotor"}
     # THE RUN BLOCK STATES THE IDENTIFIERS, after POINT, so the post's stamping of
     # them after POL (FR-3564) is not applied to these files or their derived polars.
@@ -766,6 +767,44 @@ def _file_entry(
     if polar.group in rotor_groups:
         own["rotor"] = polar.group
     return own
+
+
+def _with_the_farfield_cells(ctx: SimContext, polar: PolarFile) -> PolarFile:
+    """Return a group ACOEF file with each row's far-field cells, before MESH_FACES (i2 #5).
+
+    THE 0.57.0 PLACEMENT ON THE NEW FILES (FR-1062): the far-field step leaves
+    each point's ``<Q>_FF_<variant>_<target>`` cells for the polars, and the
+    0.57.0 group polars carried them; the page is silent, so every group ACOEF
+    file carries them as trailing values before ``MESH_FACES``, which stays last
+    for positional readers. A cell the far-field step read off the row's window
+    is named under ``polars/<file>#farfield`` and warned.
+    """
+    if polar.group is None or polar.kind != "ACOEF" or not ctx.farfield_super:
+        return polar
+    if "POINT" not in polar.columns:
+        return polar
+    at_point = polar.columns.index("POINT")
+    names = [str(cells[at_point]) for cells in polar.rows]
+    keys = list(dict.fromkeys(key for name in names for key in ctx.farfield_super.get(name, {})))
+    if not keys:
+        return polar
+    at = len(polar.columns) - 1
+    cells_of = [ctx.farfield_super.get(name, {}) for name in names]
+    if ctx.farfield_off_window:
+        said = "; ".join(ctx.farfield_off_window)
+        where = f"{POLARS_DIR}/{polar.name}"
+        ctx.skipped[f"{where}#farfield"] = (
+            "the far-field columns of these rows are not the row's window average: " + said
+        )
+        warn(f"{where}: {said}", PyflightstreamWarning, stacklevel=3)
+    return replace(
+        polar,
+        columns=(*polar.columns[:at], *keys, *polar.columns[at:]),
+        rows=[
+            (*row[:at], *(cells.get(key, NOT_APPLICABLE) for key in keys), *row[at:])
+            for row, cells in zip(polar.rows, cells_of, strict=True)
+        ],
+    )
 
 
 def _with_the_structural_tips(ctx: SimContext, target: Path, entry: Mapping[str, object]) -> None:

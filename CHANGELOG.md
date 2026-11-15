@@ -107,6 +107,8 @@ A velocity whose square overflows a float (1e200 m/s in a damaged export) gives 
 
 The recorded FSI tip deflection and twist of each blade (`tip_deflection_m_blade_<n>`, `tip_twist_deg_blade_<n>`) are trailing columns of every group's DIM and ACOEF files again, one recorded run per row, as they were of the 0.57.0 group polars. migration: read them from the group files.
 
+The far-field cells of a point (`<Q>_FF_<variant>_<target>`) are trailing values of every group ACOEF file again, before `MESH_FACES`, `NA` where a row has none, and a cell read off the row's window is named under `polars/<file>#farfield`. migration: read them from the group ACOEF files.
+
 The cuts of the geometry assembly (stage S10) keep a face thinner than their fuzzy value: no cut takes more than a tenth of the narrowest mean width of the faces its pieces bring to it, so a blunt trailing-edge base of 40 micrometres on a 2.5 m wing is no longer merged by the 50 micrometre value, with the junction curve across it. A kernel regression covers a body seam in the plane of a blunt base, at full size and as a small wing on a large body. migration: none for a model whose faces are all wider than 0.5 mm, where the fuzzy value is unchanged (checked on the CI wing; the wider geometry suite runs at the release). A base thinner still (20 micrometres on a 2.5 m wing) stops by name and is registered as PFS-2236.
 
 ## [0.57.0] - 2026-11-13

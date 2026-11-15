@@ -99,7 +99,9 @@ def test_p0551_fixr23_declared_identity_in_both_writers(
         assert "CDI_FF_B_TOTAL" not in rows[0]
         if companion == "p":
             assert float(rows[0]["CDI_FF_B_TOTAL_c10"]) == 0.10
-            assert rows[1]["CDI_FF_B_TOTAL_c10"] == ""
+            # A cell the far-field step gave no value for is NA, never a blank
+            # (docs/definitions/the-token-for-a-value-that-does-not-exist.md).
+            assert rows[1]["CDI_FF_B_TOTAL_c10"] == "NA"
 
 
 @pytest.mark.requirement("FR-3661")
