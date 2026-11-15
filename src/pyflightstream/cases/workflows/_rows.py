@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 from collections.abc import (
     Mapping,
+    Sequence,
 )
 from dataclasses import (
     dataclass,
@@ -1106,6 +1107,22 @@ def _wheel_blade_count(case: SimCase, rotor: RotorBlock) -> int:
     """
     copies = _sector_copies(case)
     return rotor.blade_count * (copies if copies is not None else 1)
+
+
+def sector_block_refusal(case: SimCase, rotor: RotorBlock, missing: Sequence[str]) -> str:
+    """Return the refusal of a sector whose rotor block lists blades the mesh lacks (FR-68).
+
+    On a ``SYMMETRY: PERIODIC`` row the block lists only the meshed blade
+    families and the wheel is those times ``PERIODIC_COPIES``, so a block
+    listing the whole wheel would count it that many times over.
+    """
+    return (
+        f"case {case.sim_id!r} solves a periodic sector ({SYMMETRY_VARIABLE} PERIODIC) and rotor "
+        f"{rotor.alias} lists the blade families {', '.join(missing)}, which the mesh does not "
+        f"contain. On a sector the rotor block lists only the meshed blade families and the "
+        f"wheel has those times {PERIODIC_COPIES_VARIABLE} blades; remove "
+        f"{', '.join(missing)} from families_blades."
+    )
 
 
 def _the_rotor_a_flat_row_turns(case: SimCase) -> RotorBlock | None:

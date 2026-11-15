@@ -215,3 +215,59 @@ def test_p0580_l4_a_sector_places_its_second_blade_frame_by_the_wheels_count():
         if line.startswith("ANGLE ")
     ]
     assert turns == [0.0, 90.0]
+
+
+def test_p0580_l4_a_sector_block_listing_the_whole_wheel_is_refused_at_plan(tmp_path):
+    """FR-68: a 1-of-3 sector whose block lists Blade1..Blade3 names the families the mesh lacks."""
+    from tests.tier1_offline.test_goal024_point_name import _plan
+    from tests.tier1_offline.test_p0551_blade_order import fixture
+
+    workspace, matrix, reference, _mesh, _names = fixture(tmp_path, count=3, sector=True)
+    matrix.write_text(matrix.read_text().replace("PERIODIC_COPIES:6", "PERIODIC_COPIES:3"))
+    meshed = reference.read_text(encoding="utf-8")
+    reference.write_text(
+        meshed.replace('["Blade1"]', '["Blade1", "Blade2", "Blade3"]'), encoding="utf-8"
+    )
+    refused = _plan(workspace, matrix)
+    errors = [point.error or "" for point in refused.points]
+    assert errors and all("Blade2, Blade3, which the mesh does not contain" in e for e in errors)
+    assert all("lists only the meshed blade families" in e for e in errors)
+    reference.write_text(meshed, encoding="utf-8")
+    accepted = _plan(workspace, matrix)
+    assert all(p.status.value == "READY" for p in accepted.points), accepted.summary()
+
+
+def _qsteady_sector(tmp_path, families):
+    from tests.tier1_offline.test_goal035_qsteady_rotor import (
+        ROTOR,
+        _blade_obj,
+        _case,
+        _with_obj,
+    )
+
+    rotor = ROTOR.model_copy(update={"families_blades": families})
+    case = _case(rotor=rotor, SYMMETRY="PERIODIC", PERIODIC_COPIES="3")
+    return _with_obj(case, _blade_obj(tmp_path / "sector.obj", blades=1), ("Blade1",))
+
+
+def test_p0580_l4_a_qsteady_sector_records_the_wheels_blades(tmp_path):
+    """FR-68 on qsteady_rotor: a block of the meshed Blade1 and three copies is a 3-blade wheel."""
+    import json
+
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _lines
+
+    _lines_, script = _lines(_qsteady_sector(tmp_path, ["Blade1"]))
+    (record,) = [
+        json.loads(text)
+        for name, text in script.pending_input_files.items()
+        if name.endswith("_qsteady.json")
+    ]
+    assert record["blades"] == 3
+    assert record["families_blades"] == ["Blade1"]
+
+
+def test_p0580_l4_a_qsteady_sector_block_listing_the_whole_wheel_is_refused(tmp_path):
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _lines
+
+    with pytest.raises(CampaignConfigError, match="Blade2, Blade3, which the mesh does not"):
+        _lines(_qsteady_sector(tmp_path, ["Blade1", "Blade2", "Blade3"]))
