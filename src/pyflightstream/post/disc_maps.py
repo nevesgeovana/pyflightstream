@@ -33,6 +33,7 @@ from pathlib import Path
 
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
+from pyflightstream.post._block_scope import with_rotor_alias
 from pyflightstream.post._stage import _a_name_a_file_may_carry
 from pyflightstream.post._tables import _one_refusal, _significant_cell, write_csv_table
 from pyflightstream.post.axes import placed_blade_azimuth_deg
@@ -429,6 +430,9 @@ def write_disc_map(
             rows = [{key: value or "" for key, value in row.items()} for row in reader]
     except OSError as error:
         raise ProductError(f"the sections table {table.name} cannot be read: {error}") from error
+    # The sections table names its rotor by ROTOR_ID (design 4.5): the alias the rotors
+    # are keyed by is read from the id.
+    rows = with_rotor_alias(rows, aliases=rotors)
     if windows is not None:
         rows = [row for row in rows if _in_window(row, windows)]
     result = disc_map_rows(columns, rows, rotors, sample_column=sample_column)
