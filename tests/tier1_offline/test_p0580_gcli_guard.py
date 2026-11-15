@@ -2,7 +2,7 @@
 
 The geometry group of ``pyfs-workspace`` and the four ``pyfs-matrix`` mesh verbs are refused
 since 0.58.0, so a message, a page or a cheatsheet line that still tells a user to type one
-sends them to a refusal. The refusal table (``_retired_names.py``), the history in
+sends them to a refusal. The refusal table (``_retired_tables.py``), the history in
 ``CHANGELOG.md`` and the old-to-new tables of ``docs/upgrading.md`` are the only places that
 may name an old form, and the tests that prove the refusals.
 """
@@ -16,7 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 #: Where an old form is the subject: the refusal table, the history and the upgrading page.
 _ALLOWED = {
-    "src/pyflightstream/_retired_names.py",
+    "src/pyflightstream/_retired_tables.py",
     "CHANGELOG.md",
     "docs/upgrading.md",
 }
