@@ -128,7 +128,6 @@ def test_p0580_pfs2255_setup_symmetry_loads_is_refused_naming_the_column(tmp_pat
     [
         ("valarezo_separation_boundaries", ["RotorRig"]),
         ("crossflow_separation_boundaries", ["RotorRig"]),
-        ("axial_separation_families", ["RotorRig"]),
     ],
 )
 @pytest.mark.parametrize("build", ["26.101", "26.127"])
@@ -143,6 +142,23 @@ def test_p0580_pfs2257_per_mechanism_keys_are_refused_on_later_builds(key, value
     said = str(refused.value)
     assert key in said and build in said, said
     assert "airfoil_separation" in said and "stratford_bulk_separation" in said, said
+
+
+@pytest.mark.parametrize("build", ["26.101", "26.127"])
+def test_p0580_pfs2257_axial_families_are_refused_on_later_builds(build):
+    """PFS-2257: the axial list, whose names resolve first (FR-988), is refused by the build."""
+    from pyflightstream.cases import CampaignConfigError, SolverSettings
+    from pyflightstream.cases.workflows._solver_settings import _refuse_per_mechanism_separation
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_workflows import steady_case
+
+    case = steady_case().model_copy(
+        update={"solver": SolverSettings(axial_separation_families=["Nacelle"])}
+    )
+    with pytest.raises(CampaignConfigError, match="axial_separation_families") as refused:
+        _refuse_per_mechanism_separation(case, Script(build))
+    assert "axial_vortex_separation" in str(refused.value)
+    _refuse_per_mechanism_separation(case, Script("26.100"))
 
 
 def test_p0580_pfs2257_per_mechanism_keys_still_emit_on_26100():

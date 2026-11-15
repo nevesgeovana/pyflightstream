@@ -245,7 +245,6 @@ def _settings(
     see the artifact's documentation.
     """
     _setup_ports(case, script)
-    _refuse_per_mechanism_separation(case, script)
     reference = case.reference
     native_length = _from_metres(case, script, "runtime velocity and SI reference dimensions")
     reference_scale = (
@@ -280,6 +279,11 @@ def _settings(
         script.emit("DELETE_OUTLET", outlet)
     for trip in solver.delete_transition_trips or ():
         script.emit("DELETE_TRANSITION_TRIP", trip)
+    # The names first, as the study judges them (FR-988), then the build's own word on
+    # the per-mechanism lists (PFS-2257), then the emission.
+    vorticity = _setup_link.vorticity_indices(case, script)
+    axial = _setup_link.axial_separation_indices(case, script)
+    _refuse_per_mechanism_separation(case, script)
     helpers.solver_settings(
         script,
         aoa=_angle(case, "alpha"),
@@ -298,12 +302,12 @@ def _settings(
         ),
         ref_mach=solver.reference_mach,
         disable_ref_velocity=bool(solver.disable_reference_velocity),
-        vorticity_drag_boundaries=_setup_link.vorticity_indices(case, script),
+        vorticity_drag_boundaries=vorticity,
         # THE CALL SITE IS WHAT DELIVERS THIS, not the field and not the helper
         # keyword. Both of those existed already and a preset still could not ask
         # for an axial separation list, because this hand-written argument list is
         # the only path from a setup to the script.
-        axial_separation_boundaries=_setup_link.axial_separation_indices(case, script),
+        axial_separation_boundaries=axial,
         iterations=solver.iterations,
         convergence=solver.convergence,
         max_threads=row_ncpus(case, solver.max_threads),
