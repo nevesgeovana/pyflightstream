@@ -48,6 +48,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
+from pyflightstream._tokens import file_name_part
 from pyflightstream.cases.corrections import CalibrationError
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.cases.workflows import ROTORS_KEY
@@ -60,7 +61,7 @@ from pyflightstream.post._manifest_schema import (
     tree_section,
 )
 from pyflightstream.post._tables import _PLOTS_STEP_COLUMN as PLOTS_STEP_COLUMN
-from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, ProductError, read_csv_table
+from pyflightstream.post._tables import ProductError, read_csv_table
 from pyflightstream.post._tree_migration import note_earlier_layout, once_per_post
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average, phase_locked_rows
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve, frozen_time_steps, parse_log_times
@@ -301,14 +302,6 @@ _MOMENT_POINT_COLUMNS: tuple[str, ...] = ("XMOM", "YMOM", "ZMOM")
 _PLOTS_CLOCK_COLUMNS = frozenset({PLOTS_STEP_COLUMN, "Time (sec)", "Time"})
 
 
-#: The characters an alias may carry into a file name. Everything else is
-#: replaced, because a rotor's alias is a word the user chose and a file
-#: name is a thing the operating system parses.
-_SAFE_IN_A_FILE_NAME = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
-)
-
-
 def _a_name_a_file_may_carry(alias: str) -> str:
     """Return ``alias`` reduced to characters a file name may hold (FR-68).
 
@@ -322,12 +315,11 @@ def _a_name_a_file_may_carry(alias: str) -> str:
 
     The rotor's OWN spelling is still recorded, in the manifest entry's
     ``rotor`` field, so nothing is lost by the substitution: the file name
-    is for the file system and the field is for the reader.
+    is for the file system and the field is for the reader. The rule is
+    :func:`pyflightstream._tokens.file_name_part`, which the pproc reader
+    shares to refuse two ``[groups]`` keys of one file name.
     """
-    cleaned = "".join(
-        character if character in _SAFE_IN_A_FILE_NAME else "_" for character in alias
-    )
-    return cleaned.strip("._ ") or "rotor"
+    return file_name_part(alias)
 
 
 def _refuse_aliases_a_file_name_cannot_tell_apart(
@@ -1037,10 +1029,16 @@ def _number(text: object) -> float | None:
 def _rotor_row(
     manifest: Mapping[str, Any], out: Path, run_id: str, rotor: str | None
 ) -> tuple[str, str, dict[str, str]]:
-    """Return the rotor table row of a run: (table, alias, row)."""
+    """Return the rotor group's RCOEF row of a run: (file, alias, row).
+
+    The rotor's RCOEF file is its group's ``polars/P<POL>-<ALIAS>-RCOEF.csv``,
+    whose entry names the rotor (the successor of the 0.57.0 rotor table).
+    """
     found = []
     for relative, entry in (manifest.get("products") or {}).items():
-        if not relative.endswith(ROTOR_TABLE_SUFFIX) or not isinstance(entry, Mapping):
+        if not relative.endswith("-RCOEF.csv") or not isinstance(entry, Mapping):
+            continue
+        if not entry.get("rotor") or entry.get("kind") == "corrected":
             continue
         runs = entry.get("runs")
         if not isinstance(runs, list) or run_id not in runs:
@@ -1050,7 +1048,8 @@ def _rotor_row(
         found.append((relative, str(entry.get("rotor")), runs))
     if len(found) != 1:
         raise CalibrationError(
-            f"run {run_id!r} is a row of {len(found)} rotor tables of {out / PRODUCTS_MANIFEST}"
+            f"run {run_id!r} is a row of {len(found)} rotor RCOEF files of "
+            f"{out / PRODUCTS_MANIFEST}"
             + (f" for rotor {rotor!r}" if rotor else "")
             + "; the helper reads exactly one. Post the campaign first, or name the rotor"
         )
@@ -1065,14 +1064,17 @@ def _rotor_row(
 
 
 def _loads_of(row: Mapping[str, str], alias: str, where: str) -> dict[str, float]:
+    # The rotor's speed, diameter and advance ratio are the run block's, under
+    # its ROTOR_ID: RPM<id>, D<id>, J<id>.
+    rotor_id = row.get("ROTOR_ID", "")
     values = {
         name: _number(row.get(column))
         for name, column in (
-            ("J", f"J_{alias}"),
-            ("CT", f"CT_{alias}"),
-            ("CQ", f"CQ_{alias}"),
-            ("RPM", f"RPM_{alias}"),
-            ("D", f"DIAMETER_{alias}"),
+            ("J", f"J{rotor_id}"),
+            ("CT", "CT"),
+            ("CQ", "CQ"),
+            ("RPM", f"RPM{rotor_id}"),
+            ("D", f"D{rotor_id}"),
             ("RHO", "RHO"),
             ("ALPHA", "ALPHA"),
             ("BETA", "BETA"),
@@ -1080,7 +1082,9 @@ def _loads_of(row: Mapping[str, str], alias: str, where: str) -> dict[str, float
     }
     missing = sorted(name for name, value in values.items() if value is None)
     if missing:
-        raise CalibrationError(f"the rotor table row of {where} states no {', '.join(missing)}")
+        raise CalibrationError(
+            f"the RCOEF row of rotor {alias} of {where} states no {', '.join(missing)}"
+        )
     known = {name: float(value) for name, value in values.items() if value is not None}
     rate = abs(known["RPM"]) / 60.0
     known["THRUST"] = known["CT"] * known["RHO"] * rate**2 * known["D"] ** 4

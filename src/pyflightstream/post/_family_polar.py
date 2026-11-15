@@ -75,6 +75,9 @@ Loads = tuple[tuple[float, float, float], tuple[float, float, float]]
 #: The tables of one entity being assembled, by kind: header and rows.
 _Tables = dict[str, tuple[tuple[str, ...], list[tuple[object, ...]]]]
 
+#: The RCOEF cells in N, N m and kW, NA where the loads are of a unit density.
+_DIMENSIONAL_RCOEF: tuple[str, ...] = ("T", "Q", "P")
+
 _NAN_LOADS: Loads = ((math.nan,) * 3, (math.nan,) * 3)  # type: ignore[assignment]
 
 
@@ -200,6 +203,13 @@ class PolarPointLoads:
         Each rotor's speed on this point, signed about its declared axis.
     mesh_faces : object
         The face count of the geometry, ``NA`` where none is stated.
+    dimensional : bool
+        False where the loads are those of a unit density, because the point
+        records no density: the coefficients, in which the density cancels, are
+        stated, and every dimensional cell (DIM, ``T``, ``Q``, ``P``) is NA.
+    with_rcoef : bool
+        False where the point is no row of the RCOEF files (its rotor speed
+        cannot be read), its other rows kept.
     """
 
     run_block: Mapping[str, object]
@@ -214,6 +224,8 @@ class PolarPointLoads:
     declined: Collection[str] = ()
     rpm: Mapping[int, float | None] = field(default_factory=dict)
     mesh_faces: object = ""
+    dimensional: bool = True
+    with_rcoef: bool = True
 
 
 @dataclass(frozen=True)
@@ -455,8 +467,11 @@ def steady_family_loads(
 def _pressure(density: float | None, speed: float | None) -> float | None:
     if not _finite(density) or not _finite(speed):
         return None
-    pressure = 0.5 * float(density) * float(speed) ** 2  # type: ignore[arg-type]
-    return pressure if pressure > 0.0 else None
+    # A PRODUCT, NEVER A POWER (F-214): `x ** 2` of a float raises OverflowError
+    # past 1e154, and one point's velocity took the whole polar with it; a product
+    # overflows to inf, which states no dynamic pressure and leaves the cells NA.
+    pressure = 0.5 * float(density) * float(speed) * float(speed)  # type: ignore[arg-type]
+    return pressure if pressure > 0.0 and math.isfinite(pressure) else None
 
 
 def _finite(value: object) -> bool:
@@ -592,8 +607,15 @@ def polar_files(
     load_frame: str,
     identifiers: Sequence[str] = (),
     drag_split: Sequence[str] = DEFAULT_DRAG_SPLIT,
+    omitted: list[tuple[str, int]] | None = None,
 ) -> list[PolarFile]:
     """Return every family and group file of one polar, built from its points.
+
+    A family is a row of a point only where the point's loads state it (a key of
+    ``family_loads``; its value None is an NA row). A group's row at a point is
+    the sum of the members that point states; a group that selects none of them
+    and has no loads of its own is no row of that point, never a row of NA, and
+    its name and the point's index go to ``omitted``.
 
     Parameters
     ----------
@@ -615,12 +637,15 @@ def polar_files(
         The row's ``IDENTIFIERS`` names, in the order written.
     drag_split : sequence of str, optional
         The drag split columns of the ACOEF files.
+    omitted : list of tuple of str and int, optional
+        Receives ``(group, point index)`` for every group row not written
+        because the group selects nothing at that point.
 
     Returns
     -------
     list of PolarFile
         The family files, then each group's files, in group order; RCOEF only
-        where the reference declares a rotor (family) or the group sits in one.
+        where a family sits inside a rotor (family file) or the group sits in one.
     """
     assembler = _Assembler(
         points=points,
@@ -631,9 +656,15 @@ def polar_files(
         drag_split=tuple(drag_split),
     )
     by_id = {rotor.rotor_id: rotor for rotor in rotors}
-    family_tables = assembler.tables("family", with_rcoef=bool(rotors))
+    # FAM-RCOEF HOLDS THE FAMILIES DECLARED INSIDE A ROTOR (design 4.3): no such
+    # family, no file, never a header with no row.
+    family_tables = assembler.tables(
+        "family", with_rcoef=any(family.rotor_id in by_id for family in families)
+    )
     for index, point in enumerate(points):
         for family in families:
+            if family.name not in point.family_loads:
+                continue  # the point's loads do not state this family: no row, never NA
             assembler.append(
                 family_tables,
                 index,
@@ -648,18 +679,47 @@ def polar_files(
         tables = assembler.tables("group", with_rcoef=rotor is not None)
         for index, point in enumerate(points):
             own = point.group_loads.get(group.name)
+            stated = [member for member in group.members if member in point.family_loads]
+            if own is None and not stated:
+                if omitted is not None:
+                    omitted.append((group.name, index))
+                continue
             assembler.append(
                 tables,
                 index,
                 identity=(group.name, group.group_id),
                 loads=own
                 if own is not None
-                else _summed([point.family_loads.get(member) for member in group.members]),
-                members=group.members,
+                else _summed([point.family_loads[member] for member in stated]),
+                members=tuple(stated) if own is None else group.members,
                 rotor=rotor,
             )
         files.extend(assembler.files(tables, partial(group_file_name, pol, group.name), group.name))
     return files
+
+
+#: The frames an angle of the point turns: the stability frame by ALPHA, the wind
+#: frame by ALPHA and BETA; the body and rotor frames need no attitude.
+_FRAMES_OF_ANGLE: dict[str, tuple[str, ...]] = {"alpha": ("W", "S"), "beta": ("W",)}
+
+
+def _turns(point: PolarPointLoads, frames: Sequence[RotorFrame]) -> dict[str, object]:
+    """Return the point's frame rotations; NaN in the frames an unstated angle turns."""
+    alpha, beta = point.alpha_deg, point.beta_deg
+    turns: dict[str, object] = dict(
+        frame_rotations(
+            float(alpha) if _finite(alpha) else 0.0,  # type: ignore[arg-type]
+            float(beta) if _finite(beta) else 0.0,  # type: ignore[arg-type]
+            list(frames),
+        )
+    )
+    # AN UNSTATED ANGLE IS NO ZERO (RB6-07): the frames it turns read NA, the
+    # body and rotor frames keep their numbers.
+    for angle, value in (("alpha", alpha), ("beta", beta)):
+        if not _finite(value):
+            for name in _FRAMES_OF_ANGLE[angle]:
+                turns[name] = turns[name] * math.nan  # type: ignore[operator]
+    return turns
 
 
 @dataclass(frozen=True)
@@ -675,14 +735,7 @@ class _Assembler:
 
     @cached_property
     def turns(self) -> list[Mapping[str, object]]:
-        return [
-            frame_rotations(
-                point.alpha_deg if _finite(point.alpha_deg) else 0.0,  # type: ignore[arg-type]
-                point.beta_deg if _finite(point.beta_deg) else 0.0,  # type: ignore[arg-type]
-                [rotor.frame for rotor in self.rotors],
-            )
-            for point in self.points
-        ]
+        return [_turns(point, [rotor.frame for rotor in self.rotors]) for point in self.points]
 
     def tables(self, entity: str, *, with_rcoef: bool) -> _Tables:
         ids = [rotor.rotor_id for rotor in self.rotors]
@@ -716,7 +769,8 @@ class _Assembler:
         point = self.points[index]
         turns = self.turns[index]
         lead = [point.run_block.get(name, NOT_APPLICABLE) for name in self.block]
-        forces = list(loads[0]) + list(loads[1]) if loads is not None else [math.nan] * 6
+        stated = loads is not None and point.dimensional
+        forces = list(loads[0]) + list(loads[1]) if stated else [math.nan] * 6  # type: ignore[index]
         tables["DIM"][1].append(tuple(_cells([*lead, *identity, *forces, point.mesh_faces])))
         declined = any(member in point.declined for member in members)
         acoef = _acoef(loads, point, turns, self.reference, declined=declined)
@@ -727,9 +781,13 @@ class _Assembler:
         tables["ACOEF"][1].append(
             tuple(_cells([*lead, *identity, *values, *split, point.mesh_faces]))
         )
-        if rotor is None or "RCOEF" not in tables:
+        if rotor is None or "RCOEF" not in tables or not point.with_rcoef:
             return
         rcoef = _rcoef(loads, point, rotor, turns, self.reference)
+        if not point.dimensional:
+            # UNIT-DENSITY LOADS: the coefficients stand (the density cancels), the
+            # thrust, torque and power do not exist without the density.
+            rcoef.update(dict.fromkeys(_DIMENSIONAL_RCOEF, NOT_APPLICABLE))
         rnames = tables["RCOEF"][0][len(self.block) + 3 : -1]
         cells = [rcoef.get(name, NOT_APPLICABLE) for name in rnames]
         tables["RCOEF"][1].append(

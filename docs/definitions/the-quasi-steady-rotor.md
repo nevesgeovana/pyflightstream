@@ -237,7 +237,8 @@ finds the point's values in its super-file row and in its validity file.
 schema other than the one the package writes, or holding a key it does not
 write) keeps every product that does not need the record, and loses, each by
 name in `products.json` `skipped` and as a WARNING line in `post.log`, the ones
-that do: its row of the rotor table (the speed is the record's), its rows of the
+that do: its rows of the RCOEF files, the rotor group's and `FAM-RCOEF` (the
+speed is the record's), never read as one clocking without a word, its rows of the
 clockings and average tables, and, where it has a sections table, that
 table's `K_1P` column and validity columns. The reason given is the record's
 own refusal, naming the file. The post never stops on it.

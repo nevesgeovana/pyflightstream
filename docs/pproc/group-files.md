@@ -12,7 +12,9 @@ point, with the columns of the FAM file it mirrors
 `<GROUP>` in a file name is the group's name with every character other than a
 letter, a digit, `-`, `_` or `.` replaced by `_` (the rule of every file named
 after an alias), so `Left/Right` is written `P0001-Left_Right-ACOEF.csv`; the
-`GROUP` column and `products.json` keep the name as written.
+`GROUP` column and `products.json` keep the name as written. Two `[groups]`
+keys that are one name after the rule (`Left/Right` and `Left_Right`) are
+refused when the pproc is read, naming both.
 
 <a id="the-groups"></a>
 
@@ -29,7 +31,17 @@ A `[groups]` key spelled `TOTAL` or `AIRFRAME` (in any case), or equal to a
 rotor's alias, is refused by name: the group is written without it. So is a key
 spelled `FAM` or `GRP`, or opening with `P` and a digit, which the file names
 cannot carry. A numbered key is written `g<NN>` (`"1"` is `g01`). A group that
-selects no family of the polar's loads is named under `skipped` and has no file.
+selects no family of the polar's loads is named under `skipped`, with what
+selects its families, and has no file. A group that selects no family of one
+point's loads has no row at that point, never a row of `NA`: the point is named
+under `skipped` as `polars/P<POL>-<GROUP>-ACOEF.csv#<point>`, with the group's
+selector and the families the point states, and is no run of the group's files.
+At a point that states only some of a group's families, the group's row is the
+sum of those it states; a FAM file has a row only for a family the point
+states. A point whose loads export states its loads in an analysis frame that
+is not a translation of the geometry's axes (a rotor's own frame) is no row of
+any polar file: it is warned and named under every group's
+`polars/P<POL>-<GROUP>-ACOEF.csv#<point>` with the frame it states.
 
 A group's values are formed from the SUM of its members' dimensional loads
 (forces and moments about the moment reference point; the moment about the
@@ -41,6 +53,12 @@ TOTAL, the rotor's own history for a rotor).
 
 An RCOEF file is written only for a group whose members all sit inside one
 rotor: every rotor's group, and a declared group of one rotor's families.
+
+Each file's `products.json` entry names the runs of its own rows, in row order,
+and its `source`: the window-averaged plots of an unsteady row, or, for a
+steady polar, `the loads export of a steady run` or, for a quasi-steady wheel,
+`mean of <k> clockings` with `clockings` (the k, or each point's where they
+differ). The files of a rotor's group also name it under `rotor`.
 
 <a id="derived-polars"></a>
 

@@ -73,6 +73,46 @@ The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS recor
 
 ### Fixed
 
+A group of the polar files that selects no family of one point's loads (a tail-only point and a `WING` group, a rotor whose blades one export does not state) has no row at that point and is named under `skipped` as `polars/P<POL>-<GROUP>-ACOEF.csv#<point>` with its selector, never a row of `NA`; `TOTAL` and `AIRFRAME` sum the families the point states, and a FAM file has no row for a family the point does not state. migration: none.
+
+A point whose loads export states an analysis frame of unknown rotation is no row of the polar files, never an all-`NA` row: it is warned with the 0.57.0 reason (the frame it states) and named under each group's `polars/P<POL>-<GROUP>-ACOEF.csv#<point>`. migration: none.
+
+A point of the polar files whose `ALPHA` or `BETA` is not a finite number writes `NA` in the frames the angle turns (`W` and `S` for `ALPHA`, `W` for `BETA`, with `CTW`, `CQW`, `ETAW` and the `S` set of the RCOEF files) instead of reading the angle as zero, and is warned once per polar; the `B` and `R<id>` cells keep their numbers. migration: none.
+
+The static points of a polar with a rotor (`VINF = 0`) are warned once, naming them and the RCOEF cells they state as `NA` (`ETA`, `ETA<f>`, `TC` to `MCA`). migration: none.
+
+A steady point that records no air density states its coefficients in the ACOEF and RCOEF files, which are the loads export's own (the density cancels), with its DIM rows and the RCOEF `T`, `Q` and `P` as `NA`, instead of `NA` everywhere; an unsteady point without a density keeps `NA` coefficients. Both are warned naming `RHO`. migration: none.
+
+`FAMILY_ID` is the run record's `inventory` position, or the loads table's order for a record written without one, and no longer changes with whether a geometry file on disk still has the record's sha256; `FAM-RCOEF-P<POL>.csv` is written only where a family of the polar sits inside a rotor, never as a header with no row. migration: none.
+
+`ETAW` of the RCOEF files counts the wind-axis force in the sense of the shaft, fixed once per rotor, as the rotor coefficients page defines it: a rotor whose shaft is square to the body's `+x` (a lift rotor) counts it along the stream, so its `ETAW` keeps the 0.57.0 sign instead of the opposite one. migration: none.
+
+The post again warns when the rotor a row sweeps did not run at the advance ratio the row asked for, naming both, the run block's `J<id>` and the speed, free stream and diameter it comes from, now from the polar files of the rotor's group. migration: none.
+
+A quasi-steady point whose `<point>_qsteady.json` record is missing, cannot be read or is of another schema is no row of the RCOEF files (the rotor's speed is the record's), named under `skipped` for each RCOEF file with the record's own reason and warned, instead of being read silently from its loads export as one clocking; its other polar rows are kept. migration: none.
+
+The `products.json` entry of every steady polar file states its `source` again, as the 0.57.0 rotor table's did (`the loads export of a steady run`, or `mean of <k> clockings` with `clockings` for a quasi-steady wheel), and the entries of a rotor group's files name the rotor under `rotor`. migration: none.
+
+The quasi-steady wheel's correction route and `pyfs-workspace calibrate` (`sector_offset_calibration`) read the rotor group's RCOEF file, `P<POL>-<ALIAS>-RCOEF.csv`, instead of the retired rotor table: the corrected file is `P<POL>-<ALIAS>-RCOEF_corrected.csv`, a calibration's `CN`, `CS`, `CMN`, `CMS` correct `CFZ`, `CFY`, `CMZ`, `CMY` with the signs of the R<id> axes, every RCOEF column formed from a corrected component is `NA`, and the rotor's `J<id>`, `RPM<id>` and `D<id>` are read from the run block; the correction runs after the polar files. migration: a calibration file is unchanged; read the corrected RCOEF file where the corrected rotor table was read.
+
+A polar whose rotors cannot be planned, because the record's matrix has lost its row or the reference the row names cannot be resolved, is named under `skipped` as `polars/P<POL>#rotors` with the reason, instead of writing its files with no rotor and no word. migration: none.
+
+A point that records one flat rotor speed while the reference declares several rotors is named under `skipped` (`polars/P<POL>#rotor_speed=<point>`, naming the rotors): nothing says whose speed it is, so each rotor's `RPM<id>` and the coefficients over its rate are `NA` there. migration: none.
+
+A rotor whose record states `blades = 0` is refused by name in the polar files (`polars/P<POL>#rotor=<ALIAS>` and a warning): its RCOEF rows and its `R<id>` frame columns are not written. migration: none.
+
+A row of a rotor group's RCOEF file whose `ETA` exceeds 1 is warned again, naming its run and the file, as the 0.57.0 rotor table did. migration: none.
+
+A velocity whose square overflows a float (1e200 m/s in a damaged export) gives `NA` coefficients in the polar files instead of an `OverflowError` that cost the polar its files. migration: none.
+
+The recorded FSI tip deflection and twist of each blade (`tip_deflection_m_blade_<n>`, `tip_twist_deg_blade_<n>`) are trailing columns of every group's DIM and ACOEF files again, one recorded run per row, as they were of the 0.57.0 group polars. migration: read them from the group files.
+
+The far-field cells of a point (`<Q>_FF_<variant>_<target>`) are trailing values of every group ACOEF file again, before `MESH_FACES`, `NA` where a row has none, and a cell read off the row's window is named under `polars/<file>#farfield`. migration: read them from the group ACOEF files.
+
+An `IDENTIFIERS` name spelled as a column the run block writes (`POL`, `ALPHA`, `RPM0`) is refused by name (`run_block/<POL>#identifiers` and a warning) and every table is written without it, instead of the simulation losing its run block and every polar file. migration: rename the identifier.
+
+Two `[groups]` keys that are one file name after the rule of the group files (`Left/Right` and `Left_Right`) are refused when the pproc is read, naming both, instead of the second group's files overwriting the first's. migration: rename one of the keys.
+
 The cuts of the geometry assembly (stage S10) keep a face thinner than their fuzzy value: no cut takes more than a tenth of the narrowest mean width of the faces its pieces bring to it, so a blunt trailing-edge base of 40 micrometres on a 2.5 m wing is no longer merged by the 50 micrometre value, with the junction curve across it. A kernel regression covers a body seam in the plane of a blunt base, at full size and as a small wing on a large body. migration: none for a model whose faces are all wider than 0.5 mm, where the fuzzy value is unchanged (checked on the CI wing; the wider geometry suite runs at the release). A base thinner still (20 micrometres on a 2.5 m wing) stops by name and is registered as PFS-2236.
 
 ## [0.57.0] - 2026-11-13

@@ -98,6 +98,29 @@ def plain_cell(text: str) -> str:
     )
 
 
+#: The characters a name keeps when it reaches a file name (FR-68); every other
+#: character becomes ``_``, so a slash never writes a subfolder.
+FILE_NAME_CHARACTERS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+)
+
+
+def file_name_part(name: str, *, empty: str = "rotor") -> str:
+    """Return ``name`` as it reaches a file name: the one rule of the alias and group files.
+
+    A character other than a letter, a digit, ``-``, ``_`` or ``.`` becomes
+    ``_``, and dots, underscores and spaces are stripped from both ends; a name
+    left empty reads ``empty``.
+
+    Examples
+    --------
+    >>> file_name_part("Left/Right")
+    'Left_Right'
+    """
+    cleaned = "".join(c if c in FILE_NAME_CHARACTERS else "_" for c in name)
+    return cleaned.strip("._ ") or empty
+
+
 #: Optional sectional strip columns, in the export's mixed-case naming idiom.
 STRIP_LENGTH = "Strip_length"
 FX_INT = "Fx_int"

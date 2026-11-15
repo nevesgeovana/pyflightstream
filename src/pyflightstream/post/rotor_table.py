@@ -749,7 +749,10 @@ def rotor_frame_coefficients(
     force_scale = rho * rate**2 * diameter**4 if turning and rate is not None else None
     moment_scale = None if force_scale is None else force_scale * diameter
     advance = None if not turning or vinf is None or rate is None else vinf / (abs(rate) * diameter)
-    pressure = None if vinf is None or vinf == 0.0 else 0.5 * rho * vinf**2
+    # A product, never a power (F-214): `vinf ** 2` raises OverflowError past 1e154.
+    pressure = None if vinf is None or vinf == 0.0 else 0.5 * rho * vinf * vinf
+    if pressure is not None and not math.isfinite(pressure):
+        pressure = None
     area = math.pi * diameter**2 / 4.0
     own = rotations[frame.name]
     thrust, side, normal, torque, pitching, yawing = _rotor_frame_loads(force_n, moment_hub_nm, own)
@@ -793,7 +796,20 @@ def rotor_frame_coefficients(
             cp=values["CP"],
         )
     )
+    wind = values.get("CTW")
+    if isinstance(wind, float) and _square_to_the_body_x(frame):
+        # ETAW COUNTS Fx_W IN THE SENSE OF THE SHAFT, fixed once per rotor
+        # (docs/definitions/rotor-coefficients.md#etaw): a shaft pointing forward
+        # counts it forward, as CTW does; any other shaft, one square to the body's
+        # +x included, counts it along the stream, so a lift rotor's ETAW keeps the
+        # 0.57.0 meaning instead of the opposite sign.
+        values["ETAW"] = _efficiency(advance, -wind + 0.0, values["CP"])
     return values
+
+
+def _square_to_the_body_x(frame: RotorFrame) -> bool:
+    """Whether the rotor's ``x_R`` points nowhere forward (square to the body's +x)."""
+    return bool(abs(float(frame.body_to_rotor[0][0])) < 1e-12)
 
 
 def _loadings(

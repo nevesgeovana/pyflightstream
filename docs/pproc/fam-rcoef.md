@@ -3,8 +3,10 @@
 <a id="fam-rcoef"></a>
 
 `polars/FAM-RCOEF-P<POL>.csv`, one file per polar whose reference declares a
-rotor. One row per point and family INSIDE a rotor (a family of the rotor's
-`families_blades` or `families_general`); an airframe family has no row.
+rotor that holds a family of the polar's loads. One row per point and family
+INSIDE a rotor (a family of the rotor's `families_blades` or
+`families_general`); an airframe family has no row, and a polar none of whose
+families sits inside a rotor has no FAM-RCOEF file.
 
 | Columns | Content |
 | --- | --- |
@@ -21,7 +23,8 @@ Thrust is positive forward along the rotor's shaft, whatever sense the
 reference declares it in; a rotor declared pointing aft is said once per post.
 Every formula, and which values are `NA` at a static point or on a rotor that
 does not turn, is on the
-[rotor coefficients](../definitions/rotor-coefficients.md#the-rotor-frame-set) page.
+[rotor coefficients](../definitions/rotor-coefficients.md#the-rotor-frame-set) page;
+the static points of a polar are warned once, naming them.
 
 The rotor's speed, advance ratio, tip and helical Mach numbers, diameter, disc
 area, pitch and toe are in the run block as `RPM<id>`, `J<id>`, `MTIP<id>`,

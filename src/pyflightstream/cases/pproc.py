@@ -47,7 +47,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, REMOVED_FORMS
-from pyflightstream._tokens import REDUCTION_COLUMNS
+from pyflightstream._tokens import REDUCTION_COLUMNS, file_name_part
 
 # The quasi-steady wheel's correction choice, a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
@@ -1135,6 +1135,36 @@ def refuse_a_group_name(name: str) -> None:
         )
 
 
+def refuse_groups_of_one_file_name(names: Sequence[str]) -> None:
+    """Refuse two ``[groups]`` keys that reach one file name (PFS-2231).
+
+    A group's name reaches ``P<POL>-<GROUP>-<KIND>.csv`` through the one rule of
+    the alias and group files (:func:`pyflightstream._tokens.file_name_part`,
+    ``docs/pproc/group-files.md``): ``Left/Right`` and ``Left_Right`` are two
+    keys of one file, and the second would overwrite the first. Both are named.
+
+    Parameters
+    ----------
+    names : sequence of str
+        The ``[groups]`` keys as written, in their order.
+
+    Raises
+    ------
+    InputValueError
+        If two keys are one file name after the rule.
+    """
+    seen: dict[str, str] = {}
+    for name in names:
+        token = file_name_part(name, empty="")
+        if token in seen:
+            raise InputValueError(
+                f"[groups] declares {seen[token]} and {name}, which are one file name after "
+                f"the rule of the group files ({token}: every character other than a letter, "
+                "a digit, -, _ or . is written _); name one of them otherwise."
+            )
+        seen[token] = name
+
+
 def _a_group_is_one_alias(value: object) -> object:
     """Read one alias per group; a member list is refused.
 
@@ -1144,6 +1174,7 @@ def _a_group_is_one_alias(value: object) -> object:
     if not isinstance(value, Mapping):
         return value
     groups: dict[str, list[int | str]] = {}
+    refuse_groups_of_one_file_name([str(name) for name in value])
     for name, stated in value.items():
         refuse_a_group_name(str(name))
         if isinstance(stated, str):

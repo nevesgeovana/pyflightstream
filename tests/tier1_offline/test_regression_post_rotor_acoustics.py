@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
@@ -24,7 +25,7 @@ from pyflightstream.cases.corrections import (
     calibration_text,
 )
 from pyflightstream.cases.qsteady import reduced_frequency
-from pyflightstream.post import _polar_stage, _rotor_plan
+from pyflightstream.post import _rotor_plan
 from pyflightstream.post._rotor_products import _acoustic_products
 from pyflightstream.post.acoustics import write_acoustic_products
 from pyflightstream.post.axes import frame_rotations, rotor_frame
@@ -382,7 +383,11 @@ class TestPost1Corrections:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-DERIVEDNA")])
     def test_p0400_derivedna_cn_alone_makes_etaw_na(tmp_path):
-        """P0400-DERIVEDNA: a CN calibration leaves ETAW NA in the corrected rotor table."""
+        """P0400-DERIVEDNA: a CN calibration leaves ETAW NA in the corrected rotor table.
+
+        0.58.0: the rotor table is the rotor group's RCOEF file, bare names (design of
+        the post outputs, 2.2 and 2.3); CN is its CFZ.
+        """
         extra = '\n[qsteady_correction]\nroute = "table"\nfile = "c001"\n'
         workspace = _post_1_corrections___recorded_wheel(
             tmp_path,
@@ -391,10 +396,10 @@ class TestPost1Corrections:
         )
         products, folder, _ = _post_1_corrections___post_recorded(workspace)
         (rotor,) = [
-            name for name in products["products"] if name.endswith("PROP_rotor_corrected.csv")
+            name for name in products["products"] if name.endswith("P6001-PROP-RCOEF_corrected.csv")
         ]
-        assert {row["ETAW_PROP"] for row in _post_1_corrections___table(folder, rotor)} == {"NA"}
-        assert "ETAW_PROP" in products["products"][rotor]["derived_na"]
+        assert {row["ETAW"] for row in _post_1_corrections___table(folder, rotor)} == {"NA"}
+        assert "ETAW" in products["products"][rotor]["derived_na"]
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-DERIVEDNA")])
@@ -567,8 +572,13 @@ def _post_1_rotor_plan___campaign(
     window: bool = True,
     clock: str = "PUSHER",
     second_point_without_mach: bool = False,
+    log: bool = False,
 ) -> tuple[list[Path], dict, list[str]]:
-    """Post the superfile fixture's rotor simulation 6002 with the rotor as asked."""
+    """Post the superfile fixture's rotor simulation 6002 with the rotor as asked.
+
+    ``log`` adds a native log to the point's outputs, for a test that replaces the
+    stage's verdict of it.
+    """
     workspace = _post_1_rotor_plan___workspace(tmp_path)
     text = reference.replace(
         '[rotors.PUSHER]\nalias = "PUSHER"', f'[rotors."{alias}"]\nalias = "{alias}"'
@@ -597,7 +607,14 @@ def _post_1_rotor_plan___campaign(
             plan["rotors"] = {
                 alias: {"blades": 6, "rpm": 2200.0, "steps_per_revolution": 4.0, "period_steps": 1}
             }
-            record = record.model_copy(update={"reductions": plan})
+            update: dict[str, object] = {"reductions": plan}
+            if log:
+                stem = plots.removesuffix("_plots.txt")
+                (workspace.sim_dir("6002") / f"{stem}_log.txt").write_text(
+                    "a native log\n", encoding="utf-8"
+                )
+                update["outputs"] = [*record.outputs, f"{stem}_log.txt"]
+            record = record.model_copy(update=update)
             workspace.append_record(RunRecord(**record.model_dump()))
             if second_point_without_mach:
                 folder = workspace.sim_dir("6002")
@@ -646,16 +663,26 @@ class TestPost1RotorPlan:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-ROTORPRODUCT")])
     def test_p0400_rotorproduct_judgement_names_the_sanitised_path(tmp_path, monkeypatch):
-        """P0400-ROTORPRODUCT: the product a frozen-window warning names is the file written."""
-        judged: list[str] = []
+        """P0400-ROTORPRODUCT: the product a frozen-window warning names is the file written.
 
-        def _recording(frozen, steps, *, point, product):
-            judged.append(product)
-            return None
+        The solve is read as frozen from its first step (the stage's one verdict of a
+        frozen solve, ``freeze_of_log``, replaced at its one home), so every window
+        average of the point is judged and warned, each naming the product it costs.
+        """
+        from pyflightstream.post import _stage
+        from pyflightstream.results import FrozenSolve
 
-        monkeypatch.setattr(_polar_stage, "_judge_average", _recording)
-        _written, manifest, _caught = _post_1_rotor_plan___campaign(tmp_path, alias="PUSH/ER")
-        assert judged, "the averaging path was not reached"
+        monkeypatch.setattr(_stage, "freeze_of_log", lambda *a, **k: FrozenSolve(1, 1))
+        _written, manifest, caught = _post_1_rotor_plan___campaign(
+            tmp_path, alias="PUSH/ER", log=True
+        )
+        judged = [
+            found.group(1)
+            for text in caught
+            if "Recollect the native log or run the point again to settle this average" in text
+            and (found := re.search(r"product=(\S+):", text))
+        ]
+        assert judged, ("the averaging path was not reached", caught)
         # The rotor table is the ROTOR group's RCOEF file now (design-post-outputs 2.2); the
         # alias goes through the file-name rule, so no separator is left in the name.
         tables = [key for key in manifest["products"] if key.endswith("-RCOEF.csv")]
@@ -765,12 +792,20 @@ class TestPost1RotorTable:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-ETAWSENSE")])
     def test_p0400_etawsense_a_lift_rotor_keeps_its_sign_through_alpha_zero():
-        """P0400-ETAWSENSE: alpha -2 and +2 on a +Z rotor give ETAW of one sign."""
+        """P0400-ETAWSENSE: alpha -2 and +2 on a +Z rotor give ETAW of one sign.
+
+        The force is the 0.57.0 case's (drag along the stream, lift up): a force
+        square to the stream alone has a wind-axis x component of the sign of
+        alpha, which no fixed sense can keep. The shaft is square to the body's
+        +x, so Fx_W is counted along the stream (the page's sense rule): a rotor
+        dragged aft has an ETAW of the sign of CP, as in 0.57.0.
+        """
         frame = rotor_frame((0.0, 0.0, 1.0), 0)
         etaw = []
+        cp = []
         for alpha in (-2.0, 2.0):
             row = rotor_frame_coefficients(
-                force_n=(0.0, 0.0, 100.0),
+                force_n=(40.0, 0.0, 100.0),
                 moment_hub_nm=(0.0, 0.0, 5.0),
                 frame=frame,
                 rotations=frame_rotations(alpha, 0.0, [frame]),
@@ -783,9 +818,10 @@ class TestPost1RotorTable:
                 bref_m=1.0,
             )
             etaw.append(row["ETAW"])
+            cp.append(row["CP"])
         assert all(isinstance(value, float) for value in etaw), etaw
         signs = {math.copysign(1.0, value) for value in etaw}
-        assert len(signs) == 1, etaw
+        assert signs == {math.copysign(1.0, cp[0])}, (etaw, cp)
 
 
 def test_f139_a_harmonic_row_outside_the_grid_is_carried_as_na(tmp_path, monkeypatch):

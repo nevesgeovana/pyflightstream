@@ -9,9 +9,10 @@ just written, as a user holds them.
 NOTHING HERE IS VALIDATED, and nothing is written over a raw product. Each
 corrected product is a new file beside its raw file, ``<name>_corrected.csv``:
 
-* the rotor table (``polars/P<sim>-<ALIAS>_rotor.csv``) and the average table
-  (``polars/P<sim>-<ALIAS>_qs_avg.csv``): a 0P quantity ``q`` a component names
-  becomes ``GAIN_0P q + OFFSET_0P``;
+* the rotor group's RCOEF file (``polars/P<POL>-<ALIAS>-RCOEF.csv``) and the
+  average table (``polars/P<sim>-<ALIAS>_qs_avg.csv``): a 0P quantity ``q`` a
+  component names becomes ``GAIN_0P q + OFFSET_0P`` (an in-plane component in
+  the R<id> axes with the sign of :data:`_ROTOR_TABLE_COMPONENTS`);
 * the harmonic product (``sections/<point>_harmonics.csv``), per station:
   ``H0' = GAIN_0P H0 + OFFSET_0P``, ``A1' = GAIN_1P A1``,
   ``PHI1' = PHI1 + PHASE_1P_DEG``, ``A2`` unchanged;
@@ -83,7 +84,6 @@ from pyflightstream.post._stage import (
     _whole_rotor_gap,
 )
 from pyflightstream.post._tables import (
-    ROTOR_TABLE_SUFFIX,
     _one_refusal,
     read_csv_table,
     with_rotor_alias,
@@ -144,23 +144,72 @@ THEODORSEN_COLUMNS: tuple[str, ...] = (
     "H1_PHASE_DEG",
 )
 
-#: The rotor table's column of each component, after the rotor's alias.
-_ROTOR_TABLE_COMPONENTS: Mapping[str, str] = {
-    "CT": "CT",
-    "CQ": "CQ",
-    "CN": "CN",
-    "CS": "CS",
-    "CMN": "CMN",
-    "CMS": "CMS",
+#: What names the rotor group's RCOEF file among the polar files (its rotor's
+#: ``polars/P<POL>-<ALIAS>-RCOEF.csv``, the 0.57.0 rotor table's successor).
+RCOEF_SUFFIX = "-RCOEF.csv"
+#: The RCOEF column of each calibration component, and the sign it is read
+#: with: the components keep their 0.57.0 rotor-table names, and the in-plane
+#: set is in the R<id> axes (CFZ = CN, CFY = -CS, CMZ = -CMN, CMY = -CMS, the
+#: migration map of the column families), so a corrected ``CS`` is
+#: ``CFY' = -(GAIN (-CFY) + OFFSET) = GAIN CFY - OFFSET``.
+_ROTOR_TABLE_COMPONENTS: Mapping[str, tuple[str, float]] = {
+    "CT": ("CT", 1.0),
+    "CQ": ("CQ", 1.0),
+    "CN": ("CFZ", 1.0),
+    "CS": ("CFY", -1.0),
+    "CMN": ("CMZ", -1.0),
+    "CMS": ("CMY", -1.0),
 }
-#: The rotor table's columns derived from components, and from which.
+#: The RCOEF columns derived from components, and from which; the per-frame
+#: ``CT<f>``, ``CQ<f>`` and ``ETA<f>`` are added from the file's header
+#: (:func:`_rcoef_derived`).
 _ROTOR_TABLE_DERIVED: Mapping[str, tuple[str, ...]] = {
+    "T": ("CT",),
+    "TC": ("CT",),
+    "TCA": ("CT",),
+    "Q": ("CQ",),
+    "P": ("CQ",),
     "CP": ("CQ",),
+    "QC": ("CQ",),
+    "QCA": ("CQ",),
     "ETA": ("CT", "CQ"),
-    # THE WHOLE FORCE, turned into wind axes, in-plane components included:
-    # a calibration of CN or CS alone left ETAW raw beside them.
-    "ETAW": ("CT", "CQ", "CN", "CS"),
+    "ZC": ("CN",),
+    "ZCA": ("CN",),
+    "YC": ("CS",),
+    "YCA": ("CS",),
+    "NC": ("CMN",),
+    "NCA": ("CMN",),
+    "MC": ("CMS",),
+    "MCA": ("CMS",),
 }
+#: The components each per-frame RCOEF column turns: a frame's thrust is the
+#: whole force along its forward axis, its torque the whole hub moment about it.
+_PER_FRAME_DERIVED: Mapping[str, tuple[str, ...]] = {
+    "CT": ("CT", "CN", "CS"),
+    "CQ": ("CQ", "CMN", "CMS"),
+    # THE WHOLE FORCE, turned into the frame, in-plane components included: a
+    # calibration of CN or CS alone left ETAW raw beside them.
+    "ETA": ("CT", "CQ", "CN", "CS"),
+}
+
+
+def _rcoef_derived(columns: Sequence[str]) -> dict[str, str]:
+    """Return each derived column of an RCOEF header with the components it is derived from."""
+    derived = {name: ",".join(src) for name, src in _ROTOR_TABLE_DERIVED.items()}
+    own = {column for column, _sign in _ROTOR_TABLE_COMPONENTS.values()} | set(derived)
+    for column in columns:
+        for stem, src in _PER_FRAME_DERIVED.items():
+            frame = column[len(stem) :]
+            if column.startswith(stem) and column not in own and _a_frame(frame):
+                derived[column] = ",".join(src)
+    return derived
+
+
+def _a_frame(name: str) -> bool:
+    """Whether ``name`` is a frame of the polar files: W, S, B or R<id>."""
+    return name in ("W", "S", "B") or (name[:1] == "R" and name[1:].isdigit())
+
+
 #: The average table's column of each component, alias-suffixed or as named.
 _AVERAGE_COMPONENTS: Mapping[str, str] = {
     "THRUST": "THRUST_{alias}",
@@ -210,8 +259,8 @@ def corrected_name(relative: str) -> str:
 
     Examples
     --------
-    >>> corrected_name("polars/P7001-PROP_rotor.csv")
-    'polars/P7001-PROP_rotor_corrected.csv'
+    >>> corrected_name("polars/P7001-PROP-RCOEF.csv")
+    'polars/P7001-PROP-RCOEF_corrected.csv'
     """
     folder, slash, name = relative.rpartition("/")
     stem, dot, suffix = name.rpartition(".")
@@ -310,11 +359,21 @@ def _entry(
 def _table_of(
     written_names: Mapping[str, Mapping[str, object]], suffix: str, alias: str
 ) -> str | None:
+    # The rotor's RCOEF file is its group's, which names the rotor (a declared
+    # group of one rotor's families has an RCOEF file too, and names no rotor).
     for relative, entry in written_names.items():
         if relative.endswith(suffix) and not relative.endswith(f"{CORRECTED_SUFFIX}.csv"):
             if str(entry.get("rotor")) == alias:
                 return relative
     return None
+
+
+def _rotor_advance_ratio(row: Mapping[str, str] | None) -> float | None:
+    """Return the rotor's own advance ratio of an RCOEF row: the run block's ``J<id>``."""
+    if row is None:
+        return None
+    rotor_id = row.get("ROTOR_ID")
+    return _number(row.get(f"J{rotor_id}")) if rotor_id not in (None, "", "NA") else None
 
 
 def _rows_by_run(
@@ -342,12 +401,14 @@ def _correct_zero_p(
     relative: str,
     record: _Record,
     skipped: dict[str, str],
+    signs: Mapping[str, float] | None = None,
 ) -> list[list[object]]:
     """Correct the 0P columns of each row of one rotor or average table.
 
     ``component_columns`` maps each component to its column in this table,
     ``derived`` each derived column to the components it is derived from,
-    joined by a comma.
+    joined by a comma, and ``signs`` the sign each component's column reads
+    it with (1 where not given): ``column' = GAIN column + sign OFFSET``.
     """
     present = {
         component: column
@@ -389,7 +450,8 @@ def _correct_zero_p(
                 continue
             record.cell(point.name, component, found)
             offset, gain, _gain_1p, _phase = found.coefficients
-            cells[at] = None if raw is None else gain * raw + offset
+            sign = (signs or {}).get(component, 1.0)
+            cells[at] = None if raw is None else gain * raw + sign * offset
         out_rows.append(cells)
     return out_rows
 
@@ -866,7 +928,7 @@ def write_qsteady_corrections(
     tables: dict[str, tuple[tuple[str, ...], list[dict[str, str]]]] = {}
     rows_by_run: dict[str, dict[str, Mapping[str, str]]] = {}
     for alias in aliases:
-        for suffix in (ROTOR_TABLE_SUFFIX, AVERAGE_SUFFIX):
+        for suffix in (RCOEF_SUFFIX, AVERAGE_SUFFIX):
             relative = _table_of(written_names, suffix, alias)
             if relative is None:
                 continue
@@ -880,7 +942,7 @@ def write_qsteady_corrections(
                 rows_by_run[relative] = dict(mapped)
     coordinates: dict[str, dict[str, float | None]] = {}
     for point in wheel_points:
-        rotor_rel = _table_of(written_names, ROTOR_TABLE_SUFFIX, point.rotor_alias)
+        rotor_rel = _table_of(written_names, RCOEF_SUFFIX, point.rotor_alias)
         average_rel = _table_of(written_names, AVERAGE_SUFFIX, point.rotor_alias)
         rotor_row = rows_by_run.get(rotor_rel or "", {}).get(point.run_id)
         average_row = rows_by_run.get(average_rel or "", {}).get(point.run_id)
@@ -893,7 +955,7 @@ def write_qsteady_corrections(
             None,
         )
         coordinates[point.name] = {
-            "J": None if rotor_row is None else _number(rotor_row.get(f"J_{point.rotor_alias}")),
+            "J": _rotor_advance_ratio(rotor_row),
             "ALPHA": alpha,
             "K_1P": None if average_row is None else _number(average_row.get("K_1P_MEAN")),
         }
@@ -984,12 +1046,9 @@ def _corrected_tables(
     for alias in aliases:
         for suffix, components, derived in (
             (
-                ROTOR_TABLE_SUFFIX,
-                {name: f"{column}_{alias}" for name, column in _ROTOR_TABLE_COMPONENTS.items()},
-                {
-                    f"{column}_{alias}": ",".join(src)
-                    for column, src in _ROTOR_TABLE_DERIVED.items()
-                },
+                RCOEF_SUFFIX,
+                {name: column for name, (column, _sign) in _ROTOR_TABLE_COMPONENTS.items()},
+                None,
             ),
             (
                 AVERAGE_SUFFIX,
@@ -1004,6 +1063,10 @@ def _corrected_tables(
             if relative is None or relative not in tables:
                 continue
             columns, rows = tables[relative]
+            signs = None
+            if derived is None:
+                derived = _rcoef_derived(columns)
+                signs = {name: sign for name, (_c, sign) in _ROTOR_TABLE_COMPONENTS.items()}
             if not any(
                 column in columns and name in calibration.grids
                 for name, column in components.items()
@@ -1035,6 +1098,7 @@ def _corrected_tables(
                 relative=target_rel,
                 record=record,
                 skipped=skipped,
+                signs=signs,
             )
             if any(point is None for point in points):
                 record.notes.append(
@@ -1078,11 +1142,11 @@ def sector_offset_calibration(
 ) -> Path:
     """Write a route 2 calibration from a recorded wheel point and a recorded sector point.
 
-    Both points must be rows of a rotor table the post wrote (the sector's row
+    Both points must be rows of a rotor's RCOEF file the post wrote (the sector's row
     of an ``unsteady_rotor`` point with a window is its window average, the
     wheel's the mean of its clockings), both at zero angle of attack and
-    sideslip (axial), and at the same advance ratio ``J_<alias>`` within
-    ``j_tolerance`` (the tables print ``J`` at five decimals, or at six significant
+    sideslip (axial), and at the same advance ratio ``J<id>`` within
+    ``j_tolerance`` (the files print ``J`` at five decimals, or at six significant
     digits where that states it more closely). The file,
     ``inputs/calibrations/<calibration_id>.toml``, states route
     ``sector_offset``, the two run ids, and one row per component ``THRUST``,
@@ -1091,14 +1155,14 @@ def sector_offset_calibration(
         OFFSET_0P = sector - wheel,  GAIN_0P = 1,  GAIN_1P = 1,  PHASE_1P_DEG = 0
 
     ``THRUST = CT rho n^2 D^4`` and ``TORQUE = CQ rho n^2 D^5`` of each row's
-    own ``RHO``, ``RPM_<alias>`` and ``DIAMETER_<alias>``. Each component's grid
+    own ``RHO``, ``RPM<id>`` and ``D<id>``. Each component's grid
     is one node, constant on every axis, so it applies at every ``J``,
     ``ALPHA`` and ``K_1P``: the offset measured in axial flow, applied at
     incidence, is what route 2 is. Refused with :class:`CalibrationError`
     when a run is not in ``runs.json``, when the sector's record does not
     prove whole-rotor loads (its script, hashed as recorded, solves a
     symmetry other than ``NONE`` without ``SET_ANALYSIS_SYMMETRY_LOADS
-    ENABLE``, or cannot be read), not a row of one rotor table, not axial, at
+    ENABLE``, or cannot be read), not a row of one rotor's RCOEF file, not axial, at
     another ``J``, or when the file exists and ``overwrite`` is False. The
     route is NOT VALIDATED. Returns the file written.
 

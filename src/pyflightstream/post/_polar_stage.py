@@ -19,7 +19,7 @@ it has.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -36,7 +36,7 @@ from pyflightstream._identifier_columns import stated_identifiers
 from pyflightstream._tokens import FAMILY_PLOT_GROUP, NOT_APPLICABLE
 from pyflightstream.cases import AXES_PLOT_COMPONENTS, AXES_PLOT_GROUP
 from pyflightstream.post._block_scope import block_of_point
-from pyflightstream.post._family_columns import DEFAULT_DRAG_SPLIT
+from pyflightstream.post._family_columns import DEFAULT_DRAG_SPLIT, group_id
 from pyflightstream.post._family_polar import (
     Family,
     Loads,
@@ -44,14 +44,16 @@ from pyflightstream.post._family_polar import (
     PolarGroup,
     PolarPointLoads,
     PolarRotor,
+    family_file_name,
     family_ids,
+    group_file_name,
     polar_files,
     polar_groups,
     polar_rotors,
     steady_family_loads,
 )
 from pyflightstream.post._manifest_schema import FamilyEntry, GroupEntry, note_polar
-from pyflightstream.post._point_stage import point_block_rows
+from pyflightstream.post._point_stage import point_block_rows, run_block_identifiers
 from pyflightstream.post._run_block import RUN_TYPES
 from pyflightstream.post._stage import (
     _PLOTS_CLOCK_COLUMNS,
@@ -111,13 +113,68 @@ def _rotor_speeds(
                 (v for k, v in own.items() if str(k).casefold() == rotor.alias.casefold()), None
             )
         speeds[rotor.rotor_id] = rpm
+    _say_a_flat_speed(ctx, point, rotors, speeds)
     return speeds
+
+
+def _say_a_flat_speed(
+    ctx: SimContext,
+    point: PolarPoint,
+    rotors: Sequence[PolarRotor],
+    speeds: Mapping[int, float | None],
+) -> None:
+    """Name a flat rotor speed no rotor takes: with several rotors, nothing says whose (i2 #14)."""
+    from pyflightstream.cases.workflows import FLAT_RPM_KEY
+
+    plan = getattr(ctx.record_of.get(point.name), "reductions", None)
+    flat = plan.get(FLAT_RPM_KEY) if isinstance(plan, Mapping) else None
+    if len(rotors) < 2 or _number(flat) is None or any(v is not None for v in speeds.values()):
+        return
+    ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}#rotor_speed={point.name}"] = (
+        f"point {point.name} records one flat rotor speed ({float(flat):g} rev/min) and the "  # type: ignore[arg-type]
+        f"reference declares {len(rotors)} rotors ({', '.join(r.alias for r in rotors)}): "
+        "nothing says whose speed it is, so each rotor's RPM<id>, J<id> and every coefficient "
+        "over its rate read NA there; state the speed per rotor (MOTIONS) to have them"
+    )
+
+
+def _say_the_advance_ratio(
+    ctx: SimContext,
+    point: PolarPoint,
+    rotors: Sequence[PolarRotor],
+    speeds: Mapping[int, float | None],
+) -> None:
+    """Warn where the swept rotor did not run at the advance ratio the row asked for."""
+    from pyflightstream.post._rotor_plan import _warn_rotor_advance_ratio
+
+    for rotor in rotors:
+        _warn_rotor_advance_ratio(
+            point,
+            rotor.alias,
+            diameter_m=rotor.diameter_m,
+            rpm=speeds.get(rotor.rotor_id),
+            rotor_id=rotor.rotor_id,
+            rotor_count=len(rotors),
+            matrix_row=ctx.matrix_row,
+        )
 
 
 def _number(value: object) -> float | None:
     if isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value):
         return float(value)
     return None
+
+
+def _steady_density(condition: Mapping[str, object]) -> tuple[float, bool]:
+    """Return the density a steady point's loads are formed with, and whether it is recorded.
+
+    THE DENSITY CANCELS IN A COEFFICIENT (i2 #10): the export states its
+    coefficients against ``0.5 RHO VREF^2``, so a point that records no density
+    forms its loads with a unit density; every coefficient is the export's own,
+    and every dimensional cell is NA.
+    """
+    density = _number(condition.get("RHO"))
+    return (1.0, False) if density is None else (density, True)
 
 
 def _drag_split(point: PolarPoint, declined: Sequence[str]) -> dict[str, dict[str, float]]:
@@ -229,6 +286,9 @@ class _Gathered:
     splits: list[tuple[str, str]] = field(default_factory=list)
     left_out: list[str] = field(default_factory=list)
     lacking: set[str] = field(default_factory=set)
+    refused: list[tuple[str, str]] = field(default_factory=list)
+    clockings: dict[str, int] = field(default_factory=dict)
+    unrecorded: dict[str, str] = field(default_factory=dict)
 
 
 def _layout(
@@ -242,10 +302,12 @@ def _layout(
     )
     if not surfaces:
         return None
-    inventory = next(
-        (found for record in ctx.records if (found := ctx.workspace.recorded_inventory(record))),
-        None,
-    )
+    _say_no_reference(ctx)
+    # FAMILY_ID IS THE RECORD'S, NEVER THE HASH'S (i2 #16): the inventory a run
+    # records, or the loads table's order. The inventory recovered from a geometry
+    # file whose sha256 matches the record made the id of one family change with
+    # the bytes of a file the post does not read.
+    inventory = next((tuple(r.inventory) for r in ctx.records if r.inventory), None)
     ids = family_ids(surfaces, inventory)
     rotors = polar_rotors(getattr(ctx.live, "rotors", None) or {}, surfaces, ctx.aliases)
     owner = {member: rotor.rotor_id for rotor in rotors for member in reversed(rotor.members)}
@@ -259,11 +321,167 @@ def _layout(
         if not group.members:
             ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}-{group.name}"] = (
                 f"group {group.name!r} selects no family of the loads exports of simulation "
-                f"{ctx.sim_id!r} ({', '.join(surfaces)}); its files are not written."
+                f"{ctx.sim_id!r} ({', '.join(surfaces)}): {_selector(ctx, group)} names no "
+                "surface or alias there; its files are not written."
             )
+    rotors = _bladed(ctx, rotors)
     for rotor in rotors:
         warn_rotor_declared_aft(rotor.alias, rotor.frame)
     return families, rotors, [group for group in groups if group.members]
+
+
+def _bladed(ctx: SimContext, rotors: Sequence[PolarRotor]) -> list[PolarRotor]:
+    """Return the rotors a record states with blades; refuse, by name, one of none.
+
+    A rotor turns at least one blade: a record whose plan states ``blades = 0``
+    for it describes no rotor the solver can have run, so the rotor's RCOEF rows
+    and its frame columns are not written, and the refusal names it (batch 2 of
+    lane I2; the retired per-blade writer refused it too).
+    """
+    kept: list[PolarRotor] = []
+    for rotor in rotors:
+        stated = [
+            block.get("blades")
+            for record in ctx.records
+            if isinstance(plan := getattr(record, "reductions", None), Mapping)
+            and isinstance(plan.get("rotors"), Mapping)
+            for alias, block in plan["rotors"].items()
+            if str(alias).casefold() == rotor.alias.casefold() and isinstance(block, Mapping)
+        ]
+        none = [value for value in stated if _number(value) is not None and float(value) < 1]  # type: ignore[arg-type]
+        if not none:
+            kept.append(rotor)
+            continue
+        said = (
+            f"rotor {rotor.alias} (id {rotor.rotor_id}) of simulation {ctx.sim_id} is refused: "
+            f"its record states blades = {none[0]!r}, and a rotor turns at least one blade, so "
+            "its RCOEF rows and its R frame columns are not written"
+        )
+        ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}#rotor={rotor.alias}"] = said
+        warn(said, PyflightstreamWarning, stacklevel=4)
+    return kept
+
+
+def _say_no_reference(ctx: SimContext) -> None:
+    """Name the polar's rotors that cannot be planned: no matrix row, or no reference (B05).
+
+    The rotors are the reference's, which the matrix row names; a record of a
+    matrix that has lost its row, or a reference that cannot be resolved,
+    leaves the polar with no rotor group and no RCOEF file. That is said,
+    never an empty set of rotors read as a polar without one.
+    """
+    from pyflightstream.workspace.inputs import resolve_reference
+
+    key = f"{POLARS_DIR}/P{ctx.sim_id}#rotors"
+    if ctx.matrix_row is None:
+        # An authored campaign never had a matrix row; only a matrix-derived
+        # record can have lost the row its reference is read from.
+        if any(getattr(record, "matrix_stem", None) for record in ctx.records):
+            ctx.skipped[key] = (
+                f"no matrix row for simulation {ctx.sim_id}: the reference that declares its "
+                "rotors cannot be read, so the rotors cannot be planned and no rotor group "
+                "file and no RCOEF file is written"
+            )
+        return
+    if ctx.live is not None:
+        return
+    try:
+        resolve_reference(ctx.workspace.inputs_dir, ctx.matrix_row.ref_code)
+    except PyflightstreamError as error:
+        ctx.skipped[key] = (
+            f"reference {ctx.matrix_row.ref_code!r} of simulation {ctx.sim_id} cannot be "
+            f"resolved, so its rotors cannot be planned and no rotor group file and no RCOEF "
+            f"file is written: {error}"
+        )
+
+
+def _selector(ctx: SimContext, group: PolarGroup) -> str:
+    """Name what selects a group's families: its ``[groups]`` alias, its rotor's families."""
+    if group.origin == "rotor":
+        block = (getattr(ctx.live, "rotors", None) or {}).get(group.name)
+        families = [str(name) for name in getattr(block, "members", None) or ()]
+        return f"rotor {group.name}'s families ({', '.join(families) or 'none declared'})"
+    if group.origin == "declared":
+        for position, (name, members) in enumerate(ctx.pproc.groups.items(), start=1):
+            if group_id("declared", position=position) == group.group_id:
+                return f"its selector {name} = {', '.join(str(m) for m in members) or 'all'}"
+    return "every family"
+
+
+def _say_omitted(
+    ctx: SimContext,
+    gathered: _Gathered,
+    groups: Sequence[PolarGroup],
+    omitted: Sequence[tuple[str, int]],
+) -> None:
+    """Name each group row a point does not have because the group selects nothing there."""
+    by_name = {group.name: group for group in groups}
+    for name, index in omitted:
+        point = gathered.held[index]
+        stated = ", ".join(str(s) for s in point.loads.surfaces) if point.loads else "none"
+        key = f"{POLARS_DIR}/{group_file_name(ctx.sim_id, name, 'ACOEF')}#{point.name}"
+        ctx.skipped[key] = (
+            f"point {point.name}: group {name!r} selects no surface of its loads export "
+            f"({stated}): {_selector(ctx, by_name[name])} names no surface or alias of that "
+            "point, so the point is no row of the group's files (never a row of NA)."
+        )
+        warn(ctx.skipped[key], PyflightstreamWarning, stacklevel=3)
+
+
+def _say_the_na_points(ctx: SimContext, gathered: _Gathered) -> None:
+    """Warn once per polar for the points whose cells are NA, naming what they lack."""
+    names = [point.name for point in gathered.held]
+    unangled = [
+        name
+        for name, row in zip(names, gathered.rows, strict=True)
+        if _number(row.alpha_deg) is None or _number(row.beta_deg) is None
+    ]
+    if unangled:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(unangled)} point(s) state no ALPHA or BETA, or "
+            f"one that is not a finite number ({', '.join(unangled)}), so the attitude-dependent "
+            "cells of the polar files (the W frame, and the S frame without ALPHA: CDW to CnW, "
+            "CTW, CQW, ETAW) read NA there.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    unit = [name for name, row in zip(names, gathered.rows, strict=True) if not row.dimensional]
+    if unit:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(unit)} point(s) record no density RHO "
+            f"({', '.join(unit)}): the coefficients are the loads export's own, in which the "
+            "density cancels, and the DIM files and the RCOEF T, Q and P read NA there.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    unweighed = [
+        name
+        for name, row in zip(names, gathered.rows, strict=True)
+        if row.dimensional and _number(row.density_kg_m3) is None
+    ]
+    if unweighed:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(unweighed)} point(s) record no density RHO "
+            f"({', '.join(unweighed)}): their window-averaged loads are in N, so every "
+            "coefficient of the ACOEF and RCOEF files (the W, S, B and R<id> axes) reads NA "
+            "there; the DIM files keep the loads.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    at_rest = [
+        name
+        for name, row in zip(names, gathered.rows, strict=True)
+        if row.rpm and _number(row.vinf_m_s) == 0.0
+    ]
+    if at_rest:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(at_rest)} point(s) are static points, VINF = 0 "
+            f"({', '.join(at_rest)}): with q = 0 and J = 0 the RCOEF files state no ETA, no "
+            "ETA<f> and none of TC to MCA there; T, Q, P, CT, CQ, CP and the in-plane "
+            "coefficients are reported (docs/definitions/rotor-coefficients.md).",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _said_instant(ctx: SimContext) -> bool:
@@ -305,28 +523,43 @@ def _point_loads(
     families, rotors = layout
     if ctx.window is not None:
         span = ctx.point_windows.get(point.name, ctx.window)
+        # THE PRODUCT A FROZEN-WINDOW REFUSAL NAMES IS A FILE THE POST WRITES: the
+        # polar's FAM-DIM file, the first file the averaged plots make.
         values = _averaged_plots(
-            ctx, point, span, gathered.left_out, f"{POLARS_DIR}/FAM-P{ctx.sim_id}"
+            ctx,
+            point,
+            span,
+            gathered.left_out,
+            f"{POLARS_DIR}/{family_file_name(ctx.sim_id, 'DIM')}",
         )
         if values is None:
             return None
         family_loads, own = _unsteady_loads(ctx, values, families, rotors, gathered.lacking)
         return family_loads, own, {}, (), values
     vref = _number(condition.get("VREF"))
-    surfaces = _wheel_mean(ctx, point, vref, gathered.left_out)
+    surfaces = _wheel_mean(ctx, point, vref, gathered)
     if surfaces is None:
         return None
     declined = declined_induced_drag(point.loads, point.vorticity_selection)
     family_loads = steady_family_loads(
         surfaces,
-        density_kg_m3=_number(condition.get("RHO")),
+        density_kg_m3=_steady_density(condition)[0],
         vref_m_s=vref,
         sref_m2=ctx.reference.sref_m2,
         cref_m=ctx.reference.cref_m,
     )
     stated_frame = str(point.loads.frame or "").strip().casefold()
     if stated_frame and stated_frame not in GEOMETRY_ANALYSIS_FRAMES:
-        family_loads = dict.fromkeys(family_loads)
+        # A FRAME OF UNKNOWN ROTATION IS NO ROW, never a row of NA: the reason of the
+        # 0.57.0 polar (post.polar.polar_rows), named per group file of the point.
+        gathered.refused.append(
+            (
+                point.name,
+                f"{point.loads_path} states analysis frame {point.loads.frame!r}; polar axes "
+                "require vectors in the geometry's axes, and this frame's rotation is unknown",
+            )
+        )
+        return None
     names = DRAG_PRODUCT_COLUMNS[drag_pair(point.loads.total)]
     if names not in gathered.splits:
         gathered.splits.append(names)
@@ -344,6 +577,7 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
             continue
         family_loads, own, split, declined, values = found
         speeds = _rotor_speeds(ctx, point, rotors)
+        _say_the_advance_ratio(ctx, point, rotors, speeds)
         # ONE RUN BLOCK FOR EVERY TABLE OF THE POINT (FR-3778): the row the stage's
         # scope laid out over the whole sweep, so POINT_ID is the point's place in
         # it even where this step reads a filtered list of points.
@@ -351,12 +585,18 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
         if block is None:
             built = point_block_rows(ctx) if built is None else built
             block = built[point.name]
+        density, recorded = _steady_density(condition)
+        if ctx.window is not None:
+            # Window-averaged plots are loads in N: without the density no coefficient.
+            density, recorded = (density if recorded else math.nan), True
         gathered.rows.append(
             PolarPointLoads(
                 run_block=block,
                 alpha_deg=point.alpha_deg,
                 beta_deg=point.beta_deg,
-                density_kg_m3=_number(condition.get("RHO")),
+                dimensional=recorded,
+                with_rcoef=point.name not in gathered.unrecorded,
+                density_kg_m3=density,
                 vref_m_s=_number(condition.get("VREF")),
                 vinf_m_s=_number(condition.get("VINF")),
                 family_loads=family_loads,
@@ -372,9 +612,29 @@ def _gather(ctx: SimContext, layout: tuple[list[Family], list[PolarRotor]]) -> _
     return gathered
 
 
-def _entry(ctx: SimContext, held: Sequence[PolarPoint], *, instant: bool) -> dict[str, object]:
+def _source(gathered: _Gathered) -> dict[str, object]:
+    """Return what the rows of a steady polar are: a wheel's mean, or the export.
+
+    THE ENTRY SAYS WHICH (RI-01, i2 #7), as the 0.57.0 rotor table's did: a
+    wheel's rows are the mean of its k clockings, with the k, one number where
+    every row has the same, else each point's.
+    """
+    held = {point.name for point in gathered.held}
+    counts = {name: k for name, k in gathered.clockings.items() if name in held}
+    if not counts:
+        return {"source": "the loads export of a steady run"}
+    ks = set(counts.values())
+    if len(ks) == 1:
+        return {"source": f"mean of {next(iter(ks))} clockings", "clockings": next(iter(ks))}
+    return {"source": "mean of k clockings", "clockings": dict(sorted(counts.items()))}
+
+
+def _entry(ctx: SimContext, gathered: _Gathered, *, instant: bool) -> dict[str, object]:
     """Return the manifest entry every file of the polar carries."""
+    held = gathered.held
     entry: dict[str, object] = {"runs": [rid for point in held for rid in ctx.sources[point.name]]}
+    if ctx.window is None and not instant:
+        entry.update(_source(gathered))
     if ctx.window is not None:
         names = {point.name for point in held}
         entry.update(
@@ -428,23 +688,12 @@ def family_polar_products(ctx: SimContext) -> None:
     families, rotors, groups = layout
     instant = _said_instant(ctx)
     gathered = _gather(ctx, (families, rotors))
-    if gathered.left_out:
-        ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}"] = (
-            "these points of the sweep are not rows of the polar files: "
-            + "; ".join(gathered.left_out)
-        )
+    _say_left_out(ctx, gathered, groups)
     if not gathered.rows:
         return
-    if gathered.lacking:
-        warn(
-            f"{POLARS_DIR}/{ctx.sim_id}: the plots hold no FX to MZ of plot group(s) "
-            f"{', '.join(sorted(gathered.lacking))}, so those families' rows of the FAM files "
-            "are NA; the group rows come from the group plots the run has. A run declares one "
-            f"{FAMILY_PLOT_GROUP} plot group per family (docs/pproc/fam-dim.md).",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
+    _say_the_na_points(ctx, gathered)
     unsteady = ctx.window is not None
+    omitted: list[tuple[str, int]] = []
     files = polar_files(
         pol=ctx.sim_id,
         points=gathered.rows,
@@ -453,9 +702,11 @@ def family_polar_products(ctx: SimContext) -> None:
         rotors=rotors,
         reference=ctx.reference,
         load_frame="MRP" if unsteady else _load_frame(ctx),
-        identifiers=tuple(getattr(ctx.matrix_row, "identifiers", {}) or {}),
+        identifiers=tuple(run_block_identifiers(ctx)),
         drag_split=[name for pair in (gathered.splits or [DEFAULT_DRAG_SPLIT]) for name in pair],
+        omitted=omitted,
     )
+    _say_omitted(ctx, gathered, groups, omitted)
     _note_the_polar(
         ctx,
         (families, rotors, groups),
@@ -463,17 +714,175 @@ def family_polar_products(ctx: SimContext) -> None:
         load_frame="MRP" if unsteady else _load_frame(ctx),
         drag_split=[name for pair in (gathered.splits or [DEFAULT_DRAG_SPLIT]) for name in pair],
     )
-    entry = _entry(ctx, gathered.held, instant=instant)
+    entry = _entry(ctx, gathered, instant=instant)
     if unsteady:
         _equations(ctx, files, gathered.plotted)
+    files = [_with_the_farfield_cells(ctx, polar) for polar in files]
+    rotor_groups = {group.name for group in groups if group.origin == "rotor"}
     # THE RUN BLOCK STATES THE IDENTIFIERS, after POINT, so the post's stamping of
     # them after POL (FR-3564) is not applied to these files or their derived polars.
     with stated_identifiers({}):
         for polar in files:
             target = _write(ctx, polar)
-            ctx.add(target, {**entry, **({"group": polar.group} if polar.group else {})})
+            own = _file_entry(
+                ctx, entry, polar, gathered=gathered, omitted=omitted, rotor_groups=rotor_groups
+            )
+            if polar.group is not None and polar.kind in ("DIM", "ACOEF"):
+                _with_the_structural_tips(ctx, target, own)
+            ctx.add(target, own)
+            if polar.kind == "RCOEF" and polar.group in rotor_groups:
+                _say_eta_above_one(polar, own)
             if polar.group is not None and polar.kind == "ACOEF":
-                _derived_polars(ctx, target, polar, entry, groups)
+                _derived_polars(ctx, target, polar, own, groups)
+
+
+def _file_entry(
+    ctx: SimContext,
+    entry: Mapping[str, object],
+    polar: PolarFile,
+    *,
+    gathered: _Gathered,
+    omitted: Sequence[tuple[str, int]],
+    rotor_groups: Collection[str],
+) -> dict[str, object]:
+    """Return one file's manifest entry: a FILE NAMES THE RUNS OF ITS OWN ROWS.
+
+    A point a group selects nothing at is no row of the group's files, and a
+    point whose rotor speed cannot be read no row of its RCOEF files, so it is
+    no run of them either. A rotor group's files name their rotor, as the
+    0.57.0 rotor table's entry did.
+    """
+    if polar.group is None:
+        return dict(entry)
+    gone = {index for name, index in omitted if name == polar.group}
+    if polar.kind == "RCOEF":
+        gone |= {i for i, row in enumerate(gathered.rows) if not row.with_rcoef}
+    runs = [
+        rid
+        for index, point in enumerate(gathered.held)
+        if index not in gone
+        for rid in ctx.sources[point.name]
+    ]
+    own: dict[str, object] = {**entry, "runs": runs, "group": polar.group}
+    if polar.group in rotor_groups:
+        own["rotor"] = polar.group
+    return own
+
+
+def _with_the_farfield_cells(ctx: SimContext, polar: PolarFile) -> PolarFile:
+    """Return a group ACOEF file with each row's far-field cells, before MESH_FACES (i2 #5).
+
+    THE 0.57.0 PLACEMENT ON THE NEW FILES (FR-1062): the far-field step leaves
+    each point's ``<Q>_FF_<variant>_<target>`` cells for the polars, and the
+    0.57.0 group polars carried them; the page is silent, so every group ACOEF
+    file carries them as trailing values before ``MESH_FACES``, which stays last
+    for positional readers. A cell the far-field step read off the row's window
+    is named under ``polars/<file>#farfield`` and warned.
+    """
+    if polar.group is None or polar.kind != "ACOEF" or not ctx.farfield_super:
+        return polar
+    if "POINT" not in polar.columns:
+        return polar
+    at_point = polar.columns.index("POINT")
+    names = [str(cells[at_point]) for cells in polar.rows]
+    keys = list(dict.fromkeys(key for name in names for key in ctx.farfield_super.get(name, {})))
+    if not keys:
+        return polar
+    at = len(polar.columns) - 1
+    cells_of = [ctx.farfield_super.get(name, {}) for name in names]
+    if ctx.farfield_off_window:
+        said = "; ".join(ctx.farfield_off_window)
+        where = f"{POLARS_DIR}/{polar.name}"
+        ctx.skipped[f"{where}#farfield"] = (
+            "the far-field columns of these rows are not the row's window average: " + said
+        )
+        warn(f"{where}: {said}", PyflightstreamWarning, stacklevel=3)
+    return replace(
+        polar,
+        columns=(*polar.columns[:at], *keys, *polar.columns[at:]),
+        rows=[
+            (*row[:at], *(cells.get(key, NOT_APPLICABLE) for key in keys), *row[at:])
+            for row, cells in zip(polar.rows, cells_of, strict=True)
+        ],
+    )
+
+
+def _with_the_structural_tips(ctx: SimContext, target: Path, entry: Mapping[str, object]) -> None:
+    """Append each row's recorded FSI tip deflection and twist to a group file (i2 #2).
+
+    THE 0.57.0 PLACEMENT ON THE NEW FILES: the tips were trailing columns of every
+    group polar, the rotor table and the unsteady polar; the page of the files is
+    silent, so they are trailing columns of every group's DIM and ACOEF files (the
+    rotor's group and TOTAL among them), after their columns, one recorded run per
+    row.
+    """
+    from pyflightstream.post._structure import append_tip_columns
+
+    runs = entry.get("runs")
+    if isinstance(runs, list) and ctx.structure_tips:
+        append_tip_columns(ctx, target, [str(run) for run in runs])
+
+
+def _say_eta_above_one(polar: PolarFile, entry: Mapping[str, object]) -> None:
+    """Warn, naming the run, for a rotor's row whose efficiency exceeds one (P0400-ETA-BOUND)."""
+    if "ETA" not in polar.columns:
+        return
+    at = polar.columns.index("ETA")
+    point = polar.columns.index("POINT") if "POINT" in polar.columns else None
+    runs = entry.get("runs")
+    named = list(runs) if isinstance(runs, list) and len(runs) == len(polar.rows) else None
+    for index, cells in enumerate(polar.rows):
+        eta = _number(cells[at])
+        if eta is None or eta <= 1.0:
+            continue
+        run = named[index] if named is not None else (cells[point] if point is not None else "NA")
+        warn(
+            f"point={run} product={polar.name}: rotor {polar.group} efficiency ETA={eta:g} "
+            "exceeds 1; check the wake and loads.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _say_left_out(ctx: SimContext, gathered: _Gathered, groups: Sequence[PolarGroup]) -> None:
+    """Name the points that are no row, and the family plots the record lacks."""
+    if gathered.left_out:
+        ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}"] = (
+            "these points of the sweep are not rows of the polar files: "
+            + "; ".join(gathered.left_out)
+        )
+    for name, reason in gathered.refused:
+        for group in groups:
+            key = f"{POLARS_DIR}/{group_file_name(ctx.sim_id, group.name, 'ACOEF')}#{name}"
+            ctx.skipped[key] = f"point {name} is no row of the polar files: {reason}"
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: point {name} is no row of the polar files: {reason}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    for name, reason in gathered.unrecorded.items():
+        rcoef = [family_file_name(ctx.sim_id, "RCOEF")]
+        rcoef += [
+            group_file_name(ctx.sim_id, group.name, "RCOEF")
+            for group in groups
+            if group.rotor_id is not None
+        ]
+        said = (
+            f"point {name} is no row of the RCOEF files, whose rotor speed is its quasi-steady "
+            f"record's: {reason}; its other polar rows are its loads export"
+        )
+        for file in rcoef:
+            ctx.skipped[f"{POLARS_DIR}/{file}#{name}"] = said
+        warn(f"{POLARS_DIR}/P{ctx.sim_id}: {said}", PyflightstreamWarning, stacklevel=3)
+    if gathered.rows and gathered.lacking:
+        warn(
+            f"{POLARS_DIR}/{ctx.sim_id}: the plots hold no FX to MZ of plot group(s) "
+            f"{', '.join(sorted(gathered.lacking))}, so those families' rows of the FAM files "
+            "are NA; the group rows come from the group plots the run has. A run declares one "
+            f"{FAMILY_PLOT_GROUP} plot group per family (docs/pproc/fam-dim.md).",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 _NO_RCOEF_NOTE = "its members are not all inside one rotor, so it has DIM and ACOEF files only"
@@ -523,7 +932,7 @@ def _note_the_polar(
         ],
         load_frame=load_frame,
         drag_split=drag_split,
-        identifiers=tuple(getattr(ctx.matrix_row, "identifiers", {}) or {}),
+        identifiers=tuple(run_block_identifiers(ctx)),
     )
 
 
@@ -535,14 +944,18 @@ def _load_frame(ctx: SimContext) -> str:
 
 
 def _wheel_mean(
-    ctx: SimContext, point: PolarPoint, vref: float | None, left_out: list[str]
+    ctx: SimContext, point: PolarPoint, vref: float | None, gathered: _Gathered
 ) -> Mapping[str, Mapping[str, float]] | None:
     """Return a point's surfaces: a quasi-steady WHEEL's mean over its clockings.
 
     A wheel point's loads are the mean of its k clockings (P0310-ROTOR-MEAN),
     never clocking 0 alone; a clocking that cannot be read costs the point its
-    rows, named, because a mean of the others is not its mean. Every other
-    point's are its loads export.
+    rows, named, because a mean of the others is not its mean. A quasi-steady
+    point whose record is missing, cannot be read or is of another schema keeps
+    the rows that do not need the record and loses its RCOEF rows (the rotor's
+    speed is the record's), each named with the record's own reason (i2 #11,
+    docs/definitions/the-quasi-steady-rotor.md), never read silently as one
+    clocking. Every other point's are its loads export.
     """
     from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
     from pyflightstream.cases.workflows import QSTEADY_ROTOR
@@ -553,20 +966,21 @@ def _wheel_mean(
         return point.loads.surfaces
     try:
         quasi = read_qsteady_record(point.loads_path)
-    except QsteadyRecordError:
+    except QsteadyRecordError as error:
+        gathered.unrecorded[point.name] = str(error)
         return point.loads.surfaces
     if quasi.case != "wheel":
         return point.loads.surfaces
     try:
-        return _qsteady.mean_clocking_surfaces(
-            quasi, point.loads_path.parent, speed_m_s=vref
-        ).surfaces
+        meaned = _qsteady.mean_clocking_surfaces(quasi, point.loads_path.parent, speed_m_s=vref)
     except PyflightstreamError as refused:
-        left_out.append(
+        gathered.left_out.append(
             f"{point.name}: {refused}; the row of a wheel is the mean of all its clockings, "
             "never of the others"
         )
         return None
+    gathered.clockings[point.name] = int(meaned.clockings)
+    return meaned.surfaces
 
 
 def _faces(ctx: SimContext, point: PolarPoint) -> object:

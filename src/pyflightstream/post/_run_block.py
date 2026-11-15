@@ -230,6 +230,37 @@ def run_block_columns(
     return tuple(headers)
 
 
+def block_identifiers(
+    identifiers: Mapping[str, object], rotor_ids: Sequence[int] = ()
+) -> tuple[dict[str, object], tuple[str, ...]]:
+    """Return the identifiers the run block carries, and the names it refuses.
+
+    An identifier spelled as a column the run block writes (``POL``, ``ALPHA``,
+    ``RPM0``) would be a second column of one name: it is refused by name, and
+    the run block, and every table that opens with it, is written without it.
+
+    Parameters
+    ----------
+    identifiers : mapping of str to object
+        The row's ``IDENTIFIERS`` pairs, in the order written.
+    rotor_ids : sequence of int, optional
+        The ids of the rotors the reference declares.
+
+    Returns
+    -------
+    tuple of dict and tuple of str
+        The pairs kept, in their order, and the names refused.
+
+    Examples
+    --------
+    >>> block_identifiers({"FLAP": 0, "ALPHA": 99, "POL": 5})
+    ({'FLAP': 0}, ('ALPHA', 'POL'))
+    """
+    taken = set(run_block_columns((), rotor_ids))
+    refused = tuple(str(name) for name in identifiers if str(name) in taken)
+    return {k: v for k, v in identifiers.items() if str(k) not in refused}, refused
+
+
 def _finite_or_na(value: object) -> object:
     if value is None or isinstance(value, bool):
         return NOT_APPLICABLE

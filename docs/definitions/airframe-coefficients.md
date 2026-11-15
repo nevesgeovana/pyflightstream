@@ -15,7 +15,10 @@ rules are those of [axes and signs](axes-and-signs.md#axes-and-signs).
 `FAMILY` is the family's name in the OBJ or FSM. `FAMILY_ID` is its 1-based
 position in the geometry's boundary inventory, the `boundaries` list in file
 order that `pyfs-matrix inventory` writes and the run record keeps as
-`inventory`.
+`inventory`. A record written without `inventory` gives each family its
+position in the loads table, which the export prints in the inventory's
+order; the id never depends on whether a geometry file on disk still has the
+sha256 the record carries.
 
 <a id="group"></a>
 

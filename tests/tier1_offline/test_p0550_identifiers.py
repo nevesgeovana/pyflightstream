@@ -285,29 +285,35 @@ def test_p0550_a_changed_or_removed_identifier_follows_the_matrix_at_the_next_po
 
 
 def test_p0550_a_name_a_table_holds_keeps_the_table_s_value_and_warns_once(tmp_path):
+    """An identifier spelled as a run-block column is refused by name; no file is lost.
+
+    Every table of the post opens with the run block, which writes POL and ALPHA. An
+    identifier spelled so cost the simulation every polar file in the first 0.58.0
+    integration (lane I2, a defect by the session's disposition): the run block's plan
+    refuses the identifier by name, and the run block, and every table, is written
+    without it, the table's own value kept.
+    """
     plain = _post_workspace(tmp_path / "plain", 2411, (60, 61), rotor=True)
     write_campaign_products(plain, matrix_stem="products")
     stated = _post_workspace(tmp_path / "stated", 2411, (60, 61), rotor=True)
     _state(stated.root / "products.fs", {"7001": "IDENTIFIERS: {ALPHA:99,POL:5}"})
     with pytest.warns(PyflightstreamWarning) as caught:
         write_campaign_products(stated, matrix_stem="products")
-    said = [str(w.message) for w in caught if "already holds" in str(w.message)]
-    assert len([text for text in said if "identifier ALPHA" in text]) == 1, said
-    assert any("POL 7001: the identifier ALPHA" in text for text in said), said
-    assert len([text for text in said if "identifier POL" in text]) == 1, said
-    # Every table of the post opens with the run block, which writes POL and ALPHA, so an
-    # identifier spelled so is refused for the run block (design page, accepted in L1): the
-    # polar files of the simulation are not written and the manifest names both identifiers.
+    said = [
+        str(w.message) for w in caught if "which the run block already writes" in str(w.message)
+    ]
+    assert len(said) == 1 and "ALPHA" in said[0] and "POL" in said[0], said
     document = json.loads(next((stated.root / "post").rglob("products.json")).read_text("utf-8"))
-    for key in ("run_block/7001", "family_polars/7001"):
-        assert "ALPHA" in document["skipped"][key] and "POL" in document["skipped"][key], key
-    assert not list((stated.root / "post").rglob("P7001-TOTAL-ACOEF.csv"))
-    # A table without the name (the plots history, written without the refused run block) has
-    # the column, with the identifier's value, and holds POL once.
-    plots = _table(next((stated.root / "post").rglob("*_plots.csv")))
-    assert plots[0][:2] == ["POL", "ALPHA"], "a table without the name has the column"
-    assert plots[0].count("POL") == 1
-    assert plots[1][0]["ALPHA"] == "99"
+    reason = document["skipped"]["run_block/7001#identifiers"]
+    assert "ALPHA" in reason and "POL" in reason, reason
+    assert "family_polars/7001" not in document["skipped"], document["skipped"]
+    (polar,) = list((stated.root / "post").rglob("P7001-TOTAL-ACOEF.csv"))
+    header, rows = _table(polar)
+    assert header.count("POL") == 1 and header.count("ALPHA") == 1, header
+    assert {row["POL"] for row in rows} == {"7001"}
+    assert "99" not in {row["ALPHA"] for row in rows}, rows
+    (control,) = list((plain.root / "post").rglob("P7001-TOTAL-ACOEF.csv"))
+    assert polar.read_bytes() == control.read_bytes(), "the refused names change nothing"
 
 
 def test_p0550_a_name_differing_in_case_from_a_column_is_another_column(tmp_path):

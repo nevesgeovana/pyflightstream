@@ -90,14 +90,17 @@ def test_p0440_farfield_ledger_keeps_six_significant_digits(tmp_path, value):
 
 
 def _integfix_post_groupkey___polar(points):
-    """Return the skips of the polar stage on a window that no plots table holds."""
-    from pyflightstream.post import _polar_stage
-    from pyflightstream.post._family_polar import Family, polar_groups
+    """Return the skips of the polar stage on a window that no plots table holds.
 
-    families = [Family("W", 1)]
+    Through the step's public entry: the context states the one family W, no
+    reference rotor and no record, so the layout is the family W's.
+    """
+    from pyflightstream.post import _polar_stage
+
     ctx = SimpleNamespace(
         pproc=SimpleNamespace(
-            products=SimpleNamespace(polars=True, rotor_cn_slope=False), groups={}
+            products=SimpleNamespace(polars=True, rotor_cn_slope=False, polar_axes=None),
+            groups={},
         ),
         window=(1, 2),
         point_windows={},
@@ -107,14 +110,53 @@ def _integfix_post_groupkey___polar(points):
         skipped={},
         sim_id="7001",
         record_of={},
+        records=[],
+        live=None,
+        aliases={},
+        matrix_row=None,
     )
-    original = _polar_stage._layout
-    try:
-        _polar_stage._layout = lambda _ctx: (families, [], polar_groups(families, [], {}))
-        _polar_stage.family_polar_products(ctx)
-    finally:
-        _polar_stage._layout = original
+    _polar_stage.family_polar_products(ctx)
     return ctx.skipped
+
+
+def _integfix_post_groupkey___instant(loads, record_of):
+    """Return what the polar step warns of one point whose loads export is ``loads``.
+
+    Through the step's public entry. The export states a frame of unknown rotation,
+    so the point is no row and the step stops after its layout and its word on the
+    instant (a polar read from the loads export of an unsteady run is one instant).
+    """
+    from dataclasses import replace
+
+    from pyflightstream.post import _polar_stage
+
+    point = SimpleNamespace(
+        name="P", loads=replace(loads, frame="BODY"), loads_path=Path("P.txt"), point=None
+    )
+    point.vorticity_selection = None
+    ctx = SimpleNamespace(
+        pproc=SimpleNamespace(
+            products=SimpleNamespace(polars=True, rotor_cn_slope=False, polar_axes=None),
+            groups={},
+        ),
+        window=None,
+        point_windows={},
+        plots_tables={},
+        points=[point],
+        conditions=[{}],
+        skipped={},
+        sim_id="7001",
+        record_of=record_of,
+        records=[],
+        live=None,
+        aliases={},
+        matrix_row=None,
+        reference=SimpleNamespace(sref_m2=1.0, cref_m=1.0),
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _polar_stage.family_polar_products(ctx)
+    return [str(w.message) for w in caught]
 
 
 class TestIntegfixPostGroupkey:
@@ -744,7 +786,6 @@ class TestPost2Sim:
     @staticmethod
     def test_p0400_groupkey_agreeing_groups_are_all_drawn():
         """P0400-GROUPKEY control: with no clash every group, the rotor's included, is drawn."""
-        from pyflightstream.post import _polar_stage
         from pyflightstream.post._family_polar import Family, PolarRotor, polar_groups
         from pyflightstream.post.axes import rotor_frame
         from pyflightstream.results import parse_loads
@@ -757,18 +798,11 @@ class TestPost2Sim:
         assert [group.name for group in groups] == ["TOTAL", "AIRFRAME", "PORT", "g01"]
         assert refused == {}
         # `instant` is what a polar read from the loads export of an unsteady run is.
-        ctx = SimpleNamespace(
-            window=None,
-            points=[SimpleNamespace(name="P", loads=parse_loads(LOADS))],
-            record_of={"P": SimpleNamespace(recipe="unsteady")},
-            sim_id="7001",
-        )
-        with pytest.warns(_sim.PyflightstreamWarning, match="LAST TIME STEP"):
-            assert _polar_stage._said_instant(ctx) is True
-        ctx.record_of = {"P": SimpleNamespace(recipe="steady")}
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            assert _polar_stage._said_instant(ctx) is False
+        loads = parse_loads(LOADS)
+        said = _integfix_post_groupkey___instant(loads, {"P": SimpleNamespace(recipe="unsteady")})
+        assert any("LAST TIME STEP" in text for text in said), said
+        said = _integfix_post_groupkey___instant(loads, {"P": SimpleNamespace(recipe="steady")})
+        assert not any("LAST TIME STEP" in text for text in said), said
 
 
 _POST2_UNSTEADY___VARIABLES = 'VARIABLES = "X" "Y" "Z" "cp"'
@@ -1168,17 +1202,15 @@ class TestPost1Review:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-REVIEW-REPORTED-UNSTEADY")])
     def test_p0400_group_polars_honor_the_exports_solver_mode():
-        from pyflightstream.post import _polar_stage
+        from dataclasses import replace
 
-        point = SimpleNamespace(
-            name="p", loads=SimpleNamespace(solver_mode="Unsteady"), vorticity_selection=None
-        )
-        ctx = SimpleNamespace(window=None, points=[point], record_of={}, sim_id="1")
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            instant = _polar_stage._said_instant(ctx)
-        assert instant is True
-        assert any("LAST TIME STEP" in str(w.message) for w in caught)
+        from pyflightstream.results import parse_loads
+        from tests.tier1_offline.test_post_products import LOADS
+
+        # No record says what ran: the export's own solver mode says the run is unsteady.
+        loads = replace(parse_loads(LOADS), solver_mode="Unsteady")
+        said = _integfix_post_groupkey___instant(loads, {})
+        assert any("LAST TIME STEP" in text for text in said), said
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-REVIEW-PUBLIC-IMPORTS")])
