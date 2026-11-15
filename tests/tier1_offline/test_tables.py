@@ -2072,3 +2072,25 @@ def test_p0440_ad_f2_loc_column_and_numpy_row_index():
     table = Table({"a": [1.0, 2.0], "b": [3.0, 4.0]})
     assert list(table.loc[table["a"] > 1, "b"]) == [4.0]
     assert table.iloc[np.int64(0)] == {"a": 1.0, "b": 3.0}
+
+
+def test_write_table_writes_a_nan_or_none_cell_as_na(tmp_path):
+    """F-251 on the one write path itself: a missing cell is the NA token, never empty."""
+    from pyflightstream.results.tables import _write_table as write_table
+
+    pd = pytest.importorskip("pandas")
+    frame = pd.DataFrame(
+        {
+            "CL": [0.4, float("nan")],
+            "CD": [None, 0.02],
+            "data_origin": ["raw", "raw"],
+            "reduction": ["none", "none"],
+            "reduction_window": ["not_applicable", "not_applicable"],
+        }
+    )
+    lines = write_table(frame, tmp_path / "t.csv").read_text(encoding="utf-8").splitlines()
+    header = lines[0].split(",")
+    rows = [dict(zip(header, line.split(","), strict=True)) for line in lines[1:]]
+    assert rows[0]["CD"] == "NA" and rows[1]["CL"] == "NA"
+    assert rows[0]["CL"] == "0.4" and rows[1]["CD"] == "0.02"
+    assert all(cell != "" for row in rows for cell in row.values())
