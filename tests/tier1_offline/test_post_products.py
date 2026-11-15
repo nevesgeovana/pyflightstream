@@ -1505,6 +1505,13 @@ def _windowed_workspace(tmp_path, *, window, reductions=None, kinds=("", "_sload
     return workspace
 
 
+def _after_run_block(columns):
+    """The table's own columns: those after the last column of the run block (FR-3778)."""
+    from pyflightstream.post._block_scope import RUN_BLOCK_LAST
+
+    return list(columns[columns.index(RUN_BLOCK_LAST) + 1 :])
+
+
 def _series(workspace, name):
     import csv
 
@@ -1535,9 +1542,11 @@ def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
     workspace = _windowed_workspace(tmp_path, window=window)
     write_campaign_products(workspace)
     columns, rows = _series(workspace, "AL-020_loads_series.csv")
-    # `STEP` SINCE 0.24.0: one name for the solver step across every table,
-    # behind `POL` since 0.27.0 (G16).
-    assert columns[:4] == ["POL", "STEP", "time_s", "azimuth_deg"], columns
+    # `STEP` SINCE 0.24.0: one name for the solver step across every table. Every
+    # table opens with `POL` and the run block (FR-3778); the table's own columns
+    # follow the block's last column.
+    assert columns[0] == "POL", columns
+    assert _after_run_block(columns)[:3] == ["STEP", "time_s", "azimuth_deg"], columns
     assert [int(r["STEP"]) for r in rows] == [3, 4, 5]
     assert [float(r["time_s"]) for r in rows] == pytest.approx([0.03, 0.04, 0.05])
     assert [float(r["azimuth_deg"]) for r in rows] == pytest.approx([90.0, 120.0, 150.0])
@@ -1545,10 +1554,12 @@ def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
     assert float(rows[0]["Total_CL"]) == pytest.approx(0.1882829, abs=1e-5), "five decimals"
     columns, rows = _series(workspace, "AL-020_sections_series.csv")
     # The sections series leads with its block's identity since 0.24.0 (RI-04).
-    assert columns[:3] == ["POL", "STEP", "time_s"] and "Chord" in columns, columns
+    assert columns[0] == "POL" and "Chord" in columns, columns
+    assert _after_run_block(columns)[:2] == ["STEP", "time_s"], columns
     assert [int(r["STEP"]) for r in rows] == [3, 3, 4, 4, 5, 5], "two sections per step"
     columns, rows = _series(workspace, "AL-020_probes_series.csv")
-    assert columns[:4] == ["POL", "STEP", "time_s", "azimuth_deg"] and "Cp" in columns, columns
+    assert columns[0] == "POL" and "Cp" in columns, columns
+    assert _after_run_block(columns)[:3] == ["STEP", "time_s", "azimuth_deg"], columns
     assert len(rows) == 3 * 12 and {int(r["STEP"]) for r in rows} == {3, 4, 5}
     index = _products_manifest(workspace)["products"]
     entry = index["series/AL-020_loads_series.csv"]
@@ -1598,7 +1609,7 @@ def test_a_rebuild_archives_the_series_tables_it_rewrites_as_it_does_every_produ
             f"{sorted(p.name for p in folder.parent.rglob('*')) if folder.parent.exists() else []}"
         )
         assert archived.read_text(encoding="utf-8") == f"the first build of {name}"
-        assert (series / name).read_text(encoding="utf-8").startswith("POL,STEP,"), (
+        assert (series / name).read_text(encoding="utf-8").startswith("POL,POINT_ID,"), (
             "the rebuild archived the table and did not write the new one"
         )
 
