@@ -1,5 +1,6 @@
 """The matrix split preserves results captured from 42cf219a before the cut."""
 
+import copy
 import dataclasses
 import hashlib
 import json
@@ -41,4 +42,11 @@ def test_read_matrix_matches_pre_cut_rows(fixture: str, active_only: bool) -> No
         assert data.pop("identifiers") == {}
         data["sweep"] = row.sweep.model_dump(mode="json")
         actual.append(data)
-    assert actual == golden["active_rows" if active_only else "all_rows"]
+    expected = copy.deepcopy(golden["active_rows" if active_only else "all_rows"])
+    for data in expected:
+        # P0580-MATRIX-DEFAULT: 5c3e2f9ea (PFS-2254) added the documented
+        # motion-table route. These historical rows declare none; only the
+        # empty default is added, with every original field still compared.
+        assert "custom_motions" not in data
+        data["custom_motions"] = []
+    assert actual == expected

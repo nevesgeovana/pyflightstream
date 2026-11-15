@@ -84,6 +84,11 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     for case in expected[fixture]["campaign"]["sims"]:
         assert case.pop("raw_mesh_conditions") is None
         case["boundaries_file"] = None
+        # P0580-MATRIX-DEFAULT: 5c3e2f9ea (PFS-2254) added the documented
+        # motion-table route. No historical fixture declares a table motion;
+        # admit only its empty default, retaining every other binding comparison.
+        assert "custom_motions" not in case
+        case["custom_motions"] = []
         # 0.58.0 (PFS-2176 review): the setup keys whose condition has another home
         # leave the solver settings; these fixtures state none of them.
         for key in REMOVED_SOLVER_FIELDS:
