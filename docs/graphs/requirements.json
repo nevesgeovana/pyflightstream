@@ -3016,7 +3016,7 @@
       "parent": "",
       "area": "PHYS",
       "hid": "PHYS-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3038",
@@ -3863,14 +3863,14 @@
       "parent": "FR-3032",
       "area": "PHYS",
       "hid": "PHYS-1.6",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3785",
       "parent": "FR-3032",
       "area": "PHYS",
       "hid": "PHYS-1.7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3786",
