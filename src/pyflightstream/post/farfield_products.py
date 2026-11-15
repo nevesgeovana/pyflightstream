@@ -52,6 +52,7 @@ from pyflightstream.farfield import (
 )
 from pyflightstream.farfield.balances import DiskLoading
 from pyflightstream.farfield.wake_sheets import WakeSheet
+from pyflightstream.post._block_scope import apply_point_blocks
 from pyflightstream.post._condition import (
     _q_ref,
     _recorded_speeds,
@@ -69,7 +70,6 @@ from pyflightstream.post._reduction_stage import (
 )
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
-    apply_point_blocks,
     context_row,
     write_csv_table,
 )

@@ -42,6 +42,7 @@ from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import InputValueError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
 from pyflightstream.cases import select_group_members
+from pyflightstream.post._block_scope import run_blocks
 from pyflightstream.post._condition import (
     PointState,
     _mach_of,
@@ -63,7 +64,6 @@ from pyflightstream.post._tables import (
     context_row,
     polar_file_name,
     read_csv_table,
-    run_blocks,
     write_csv_table,
 )
 from pyflightstream.post.axes import polar_axis_coefficients

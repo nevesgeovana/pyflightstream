@@ -43,6 +43,7 @@ from pyflightstream.post import corrections as _corrections
 from pyflightstream.post import disc_maps as _disc_maps
 from pyflightstream.post import harmonics as _harmonics
 from pyflightstream.post import qsteady as _qsteady
+from pyflightstream.post._block_scope import with_rotor_alias
 from pyflightstream.post._condition import (
     _last_time_step,
     _live_reference,
@@ -71,7 +72,6 @@ from pyflightstream.post._tables import (
     ProductExistsError,
     ReferenceValues,
     read_csv_table,
-    with_rotor_alias,
 )
 from pyflightstream.post.farfield_fields import non_metre_refusal
 from pyflightstream.post.point_tables import write_sections_table

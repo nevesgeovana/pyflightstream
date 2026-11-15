@@ -20,11 +20,11 @@ from pyflightstream.farfield.rotor_sections import (
     project_sections,
     wake_velocity,
 )
+from pyflightstream.post._block_scope import apply_point_blocks
 from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._reduction_stage import _last_step
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
-    apply_point_blocks,
     context_row,
     write_csv_table,
 )

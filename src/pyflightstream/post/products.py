@@ -211,6 +211,7 @@ from pyflightstream.post._tables import (
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
 from pyflightstream.post._tables import ReferenceValues as ReferenceValues
 from pyflightstream.post._tables import polar_file_name as polar_file_name
+from pyflightstream.post._tables import write_fixed_width_table as write_fixed_width_table
 from pyflightstream.post.custom_polar import (
     CUSTOM_DATE_FORMAT as _CUSTOM_DATE_FORMAT,  # noqa: F401
 )
@@ -437,6 +438,8 @@ __all__ = [
     # FR-2302: the trimmed polar, appended so the inventory before it keeps its order.
     "trimmed_polar_row",
     "write_trimmed_polar",
+    # The fixed-width form of polar_format = "legacy_polar", held by `post._tables`.
+    "write_fixed_width_table",
 ]
 
 

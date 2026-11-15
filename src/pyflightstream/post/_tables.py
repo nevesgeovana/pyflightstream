@@ -56,9 +56,6 @@ from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_
 from pyflightstream.cases import classify_outputs
 from pyflightstream.cases.windows import march_end
 from pyflightstream.post._block_scope import after_run_block, with_run_block
-from pyflightstream.post._block_scope import apply_point_blocks as apply_point_blocks
-from pyflightstream.post._block_scope import run_blocks as run_blocks
-from pyflightstream.post._block_scope import with_rotor_alias as with_rotor_alias
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import labeled_value, parse_unsteady_plots
@@ -1508,6 +1505,20 @@ def write_fixed_width_table(
     column. At a fixed 16 a name of 16 characters or more ran into its
     neighbour (``POLSET_SOLVER_VISCOUS_COUPLING``), and a superfile always
     carries such names; a description ``wing at cruise`` split into three.
+
+    Parameters
+    ----------
+    path : Path
+        The file to write; its folder is created.
+    columns : sequence of str
+        The column names, the header line.
+    rows : sequence of sequence of object
+        One sequence of cells per row, in the order of ``columns``.
+
+    Returns
+    -------
+    Path
+        ``path``, written with LF line ends.
     """
     header = [_legacy_field(str(name)) for name in columns]
     body = [[_legacy_field(_cell(value)) for value in row] for row in rows]

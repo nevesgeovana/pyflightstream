@@ -76,6 +76,7 @@ from pyflightstream.cases.corrections import (
     parse_calibration,
     read_calibration,
 )
+from pyflightstream.post._block_scope import with_rotor_alias
 from pyflightstream.post._stage import (
     PRODUCTS_MANIFEST,
     _loads_of,
@@ -86,7 +87,6 @@ from pyflightstream.post._stage import (
 from pyflightstream.post._tables import (
     _one_refusal,
     read_csv_table,
-    with_rotor_alias,
     write_csv_table,
 )
 from pyflightstream.post._transfer_functions import bessel_j, bessel_y, sears, theodorsen
