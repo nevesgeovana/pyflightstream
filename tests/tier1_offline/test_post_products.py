@@ -3574,7 +3574,7 @@ def _placement_fsm(path: Path) -> Path:
             point = zip(words[1:4], PLACEMENT_HUB_M, strict=True)
             vertices.append([float(w) + h for w, h in point])
         elif words and words[0] == "f":
-            triangles.append(tuple(int(w) - 1 for w in words[1:4]))
+            triangles.append((int(words[1]) - 1, int(words[2]) - 1, int(words[3]) - 1))
             owners.append(len(names))
     faces = len(triangles)
 
