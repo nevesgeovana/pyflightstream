@@ -634,7 +634,7 @@ def _skipped_besides_the_axes(manifest) -> dict:
     }
 
 
-_PFS_2245 = pytest.mark.skip(reason="PFS-2245: [names] on plot columns, 0.59.0")
+_PFS_2245 = pytest.mark.xfail(strict=True, reason="PFS-2245: [names] on plot columns, 0.59.0")
 
 
 @pytest.mark.parametrize(
