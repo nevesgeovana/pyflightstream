@@ -6,6 +6,20 @@ Every form that 0.57.0 and earlier still accepted with a deprecation warning is 
 Each old form is now refused, and the refusal names the new spelling, so the migration is
 one edit. Nothing else changes.
 
+## The mesh frame (0.58)
+
+A mesh is expected in x aft, y right, z up. A mesh built in another axis-aligned
+right-handed frame adds `mesh_frame = ["forward", "left", "up"]` (what its +x, +y and +z
+point to) to its `boundaries.toml`, and is converted before the solver reads it. A mesh
+that states nothing is read as before. A left-handed declaration, a saved simulation
+declared in another frame and `geometry mark-boundaries` on a declared mesh are refused.
+
+## The averaging window spans whole blade passages (0.58)
+
+The plan refuses an `unsteady_rotor` row whose `LAST_REVS_AVG` or `LAST_ITERS_AVG` is not a
+whole number of blade passages, at least one, of every rotor the row turns. The refusal names
+the nearest valid window; write it. A window that already spans whole passages needs no edit.
+
 ## Removed forms (0.58)
 
 | Old form | Write instead |
