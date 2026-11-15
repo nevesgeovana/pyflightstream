@@ -191,6 +191,7 @@ def test_p0580_a_changed_window_is_reduced_again_from_the_history_of_a_0570_post
         str(w.message) for w in caught if "moved from probes/ to time_history/" in str(w.message)
     ]
     assert said, "the migration warning names the history read from probes/"
+    assert len(said) == 1, f"the migration warning is said once per post: {said}"
     assert not (products / "time_history" / "AL-020_plots.csv").exists(), (
         "the history is not rewritten"
     )

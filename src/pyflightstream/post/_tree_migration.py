@@ -233,7 +233,9 @@ def note_earlier_layout(out: Path) -> dict[str, str | None]:
 def earlier_path(out: Path, relative: str, *, kind: str) -> Path:
     """Return where a reader finds ``relative``: the new path, else the earlier one.
 
-    The earlier file is returned after one warning per post and kind.
+    The earlier file is returned after one warning per post and kind. The
+    warning shares its key with :func:`note_earlier_layout`, so a kind a
+    reader already named is not named again when the post records it.
 
     Parameters
     ----------
@@ -261,7 +263,7 @@ def earlier_path(out: Path, relative: str, *, kind: str) -> Path:
     spec = _BY_KEY[kind]
     old = f"{spec.folder}/{Path(relative).name}"
     if (out / old).is_file():
-        if said_once(f"read:{kind}"):
+        if said_once(kind):
             warn(f"{_sentence(spec, old, relative)} {POINTER}", PyflightstreamWarning, stacklevel=2)
         return out / old
     return chosen
