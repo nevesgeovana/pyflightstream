@@ -26,7 +26,7 @@ revolution count when the difference between them is what matters.
 The licensed measurements of workflow-built rotor scripts cover the first
 round (26.120), the following two rounds (26.124), and a further round
 (26.124). Blade counts come from `families_blades`, times `PERIODIC_COPIES`
-on a `SYMMETRY: PERIODIC` row, whose block lists only the meshed blades;
+on a `SYMMETRY: PERIODIC` row, whose block lists only the meshed blades (the blade frames and the wake stabilization's blade count read that one count; NUM_BLADES is per propeller, and how the solver reads it on a periodic sector is not measured on a licensed run);
 `BLADES` applies only to a row that names no rotor.
 
 ## A rotor row states the decisions, and the arithmetic is derived
