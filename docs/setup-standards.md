@@ -85,6 +85,14 @@ command is not emitted and the row runs with no separation model. The separation
 that build is `axial_separation_families` (User Guide, Flow separation). The two models are
 different, and the package does not claim that they agree.
 
+The separation declaration has two generations. On 26.100 and earlier, separation is
+declared by per-mechanism boundary lists: `valarezo_separation_boundaries`,
+`crossflow_separation_boundaries` and `axial_separation_families`. From 26.101 it is declared
+by named separation models: `airfoil_separation`, `bulk_separation`,
+`axial_vortex_separation`, `cylindrical_bulk_separation` and `stratford_bulk_separation`. A
+per-mechanism key is accepted only on a build whose command database row carries its
+command; on a later build it is refused at plan, naming the named-model keys.
+
 The existing command database still refuses unsupported or broken emissions.
 Documented syntax, successful parsing, usable native operation and validated
 aerodynamics are different evidence claims. The generator executes no solver.

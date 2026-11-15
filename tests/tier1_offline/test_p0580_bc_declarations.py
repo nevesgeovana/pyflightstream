@@ -123,6 +123,39 @@ def test_p0580_pfs2255_setup_symmetry_loads_is_refused_naming_the_column(tmp_pat
         assert "SYMMETRY_LOADS column" in said, said
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("valarezo_separation_boundaries", ["RotorRig"]),
+        ("crossflow_separation_boundaries", ["RotorRig"]),
+        ("axial_separation_families", ["RotorRig"]),
+    ],
+)
+@pytest.mark.parametrize("build", ["26.101", "26.127"])
+def test_p0580_pfs2257_per_mechanism_keys_are_refused_on_later_builds(key, value, build):
+    """PFS-2257: on a build with no row for the list, the key is refused naming the models."""
+    from pyflightstream.cases import CampaignConfigError, SolverSettings
+    from tests.tier1_offline.test_workflows import rendered, steady_case
+
+    case = steady_case().model_copy(update={"solver": SolverSettings(**{key: value})})
+    with pytest.raises(CampaignConfigError) as refused:
+        rendered(case, build)
+    said = str(refused.value)
+    assert key in said and build in said, said
+    assert "airfoil_separation" in said and "stratford_bulk_separation" in said, said
+
+
+def test_p0580_pfs2257_per_mechanism_keys_still_emit_on_26100():
+    """PFS-2257: the build that carries the per-mechanism list keeps the key."""
+    from pyflightstream.cases import SolverSettings
+    from tests.tier1_offline.test_workflows import rendered, steady_case
+
+    case = steady_case().model_copy(
+        update={"solver": SolverSettings(valarezo_separation_boundaries=[1])}
+    )
+    assert "SET_VALAREZO_SEPARATION_BOUNDARIES" in rendered(case, "26.100")
+
+
 @pytest.mark.parametrize("build", ["26.122", "26.127"])
 def test_p0580_pfs2249_bluntness_angle_is_refused_on_a_build_with_no_row(tmp_path, build):
     """PFS-2249: 26.122 removed the command and 26.127 has no row, so the build refuses it."""

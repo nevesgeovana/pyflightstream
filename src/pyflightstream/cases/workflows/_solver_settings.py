@@ -188,6 +188,45 @@ def _resolved_native_mach(case: SimCase, script: Script) -> float | None:
     return mach
 
 
+#: The per-mechanism separation keys of build 26.100 and the command each reaches
+#: (PFS-2257); 26.101 and later declare separation by the named models instead.
+PER_MECHANISM_SEPARATION_KEYS = {
+    "valarezo_separation_boundaries": "SET_VALAREZO_SEPARATION_BOUNDARIES",
+    "crossflow_separation_boundaries": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+    "axial_separation_families": "SET_AXIAL_SEPARATION_BOUNDARIES",
+}
+
+#: The keys of the named separation models (solver_settings.yaml, "the named
+#: separation models of 26.101 and later"), which a refusal above names.
+NAMED_SEPARATION_KEYS = (
+    "airfoil_separation",
+    "bulk_separation",
+    "axial_vortex_separation",
+    "cylindrical_bulk_separation",
+    "stratford_bulk_separation",
+)
+
+
+def _refuse_per_mechanism_separation(case: SimCase, script: Script) -> None:
+    """Refuse a per-mechanism separation key on a build whose database carries no row for it.
+
+    The keys emit the per-mechanism boundary lists of 26.100; from 26.101 the
+    solver declares separation by named models (PFS-2257, the owner's answer of
+    2026-11-15: the declaration changed, keep the keys for the old builds).
+    """
+    for key, command in PER_MECHANISM_SEPARATION_KEYS.items():
+        if getattr(case.solver, key) is None:
+            continue
+        status = script.registry.commands[command].status_in(script.version)
+        if status is None or str(status.status) == "removed":
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the setup key {key} states the per-mechanism "
+                f"separation list {command}, which the command database records on 26.100 "
+                f"and earlier and not on build {script.version}. On this build separation is "
+                f"declared by the named separation models: {', '.join(NAMED_SEPARATION_KEYS)}."
+            )
+
+
 def _settings(
     case: SimCase, script: Script, *, wake_termination_time_steps: int | None = None
 ) -> None:
@@ -206,6 +245,7 @@ def _settings(
     see the artifact's documentation.
     """
     _setup_ports(case, script)
+    _refuse_per_mechanism_separation(case, script)
     reference = case.reference
     native_length = _from_metres(case, script, "runtime velocity and SI reference dimensions")
     reference_scale = (

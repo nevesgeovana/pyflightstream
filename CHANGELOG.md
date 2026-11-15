@@ -89,6 +89,8 @@ The setup key `sonic_velocity_m_per_s` (the `SONIC_VELOCITY` command, removed by
 
 The setup key `symmetry_loads` is refused by name, in a preset and on a row: whether the loads are the meshed half's or the whole model's is declared only by the run matrix row's `SYMMETRY_LOADS` column, the one route to `SET_ANALYSIS_SYMMETRY_LOADS`. `row_symmetry_loads` takes `from_setup` as optional; the package passes none. PFS-2255. migration: move the value into the row's `SYMMETRY_LOADS` column (`true` or `false`).
 
+The per-mechanism separation keys `valarezo_separation_boundaries`, `crossflow_separation_boundaries` and `axial_separation_families` are accepted only on the builds whose command database rows carry their commands (26.100 and earlier); on a later build each is refused by name at plan, naming the named separation-model keys (`airfoil_separation`, `bulk_separation`, `axial_vortex_separation`, `cylindrical_bulk_separation`, `stratford_bulk_separation`) instead of the command's build refusal. PFS-2257. migration: on 26.101 and later, declare separation by the named models.
+
 The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS record, `FAMILIES` in a rotation record, `families = 'each_blade'`, `'airframe'` and `'blades'`) keep their refusals and their migration lines, which are now plain refusal texts and no longer entries of the deprecation ledger. migration: none.
 
 ### Fixed
