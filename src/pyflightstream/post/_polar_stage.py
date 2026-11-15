@@ -256,10 +256,11 @@ def _layout(
     )
     if not surfaces:
         return None
-    inventory = next(
-        (found for record in ctx.records if (found := ctx.workspace.recorded_inventory(record))),
-        None,
-    )
+    # FAMILY_ID IS THE RECORD'S, NEVER THE HASH'S (i2 #16): the inventory a run
+    # records, or the loads table's order. The inventory recovered from a geometry
+    # file whose sha256 matches the record made the id of one family change with
+    # the bytes of a file the post does not read.
+    inventory = next((tuple(r.inventory) for r in ctx.records if r.inventory), None)
     ids = family_ids(surfaces, inventory)
     rotors = polar_rotors(getattr(ctx.live, "rotors", None) or {}, surfaces, ctx.aliases)
     owner = {member: rotor.rotor_id for rotor in rotors for member in reversed(rotor.members)}

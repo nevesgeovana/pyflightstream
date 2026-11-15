@@ -638,7 +638,7 @@ def polar_files(
     -------
     list of PolarFile
         The family files, then each group's files, in group order; RCOEF only
-        where the reference declares a rotor (family) or the group sits in one.
+        where a family sits inside a rotor (family file) or the group sits in one.
     """
     assembler = _Assembler(
         points=points,
@@ -649,7 +649,11 @@ def polar_files(
         drag_split=tuple(drag_split),
     )
     by_id = {rotor.rotor_id: rotor for rotor in rotors}
-    family_tables = assembler.tables("family", with_rcoef=bool(rotors))
+    # FAM-RCOEF HOLDS THE FAMILIES DECLARED INSIDE A ROTOR (design 4.3): no such
+    # family, no file, never a header with no row.
+    family_tables = assembler.tables(
+        "family", with_rcoef=any(family.rotor_id is not None for family in families)
+    )
     for index, point in enumerate(points):
         for family in families:
             if family.name not in point.family_loads:

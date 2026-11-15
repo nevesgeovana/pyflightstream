@@ -3,8 +3,10 @@
 <a id="fam-rcoef"></a>
 
 `polars/FAM-RCOEF-P<POL>.csv`, one file per polar whose reference declares a
-rotor. One row per point and family INSIDE a rotor (a family of the rotor's
-`families_blades` or `families_general`); an airframe family has no row.
+rotor that holds a family of the polar's loads. One row per point and family
+INSIDE a rotor (a family of the rotor's `families_blades` or
+`families_general`); an airframe family has no row, and a polar none of whose
+families sits inside a rotor has no FAM-RCOEF file.
 
 | Columns | Content |
 | --- | --- |

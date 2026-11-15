@@ -75,7 +75,9 @@ def test_a_rotor_that_selects_no_surface_is_left_out_with_its_reason(tmp_path):
     polars, skipped = _posted(tmp_path, one_point_selects=False)
     # The rotor's family is Blade1; every export of this polar carries a wing and a body.
     assert not (polars / "P6001-PUSHER-RCOEF.csv").exists(), "a table of false zeros was written"
-    assert not _zero_thrust(_rows(polars / "FAM-RCOEF-P6001.csv"))
+    # No family sits inside the rotor, so FAM-RCOEF has no row and is not written
+    # (design 4.3, i2 #16): never a header with no row.
+    assert not (polars / "FAM-RCOEF-P6001.csv").exists()
     (reason,) = [why for key, why in skipped.items() if "PUSHER" in key]
     assert "Blade1" in reason and "W" in reason, reason
 
