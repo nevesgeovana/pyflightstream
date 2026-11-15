@@ -65,15 +65,14 @@ def test_the_iteration_and_the_azimuth_lead_the_row():
     columns = products.SECTION_COLUMNS
     # BEHIND THE POLAR since 0.27.0 (G16): every table opens with `POL`.
     assert columns[0] == "POL", columns
-    # FAMILY, FAMILY_ID, STEP, PLANE, ROTOR_ID and ROTOR follow it: they are identity too
-    # (the family leads since 0.58.0, and the rotor is named by id and by alias).
-    assert columns[1:8] == (
+    # FAMILY, FAMILY_ID, STEP, PLANE and ROTOR_ID follow it: they are identity too
+    # (the family leads since 0.58.0, and the rotor is named by its id only, design 4.5).
+    assert columns[1:7] == (
         "FAMILY",
         "FAMILY_ID",
         "STEP",
         "PLANE",
         "ROTOR_ID",
-        "ROTOR",
         "AZIMUTH",
     ), columns
 

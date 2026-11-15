@@ -11,8 +11,7 @@ frame, one after another with no marker between them. Each row opens with the
 | `FAMILY_ID` | the family's 1-based position in the geometry's boundary inventory, in file order; several are joined by `;`; `NA` where the inventory does not name it |
 | `STEP` | on an unsteady point, the run's last TIME STEP, from the run record: the export is written when the march ends, and its own header counts the solver's inner iterations, not steps. On a steady point, the solver iteration the export states. One name across every table |
 | `PLANE` | the cutting plane of that distribution |
-| `ROTOR_ID` | the declared id of the rotor whose blades those families are; `NA` for a surface no rotor owns |
-| `ROTOR` | the alias of that rotor; `NA` for a surface no rotor owns |
+| `ROTOR_ID` | the declared id of the rotor whose blades those families are; `NA` for a surface no rotor owns; the alias of each id is in `products.json` |
 | `AZIMUTH` | where the block's blade is at `STEP`, in degrees, wrapped to one turn: the block's OWN blade when it cuts the families of one blade of its rotor, else where BLADE ONE OF THAT ROTOR is; `NA` without a rotor |
 
 Then the export's own seven columns, `Offset`, `Chord`, `X_QC`, `Z_QC`, `Fx`, `Fz` and `Moment`, in the

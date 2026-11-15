@@ -74,21 +74,22 @@ def test_each_row_states_its_family_plane_and_rotor_and_the_step(tmp_path):
     )
     columns, rows = read_csv_table(written)
     # BEHIND THE POLAR since 0.27.0 (G16).
-    assert list(columns[:8]) == [
+    # The rotor is named by its declared id only (design 4.5, 0.58.0).
+    assert list(columns[:7]) == [
         "POL",
         "FAMILY",
         "FAMILY_ID",
         "STEP",
         "PLANE",
         "ROTOR_ID",
-        "ROTOR",
         "AZIMUTH",
-    ], columns[:9]
+    ], columns[:8]
     assert "ITERATION" not in columns
-    assert [(r["FAMILY"], r["PLANE"], r["ROTOR"]) for r in rows] == [
+    assert "ROTOR" not in columns, "the alias is no column of the sections table"
+    assert [(r["FAMILY"], r["PLANE"], r["ROTOR_ID"]) for r in rows] == [
         ("Wing", "XZ", NOT_APPLICABLE),
-        ("Blade1", "XY", "PUSHER"),
-    ]
+        ("Blade1", "XY", "0"),
+    ], "PUSHER declares no id, so it is rotor 0"
     assert {row["STEP"] for row in rows} == {"3134"}, "the export states iteration 3134"
 
 
@@ -109,7 +110,8 @@ def test_a_record_with_no_layout_states_not_applicable_rather_than_a_guess(tmp_p
     written = write_sections_table(tmp_path / "p_sections.csv", SLOADS, mach=0.2)
     _columns, rows = read_csv_table(written)
     for row in rows:
-        assert (row["FAMILY"], row["PLANE"], row["ROTOR"], row["AZIMUTH"]) == (NOT_APPLICABLE,) * 4
+        identity = (row["FAMILY"], row["PLANE"], row["ROTOR_ID"], row["AZIMUTH"])
+        assert identity == (NOT_APPLICABLE,) * 4
 
 
 def test_a_layout_that_does_not_add_up_to_the_export_is_not_applied(tmp_path):
@@ -260,6 +262,6 @@ def test_an_unsteady_points_step_is_its_time_step_and_not_the_solvers_iteration_
     _columns, rows = read_csv_table(table)
     assert {row["STEP"] for row in rows} == {"144"}, "the time step, not the 3134 of the header"
     blade = next(row for row in rows if row["FAMILY"] == "Blade1")
-    assert blade["ROTOR"] == "PUSHER"
+    assert blade["ROTOR_ID"] == "0", "PUSHER declares no id, so it is rotor 0"
     # 144 steps of 5 degrees is two whole turns from a datum of zero.
     assert float(blade["AZIMUTH"]) == pytest.approx(0.0)
