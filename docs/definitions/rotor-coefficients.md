@@ -1,33 +1,28 @@
 ## Rotor coefficients
 
-`J`, `CT`, `CQ`, `CP`, `ETA`, `ETAW`, and the in-plane `CN`, `CS`,
-`CMN`, `CMS`, one table per rotor, every column suffixed with the rotor's alias. They make physical sense for **one** rotor and not for
-several summed: the diameters and speeds that normalise them are different
-numbers.
-
-The table is `polars/P<sim>-<alias>_rotor.csv`. It opens with `POL` and
-`ROTOR`, the rotor's alias, on every row, then the condition block,
-`RPM_<alias>`, `DIAMETER_<alias>` and the six, `J_<alias>` to `ETAW_<alias>`,
-then `MTIP_<alias>` and `MHEL_<alias>`
-([Tip and helical Mach numbers](tip-and-helical-mach-numbers.md#tip-and-helical-mach-numbers)), and then
-`CN_<alias>`, `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`
-([The in-plane coefficients](#the-in-plane-coefficients)), and, last,
-`MADV_<alias>`, the advancing-tip Mach number. The column contract
-grows at its end only, so every earlier column keeps its position.
+The rotor coefficients `J`, `CT`, `CQ`, `CP`, `ETA` and the in-plane `CFZ`, `CFY`, `CMZ`, `CMY` are
+written in the RCOEF files, `polars/FAM-RCOEF-P<POL>.csv` (one row per point and rotor family) and
+`polars/P<POL>-<GROUP>-RCOEF.csv` (one row per point and rotor group), in the frame `R<id>` of the
+row's own rotor. The columns of both files are in [FAM-RCOEF](../pproc/fam-rcoef.md); `J<id>`,
+`MTIP<id>` and `MHEL<id>` of rotor `<id>`
+([Tip and helical Mach numbers](tip-and-helical-mach-numbers.md#tip-and-helical-mach-numbers)) are in
+the run block of every file. The coefficients make physical sense for **one** rotor and not for
+several summed: the diameters and speeds that normalise them are different numbers. The 0.57.0
+standalone rotor table and its `CN`, `CS`, `CMN`, `CMS` columns are retired in 0.58.0, see
+[the polar files by family and by group](../upgrading.md#polar-files-by-family-and-by-group).
 Missing recorded ALPHA or BETA leaves the shaft angle and ETAW as `NA`, with
 a warning naming the rows; unsteady axis coefficients refuse missing attitude.
 MADV's documented zero-angle default is the one exception for these products.
-Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../upgrading.md#older-layouts) for older files with an alias line.
 
 ### Where an unsteady point's numbers come from
 
 A steady point's row is built from the loads export. **An unsteady point's row
 is the average of the PLOTS history over the row's window**, because the loads
 export of an unsteady run states the last time step, one instant of a cycle.
-**Each rotor's table follows its own rotor's clock**, as each blade does
-([`per_blade`](per_blade.md#per_blade)): `LAST_REVS_AVG` counts that rotor's
+**Each rotor's RCOEF row follows its own rotor's clock**, as each blade does:
+`LAST_REVS_AVG` counts that rotor's
 own revolutions, so on a row with several rotors turning at different rates
-each table averages over the stated number of its own revolutions, and its
+each rotor's row averages over the stated number of its own revolutions, and its
 window in steps can differ from the clock rotor's, which the unsteady polar
 uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
 
@@ -40,16 +35,16 @@ uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
   axes that turn with the rotor and its moment is already about the hub. A
   group that merely shares the alias's name over other families is not one either.
 - **A row that states a window never holds an instant.** A point whose history
-  does not cover the window, or holds no such columns, is LEFT OUT of the table
+  does not cover the window, or holds no such columns, is LEFT OUT of the rotor's RCOEF row
   and named in `products.json`, as the unsteady polar beside it does. The
-  table's manifest entry states `source`, `window`, the row's window on its
+  rotor group's manifest entry states `source`, `window`, the row's window on its
   clock rotor, and `windows`, each point's window of THIS rotor in steps.
 - **A rotor's revolution is its own `steps_per_revolution`** in the run's
   plan, and its window ends at the row's last step. A row whose matrix states
   no window key, or a record that states no clock of the rotor, averages every
   rotor over the row's window.
 
-See [the rotor-table migration](../upgrading.md#older-layouts) for the correction to historical unsteady tables.
+The 0.57.0 rotor table is retired, see [the polar files by family and by group](../upgrading.md#polar-files-by-family-and-by-group).
 
 ### `ETAW`
 
@@ -127,7 +122,7 @@ CMS = MS / (rho n^2 D^5)
 
 `[products] rotor_cn_slope = true` (off by default) is a named skip: the
 post writes no slope table, warns, and names the skip under `polars/<sim>#rotor_cn_slope`
-in `products.json`, because the standalone rotor table it was computed from is retired.
+in `products.json`, because the standalone 0.57.0 rotor table it was computed from is retired.
 PFS-2241 returns it, read from the rotor group RCOEF files. The definition below is the
 one that table will carry: the slope of the rotor's normal force coefficient
 `CN_<ALIAS>` against the incidence `ALPHA`, at each advance ratio the table holds,
@@ -176,7 +171,7 @@ coefficients normalised by the reference dynamic pressure
 qref = rho VREF^2 / 2
 ```
 
-where `VREF` is the run's reference velocity, and the rotor table takes them
+where `VREF` is the run's reference velocity, and the rotor's RCOEF row takes them
 back to newtons and newton-metres with that `qref`. So a static point with a
 positive `VREF` has its forces and moments, and `CT`, `CQ`, `CP` and the
 in-plane coefficients are written from them. A point whose `VREF` is zero or
@@ -242,7 +237,7 @@ CFZ = Z / (RHO n^2 D^4)      CFY = Y / (RHO n^2 D^4)
 CMZ = N / (RHO n^2 D^5)      CMY = M / (RHO n^2 D^5)
 ```
 
-They replace the rotor table's `CN, CS, CMN, CMS` of the rotor's `(T, S, N)` axes:
+They replace the 0.57.0 rotor table's `CN, CS, CMN, CMS` of the rotor's `(T, S, N)` axes, retired in 0.58.0:
 `CFZ = CN`, `CFY = -CS`, `CMZ = -CMN`, `CMY = -CMS`.
 
 <a id="disc-loadings"></a>
