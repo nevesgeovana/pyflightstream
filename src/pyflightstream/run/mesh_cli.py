@@ -165,6 +165,12 @@ def main(argv: list[str] | None = None) -> int:
     int
         The exit code of the verb that ran: 0 on success, 2 for a refused input, and the
         verb's own codes otherwise (``build``: 1 a failed audit gate, 3 the solver failed).
+
+    Examples
+    --------
+    >>> from pyflightstream.run.mesh_cli import main
+    >>> callable(main)
+    True
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
