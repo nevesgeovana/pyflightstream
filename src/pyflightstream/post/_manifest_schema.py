@@ -32,6 +32,8 @@ from pyflightstream.post._family_columns import (
 from pyflightstream.post._run_block import (
     IDENTIFIER_PLACEHOLDER,
     RUN_BLOCK_SPEC,
+    _expanded,
+    _rotor_ids,
     run_block_columns,
 )
 
@@ -311,8 +313,6 @@ def run_block_section(
     >>> [c["name"] for c in run_block_section((), (0,))][:3]
     ['POL', 'POINT_ID', 'POINT']
     """
-    from pyflightstream.post._run_block import _expanded, _rotor_ids
-
     pairs = _expanded(tuple(identifiers), _rotor_ids(tuple(rotor_ids)))
     by_name = {column.name: column for column in RUN_BLOCK_SPEC}
     entries: list[dict[str, str]] = []
