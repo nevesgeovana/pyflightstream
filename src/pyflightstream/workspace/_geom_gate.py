@@ -308,13 +308,35 @@ class _Surface:
         weighted = nv[:, None] * nu[None, :] * self.weights
         return np.asarray(np.tensordot(weighted, self.points, axes=2) / weighted.sum())
 
-    def distance(self, point: np.ndarray, *, seeds: np.ndarray | None = None) -> float:
-        """Return the distance from ``point`` to the surface: grid start, then Newton steps."""
+    def starts(self, seeds: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+        """Return the start parameters of a closest-point search and their surface points.
+
+        The starts are the ``_GRID`` by ``_GRID`` lattice of the domain and every seed, clipped
+        to the domain. Their images are evaluated once, so a caller measuring many points
+        against one surface pays for them once instead of once per point.
+        """
         u0, u1, v0, v1 = self.domain
         grid = [(u, v) for u in np.linspace(u0, u1, _GRID) for v in np.linspace(v0, v1, _GRID)]
         if seeds is not None:
             grid.extend(tuple(uv) for uv in np.clip(seeds, [u0, v0], [u1, v1]))
-        best = min(grid, key=lambda uv: float(np.linalg.norm(self.at(*uv) - point)))
+        params = np.asarray(grid, float)
+        return params, np.array([self.at(float(u), float(v)) for u, v in params])
+
+    def distance(
+        self,
+        point: np.ndarray,
+        *,
+        seeds: np.ndarray | None = None,
+        starts: tuple[np.ndarray, np.ndarray] | None = None,
+    ) -> float:
+        """Return the distance from ``point`` to the surface: best start, then Newton steps.
+
+        ``starts`` (from :meth:`starts`) replaces the lattice and ``seeds``; the search is the
+        same, its start the nearest of the same candidate points.
+        """
+        u0, u1, v0, v1 = self.domain
+        params, images = starts if starts is not None else self.starts(seeds)
+        best = params[int(np.argmin(np.linalg.norm(images - point, axis=1)))]
         u, v = float(best[0]), float(best[1])
         closest = float(np.linalg.norm(self.at(u, v) - point))
         ranges = np.array([u1 - u0, v1 - v0])
@@ -410,7 +432,9 @@ def _on_surface(
     *,
     seeds: np.ndarray | None = None,
 ) -> list[GateFinding]:
-    worst = max(surface.distance(p, seeds=seeds) for p in _samples(pieces))
+    # The start set (lattice and seeds) is evaluated once for the loop, not once per sample.
+    starts = surface.starts(seeds)
+    worst = max(surface.distance(p, starts=starts) for p in _samples(pieces))
     if worst <= resolution:
         return []
     return [

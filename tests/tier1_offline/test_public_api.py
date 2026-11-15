@@ -537,3 +537,11 @@ def test_public_modules_import_and_carry_a_docstring():
             f"public module {name} has no docstring; the didactic policy "
             "requires the module top-docstring to state its pipeline role."
         )
+
+
+def test_p0580_propeller_spinner_is_public():
+    """P0580-G17-SPIN-API: the spinner builder is reached through the public Propeller."""
+    from pyflightstream.geometry import Propeller
+
+    assert callable(Propeller.spinner)
+    assert Propeller.spinner.__doc__ and "periodicity" in Propeller.spinner.__doc__

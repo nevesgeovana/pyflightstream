@@ -20,6 +20,7 @@ from pyflightstream._textio import write_text
 from ._propeller_build import blade_geometry, rotor_geometry
 from ._propeller_checks import design_report
 from ._propeller_input import validate_definition
+from ._propeller_spinner import spinner_geometry
 
 
 def _toml_literal(value):
@@ -154,6 +155,28 @@ class Propeller:
     def rotor(self):
         """Build every blade at equal azimuths about the shaft."""
         return rotor_geometry(self._data, self._blade)
+
+    @cached_property
+    def _spinner(self):
+        if "spinner" not in self._data:
+            raise InputValueError("spinner: the definition has no [spinner] table")
+        return spinner_geometry(self._data, self._blade)
+
+    def spinner(self):
+        """Build the spinner of every sector, split for periodicity, with its record, in mm.
+
+        Returns
+        -------
+        SpinnerGeometry
+            ``patches`` (``spinner_<i>_<part>``), ``info`` (the record and its checks) and
+            ``junction`` (the blade-0 trims of the dominance).
+
+        Raises
+        ------
+        InputValueError
+            When the definition has no ``[spinner]`` table, or the blade root does not fit it.
+        """
+        return deepcopy(self._spinner)
 
     def report(self):
         """Return numerical checks and design measures; kernel checks live in run_geometry."""
