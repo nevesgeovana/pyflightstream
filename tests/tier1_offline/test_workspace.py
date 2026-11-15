@@ -658,6 +658,9 @@ def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
         # written by post._sim and post._reduction_stage since WP5 of 0.33.0.
         package / "post" / "_sim.py": {"rotor"},
         package / "post" / "_reduction_stage.py": {"rotor"},
+        # 0.58.0 (PFS-2231): the manifest entry of a rotor group's polar file names its
+        # rotor, written by post._polar_stage as the rotor table's entry was by _sim.
+        package / "post" / "_polar_stage.py": {"rotor"},
         # The merged polar reads those manifest entries back to find the rotor tables.
         package / "post" / "_merged_polar.py": {"rotor"},
         # 0.40.0 (FR-459): a far-field lattice names the rotor it lies on in its OWN
