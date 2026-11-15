@@ -723,7 +723,9 @@ def family_polar_products(ctx: SimContext) -> None:
     with stated_identifiers({}):
         for polar in files:
             target = _write(ctx, polar)
-            own = _file_entry(ctx, entry, polar, gathered, omitted, rotor_groups)
+            own = _file_entry(
+                ctx, entry, polar, gathered=gathered, omitted=omitted, rotor_groups=rotor_groups
+            )
             ctx.add(target, own)
             if polar.kind == "RCOEF" and polar.group in rotor_groups:
                 _say_eta_above_one(polar, own)
@@ -735,6 +737,7 @@ def _file_entry(
     ctx: SimContext,
     entry: Mapping[str, object],
     polar: PolarFile,
+    *,
     gathered: _Gathered,
     omitted: Sequence[tuple[str, int]],
     rotor_groups: Collection[str],
