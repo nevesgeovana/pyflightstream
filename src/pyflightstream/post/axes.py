@@ -35,23 +35,36 @@ differ at second order otherwise. The axes are a property of the velocity
 VECTOR and the body, so the angles that enter the chain are read off that
 vector: ``alpha_s = atan2(w, u)`` and ``beta_w = asin(v / V)``. A row's
 ``ALPHA`` and ``BETA`` stay what the user wrote.
+
+THE ROTOR FRAMES R<id>: body axes turned by a rotor's toe about z and
+then its pitch about y, ``C_R/B = C2(theta) C3(psi)``, so ``x_R`` lies along the
+shaft in the sense that makes thrust positive forward (:func:`rotor_frame`).
+:func:`frame_rotations` gives every frame of a polar file from the export frame,
+and :func:`airframe_axis_coefficients` the six coefficients in each, CD positive
+aft and CL positive up in all of them (``docs/definitions/axes-and-signs.md``).
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
 
 from pyflightstream._errors import ProductError
+from pyflightstream._tokens import NOT_APPLICABLE
 
 __all__ = [
     "EXPORT_TO_BODY",
     "REFERENCE_UP",
     "ROTOR_NORMAL_FLOOR",
+    "RotorFrame",
+    "airframe_axis_coefficients",
     "blade_azimuth_deg",
+    "frame_rotations",
+    "rotor_frame",
     "body_to_stability",
     "clocked_blade_azimuth_deg",
     "placed_blade_azimuth_deg",
@@ -793,3 +806,224 @@ def free_stream_on_rotor_axis(
     square = flight - cosine * along
     # `+ 0.0` turns a negative zero into zero.
     return cosine + 0.0, float(np.linalg.norm(square)) + 0.0
+
+
+# THE FRAMES OF THE POLAR FILES (PFS-2231): W, S, B and one R<id> per
+# rotor, each a forward-right-down set reached from the export frame.
+
+
+@dataclass(frozen=True, eq=False)
+class RotorFrame:
+    """The frame R<id> of one rotor: body axes turned by the rotor's pitch and toe.
+
+    ``x_R`` lies along the shaft in the sense that makes thrust positive
+    forward; zero roll, so ``y_R`` is horizontal. Built by :func:`rotor_frame`.
+
+    Attributes
+    ----------
+    rotor_id : int
+        The rotor's declared id; the frame is named ``R<id>``.
+    pitch_deg : float
+        ``theta = asin(-a_z)``, positive nose up.
+    toe_deg : float
+        ``psi = atan2(a_y, a_x)``, positive toward +y; 0 for a vertical shaft.
+    sense : int
+        ``+1`` when ``x_R`` has the declared axis's sense, ``-1`` when the
+        sense rule turned it.
+    declared_aft : bool
+        Whether the declared axis points aft (its body x is negative), the case
+        whose thrust is counted against the sense of the declared axis.
+    body_to_rotor : numpy.ndarray
+        ``C_R/B = C2(theta) C3(psi)``.
+    """
+
+    rotor_id: int
+    pitch_deg: float
+    toe_deg: float
+    sense: int
+    declared_aft: bool
+    body_to_rotor: Matrix
+
+    @property
+    def name(self) -> str:
+        """The frame's name, ``R<id>``."""
+        return f"R{self.rotor_id}"
+
+
+def _turned_by_the_sense_rule(shaft: Vector) -> bool:
+    """Whether the body-axis shaft is turned so thrust is positive forward (or up)."""
+    if shaft[0] != 0.0:
+        return bool(shaft[0] < 0.0)
+    if shaft[2] != 0.0:
+        return bool(shaft[2] > 0.0)
+    return bool(shaft[1] < 0.0)
+
+
+def rotor_frame(axis_vector: Sequence[float], rotor_id: int = 0) -> RotorFrame:
+    """Return the frame R<id> of a rotor whose shaft is ``axis_vector`` in the export frame.
+
+    The shaft in body axes is ``a = C_B/E axis``. THE SENSE RULE makes thrust
+    positive forward: if ``a_x < 0`` the shaft is turned (``a = -a``); if
+    ``a_x = 0`` and ``a_z > 0`` it is turned too, so a lift rotor's thrust is
+    positive up; if both are 0, ``a_y >= 0``. Then ``psi = atan2(a_y, a_x)``,
+    ``theta = asin(-a_z)`` and ``C_R/B = C2(theta) C3(psi)``, so ``x_R = a``.
+
+    Parameters
+    ----------
+    axis_vector : sequence of float
+        The declared shaft, in the export frame (x aft, y right, z up); it need
+        not be a unit vector.
+    rotor_id : int, optional
+        The rotor's declared id.
+
+    Returns
+    -------
+    RotorFrame
+        The frame, its angles in degrees and the sense applied.
+
+    Raises
+    ------
+    ProductError
+        If the axis names no direction or the id is negative.
+
+    Examples
+    --------
+    A tractor declared forward (export ``-x``) flies in body axes, untouched:
+
+    >>> frame = rotor_frame((-1.0, 0.0, 0.0))
+    >>> frame.name, frame.pitch_deg, frame.toe_deg, frame.sense
+    ('R0', 0.0, 0.0, 1)
+    """
+    if isinstance(rotor_id, bool) or int(rotor_id) < 0:
+        raise ProductError(f"a rotor id is an integer of zero or more, got {rotor_id!r}")
+    stated = np.asarray(axis_vector, dtype=float)
+    length = float(np.linalg.norm(stated)) if np.isfinite(stated).all() else 0.0
+    if length == 0.0:
+        raise ProductError(f"the rotor axis {stated.tolist()} names no direction")
+    # `+ 0.0` turns a negative zero into zero, so the sense rule reads a true sign.
+    shaft = EXPORT_TO_BODY @ (stated / length) + 0.0
+    flip = _turned_by_the_sense_rule(shaft)
+    a = -shaft + 0.0 if flip else shaft
+    toe = 0.0 if a[0] == 0.0 and a[1] == 0.0 else math.atan2(float(a[1]), float(a[0]))
+    pitch = math.asin(max(-1.0, min(1.0, -float(a[2]))))
+    return RotorFrame(
+        rotor_id=int(rotor_id),
+        pitch_deg=math.degrees(pitch) + 0.0,
+        toe_deg=math.degrees(toe) + 0.0,
+        sense=-1 if flip else 1,
+        declared_aft=bool(shaft[0] < 0.0),
+        body_to_rotor=dcm(_Y, pitch) @ dcm(_Z, toe),
+    )
+
+
+def frame_rotations(
+    alpha_deg: float, beta_deg: float, rotors: Sequence[RotorFrame] = ()
+) -> dict[str, Matrix]:
+    """Return the export-to-frame matrix of every polar frame, in file order.
+
+    ``C_f/E = C_f/B C_B/E`` for ``f`` in ``W``, ``S``, ``B`` and each ``R<id>``,
+    id ascending; ``C_B/B`` is the identity.
+
+    Parameters
+    ----------
+    alpha_deg, beta_deg : float
+        The angles the point flew, as written; W and S are turned by the
+        geometric angles of :func:`wind_angles`.
+    rotors : sequence of RotorFrame, optional
+        The frames of every declared rotor.
+
+    Returns
+    -------
+    dict of str to numpy.ndarray
+        ``{"W": ..., "S": ..., "B": ..., "R0": ...}``, ordered as the files.
+
+    Raises
+    ------
+    ProductError
+        If two rotor frames carry one id.
+
+    Examples
+    --------
+    >>> list(frame_rotations(4.0, 2.0, [rotor_frame((-1.0, 0.0, 0.0), 1)]))
+    ['W', 'S', 'B', 'R1']
+    """
+    ids = [frame.rotor_id for frame in rotors]
+    if len(set(ids)) != len(ids):
+        raise ProductError(f"two rotor frames carry one id: {sorted(ids)}")
+    turns: dict[str, Matrix] = {
+        "W": body_to_wind(alpha_deg, beta_deg),
+        "S": body_to_stability(alpha_deg, beta_deg),
+        "B": np.eye(3),
+    }
+    for frame in sorted(rotors, key=lambda item: item.rotor_id):
+        turns[frame.name] = frame.body_to_rotor
+    return {name: turn @ EXPORT_TO_BODY for name, turn in turns.items()}
+
+
+def _positive_finite(*values: float) -> bool:
+    return all(math.isfinite(float(value)) and float(value) > 0.0 for value in values)
+
+
+def airframe_axis_coefficients(
+    force_n: Sequence[float],
+    moment_nm: Sequence[float],
+    rotations: Mapping[str, Matrix],
+    *,
+    q_ref_pa: float,
+    sref_m2: float,
+    cref_m: float,
+    bref_m: float,
+) -> dict[str, float | str]:
+    """Return the six airframe coefficients of every frame of ``rotations``.
+
+    In each forward-right-down frame f, with ``F_f`` and ``M_f`` the force and
+    the moment about the moment reference point::
+
+        CD<f> = -F_f,x / (q SREF)        Cl<f> = M_f,x / (q SREF BREF)
+        CY<f> =  F_f,y / (q SREF)        Cm<f> = M_f,y / (q SREF CREF)
+        CL<f> = -F_f,z / (q SREF)        Cn<f> = M_f,z / (q SREF BREF)
+
+    so CD is positive aft and CL positive up in every frame, and the moments
+    keep the right-hand rule about the frame's axes.
+
+    Parameters
+    ----------
+    force_n, moment_nm : sequence of float
+        The force in N and the moment about the moment reference point in N m,
+        in the export frame.
+    rotations : mapping of str to numpy.ndarray
+        The export-to-frame matrices, as :func:`frame_rotations` returns them.
+    q_ref_pa : float
+        The dynamic pressure the coefficients are taken against, ``0.5 RHO VREF^2``.
+    sref_m2, cref_m, bref_m : float
+        The reference area, chord and span.
+
+    Returns
+    -------
+    dict of str to float or str
+        ``CD<f>, CY<f>, CL<f>, Cl<f>, Cm<f>, Cn<f>`` per frame in the order of
+        ``rotations``; ``NA`` for a value that cannot be formed (a load that is
+        not finite, or a divisor that is not a positive finite number).
+
+    Examples
+    --------
+    >>> turns = frame_rotations(0.0, 0.0)
+    >>> row = airframe_axis_coefficients((2.0, 0.0, 10.0), (0.0, 0.0, 0.0), turns,
+    ...                                  q_ref_pa=1.0, sref_m2=1.0, cref_m=1.0, bref_m=1.0)
+    >>> row["CDB"], row["CLB"], row["CDW"], row["CLW"]
+    (2.0, 10.0, 2.0, 10.0)
+    """
+    usable = _positive_finite(q_ref_pa, sref_m2, cref_m, bref_m)
+    scale = float(q_ref_pa) * float(sref_m2)
+    lengths = (float(bref_m), float(cref_m), float(bref_m))
+    force = np.asarray(force_n, dtype=float)
+    moment = np.asarray(moment_nm, dtype=float)
+    row: dict[str, float | str] = {}
+    for name, turn in rotations.items():
+        f = turn @ force
+        m = turn @ moment
+        values = (-f[0], f[1], -f[2], *(m[i] / lengths[i] for i in range(3)))
+        for stem, value in zip(("CD", "CY", "CL", "Cl", "Cm", "Cn"), values, strict=True):
+            number = float(value) / scale if usable else math.nan
+            row[f"{stem}{name}"] = number + 0.0 if math.isfinite(number) else NOT_APPLICABLE
+    return row
