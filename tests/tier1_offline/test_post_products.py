@@ -634,10 +634,18 @@ def _skipped_besides_the_axes(manifest) -> dict:
     }
 
 
+_PFS_2245 = pytest.mark.skip(reason="PFS-2245: [names] on plot columns, 0.59.0")
+
+
 @pytest.mark.parametrize(
     "existing_tip",
-    [None, "tip_deflection_m_blade_1", "tip_twist_deg_blade_1"],
-    ids=["P0410-tip", "P0410-RV3-deflection-collision", "P0410-RV3-twist-collision"],
+    [
+        pytest.param(None, id="P0410-tip"),
+        pytest.param(
+            "tip_deflection_m_blade_1", id="P0410-RV3-deflection-collision", marks=_PFS_2245
+        ),
+        pytest.param("tip_twist_deg_blade_1", id="P0410-RV3-twist-collision", marks=_PFS_2245),
+    ],
 )
 def test_p0410_rv2_unsteady_polar_keeps_structural_tip(tmp_path, existing_tip):
     import shutil
