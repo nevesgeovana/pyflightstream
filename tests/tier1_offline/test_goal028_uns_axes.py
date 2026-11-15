@@ -7,8 +7,10 @@ Newton metres, AVERAGED over the row's window, made coefficients with the row's 
 `RHO`, `VINF`, `SREF` and `CREF`, and turned by the chain the steady polar uses.
 Never a rotor's own frame: a force in a rotor frame is not in the geometry's axes.
 
-Without such a group the block is NOT written and the reason is said; a column of
-`NA` down a whole table is what this package does not write.
+Since 0.58.0 the unsteady polar is the family and group files of ``polars/`` (design
+of the post outputs, 2.2 and 4.8): the axis coefficients are the bare names
+`CDW .. CnB` of the group's ACOEF file, no column carries a group suffix, and a row
+without what it needs is ``NA`` and said, never a column dropped.
 
 EXPECTED VALUES are the definition, computed here: `C = F / (1/2 rho V^2 S)`, turned
 through scipy. Nothing is taken from the module under test.
@@ -16,35 +18,23 @@ through scipy. Nothing is taken from the module under test.
 
 from __future__ import annotations
 
+import json
 import math
+import warnings
 from pathlib import Path
 
 import pytest
 
-from pyflightstream.post.products import (
-    COEFFICIENT_COLUMNS,
-    ReferenceValues,
-    read_csv_table,
-    write_plots_table,
-    write_unsteady_polar,
-)
+from pyflightstream.post.products import ReferenceValues, read_csv_table, write_plots_table
 from tests.tier1_offline.test_post_products import PLOTS_HEADER
+from tests.tier1_offline.test_post_superfile import _MATRIX, _loads, _workspace
 
 REFERENCE = ReferenceValues(sref_m2=50.0, cref_m=2.526, bref_m=20.0)
 RHO, VINF = 1.1, 60.0
-CONDITION = {"ALPHA": 4.0, "BETA": 6.0, "MACH": 0.18, "RHO": RHO, "VINF": VINF, "VREF": VINF}
-#: THE REQUIREMENT MOVED at the release review (REL-0240 round 1, API-B1 to B3): the
-#: eighteen names are the STEADY polar's, `25` included, and every one carries its
-#: plot group's whole name, one group or several.
-AXES = (
-    "CDW CYW CLW CRW25 CMW25 CNW25 CDS CYS CLS CRS25 CMS25 CNS25 CDB CYB CLB CRB25 CMB25 CNB25"
-).split()
-
-
-def _column(key: str, group: str = "MRP_TOTAL") -> str:
-    """The column an oracle key is published under: `CMW` is `CMW25_<group>`."""
-    return f"{key}{'25' if key[1] in 'RMN' else ''}_{group}"
-
+#: The names the axis coefficients carry in a group's ACOEF file, wind, stability, body.
+AXES = ("CDW CYW CLW ClW CmW CnW CDS CYS CLS ClS CmS CnS CDB CYB CLB ClB CmB CnB").split()
+#: The oracle's keys (`CR` is the rolling moment, `CM` pitching, `CN` yawing) and the file's.
+_KEY_TO_COLUMN = {"CR": "Cl", "CM": "Cm", "CN": "Cn"}
 
 #: Step 1 is outside the window; steps 2 and 3 average to the second tuple.
 HISTORY = {
@@ -53,6 +43,10 @@ HISTORY = {
     3: (130.0, -50.0, 1200.0, 16.0, -32.0, 3.0),
 }
 MEAN = (120.0, -40.0, 1100.0, 14.0, -30.0, 2.0)
+SIX = ("FX", "FY", "FZ", "MX", "MY", "MZ")
+
+
+CONDITION = {"ALPHA": 4.0, "BETA": 6.0, "MACH": 0.18, "RHO": RHO, "VINF": VINF, "VREF": VINF}
 
 
 class _Point:
@@ -60,7 +54,8 @@ class _Point:
 
 
 def _plots(tmp_path, groups: tuple[str, ...]) -> Path:
-    names = [f"{part}_{group}" for group in groups for part in ("FX", "FY", "FZ", "MX", "MY", "MZ")]
+    """A written plots table of ``groups`` over `HISTORY` (other test modules borrow it)."""
+    names = [f"{part}_{group}" for group in groups for part in SIX]
     lines = ["Time-step," + ",".join(names)]
     for step, six in HISTORY.items():
         cells = [f"{value:.4f}" for _group in groups for value in six]
@@ -85,20 +80,130 @@ def _plots(tmp_path, groups: tuple[str, ...]) -> Path:
     return table
 
 
-def _written(tmp_path, groups, notes=None, declared=None):
-    path = write_unsteady_polar(
-        tmp_path / "P0001_x_uns_avg.csv",
-        points=[_Point()],
-        plots={"P": _plots(tmp_path, groups)},
-        window=(2, 3),
-        conditions=[CONDITION],
-        reference=REFERENCE,
-        notes=notes,
-        axes_groups=groups if declared is None else declared,
+def _column(key: str) -> str:
+    """The column an oracle key is published under: `CMW` is `CmW`."""
+    return _KEY_TO_COLUMN.get(key[:2], key[:2]) + key[2:]
+
+
+def six_history(group: str = "MRP_TOTAL") -> dict[str, list[float]]:
+    """The plots of one group over `HISTORY`'s three steps, step 1 outside the window."""
+    columns: dict[str, list[float]] = {"steps": list(HISTORY)}
+    for index, part in enumerate(SIX):
+        columns[f"{part}_{group}"] = [six[index] for six in HISTORY.values()]
+    return columns
+
+
+def _export(history: dict[str, list[float]]) -> str:
+    """A raw unsteady plots export of ``history``: ``steps`` is its clock, the rest its columns."""
+    columns = {name: values for name, values in history.items() if name != "steps"}
+    count = len(next(iter(columns.values())))
+    steps = history.get("steps") or list(range(1, count + 1))
+    table = "Time-step," + ",".join(columns) + "\n" + "-" * 70 + "\n"
+    for index, step in enumerate(steps):
+        cells = ",".join(f"{values[index]:.4f}" for values in columns.values())
+        table += f"{step}.0000,{cells},\n"
+    return (
+        PLOTS_HEADER
+        + table
+        + "-" * 70
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
-    assert path is not None
-    columns, rows = read_csv_table(path)
-    return list(columns), rows[0]
+
+
+def posted_unsteady(
+    tmp_path,
+    histories,
+    *,
+    window,
+    velocity=VINF,
+    density=RHO,
+    alpha=4.0,
+    beta=6.0,
+    drop_attitude=False,
+):
+    """Post a campaign whose unsteady simulation 6002 has one point per entry of ``histories``.
+
+    Each entry is the plots history of one point (see `_export`), or None for a point that
+    exported no plots. The row's window is ``window``: its last step is the run's length and
+    its length one revolution, ``LAST_REVS_AVG: 1.0``. Returns the workspace, its ``polars/``
+    folder and the warnings the post said.
+    """
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import RunRecord
+
+    workspace = _workspace(tmp_path)
+    first, last = window
+    span = last - first + 1
+    row = next(line for line in _MATRIX.splitlines() if line.startswith("6002"))
+    (workspace.root / "matriz.fs").write_text(
+        _MATRIX.replace(row, row.rstrip() + " / LAST_REVS_AVG: 1.0"), encoding="utf-8"
+    )
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    base = next(record for record in records if record.sim_id == "6002")
+    for record in records:
+        if record.sim_id != "6002":
+            workspace.append_record(RunRecord(**record.model_dump()))
+    outputs_dir = workspace.sim_dir("6002") / "outputs"
+    for index, history in enumerate(histories):
+        stem = f"POLAR-6002_M14AL+000BE+000J+{170 + index}"
+        name = f"M144RE438AL+000BE+000J+{170 + index}"
+        plan = dict(base.reductions or {})
+        plan.update(time_iterations=last, steps_per_revolution=float(span))
+        plan["rotors"] = {
+            "PUSHER": {**plan["rotors"]["PUSHER"], "steps_per_revolution": float(span)}
+        }
+        text = _loads(alpha, velocity=f"{velocity:.3f}", mode="Unsteady").replace(
+            "Side-slip angle (Deg)                       .000",
+            f"Side-slip angle (Deg)                       {beta:.3f}",
+        )
+        if drop_attitude:
+            text = "\n".join(
+                line
+                for line in text.splitlines()
+                if "Angle of attack" not in line and "Side-slip" not in line
+            )
+        (outputs_dir / f"{stem}.txt").write_text(text, encoding="utf-8")
+        outputs = [f"outputs/{stem}.txt"]
+        if history is not None:
+            (outputs_dir / f"{stem}_plots.txt").write_text(_export(history), encoding="utf-8")
+            outputs.append(f"outputs/{stem}_plots.txt")
+        workspace.append_record(
+            RunRecord(
+                **{
+                    **base.model_dump(),
+                    "run_id": f"camp/sim_6002/{name}",
+                    "point_name": name,
+                    "point": {"alpha": alpha, "beta": beta, "advance_ratio": 1.7 + 0.01 * index},
+                    "density_kg_m3": density,
+                    "velocity_requested_m_s": velocity,
+                    "outputs": outputs,
+                    "reductions": plan,
+                }
+            )
+        )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    polars = workspace.root / "post" / "matriz" / "polars"
+    return workspace, polars, [str(w.message) for w in caught]
+
+
+def skipped_by_the_post(workspace) -> dict[str, str]:
+    """What the post said it did not write, from the manifest's `skipped` section."""
+    manifest = json.loads(
+        (workspace.root / "post" / "matriz" / "products.json").read_text(encoding="utf-8")
+    )
+    return dict(manifest.get("skipped", {}))
+
+
+def _written(tmp_path, group="MRP_TOTAL", name="P6002-TOTAL-ACOEF.csv", **options):
+    """The first row of one polar file of a one-point unsteady simulation over `HISTORY`."""
+    _workspace_, polars, said = posted_unsteady(
+        tmp_path, [six_history(group)], window=(2, 3), **options
+    )
+    columns, rows = read_csv_table(polars / name)
+    return list(columns), rows[0], said
 
 
 def _expected() -> dict[str, float]:
@@ -113,52 +218,51 @@ def _expected() -> dict[str, float]:
 
 
 def test_the_axes_are_the_averaged_newtons_made_coefficients_and_turned(tmp_path):
-    columns, row = _written(tmp_path, ("MRP_TOTAL",))
-    at = columns.index("CDW_MRP_TOTAL")
-    assert columns[at : at + 18] == [f"{name}_MRP_TOTAL" for name in AXES], columns[at : at + 18]
+    columns, row, _said = _written(tmp_path)
+    at = columns.index("CDW")
+    assert columns[at : at + 18] == AXES, columns[at : at + 18]
     for name, expected in _expected().items():
         assert float(row[_column(name)]) == pytest.approx(expected, abs=5e-6), name
     # The body-axis force IS the averaged force over the dynamic pressure and the area.
     unit = 0.5 * RHO * VINF**2 * REFERENCE.sref_m2
-    assert float(row["CDB_MRP_TOTAL"]) == pytest.approx(MEAN[0] / unit, abs=5e-6)
-    assert math.isfinite(float(row["CLW_MRP_TOTAL"]))
-    # ONE GROUP OR SEVERAL, the name is the same: a second group added to the pproc
-    # renames nothing a reader was keyed to.
-    assert "CLW" not in columns
-    assert set(AXES) == set(COEFFICIENT_COLUMNS[4:22])
+    assert float(row["CDB"]) == pytest.approx(MEAN[0] / unit, abs=5e-6)
+    assert math.isfinite(float(row["CLW"]))
+    # The group is the file's, not the column's: no name carries the plot group's.
+    assert not [name for name in columns if name.endswith(("_MRP_TOTAL", "_TOTAL"))], columns
 
 
-def test_two_groups_in_the_global_frame_take_their_groups_name(tmp_path):
-    columns, row = _written(tmp_path, ("MRP_TOTAL", "MRP_AIRFRAME"))
-    assert "CLW" not in columns and "CLW_TOTAL" not in columns
-    assert "CLW_MRP_TOTAL" in columns and "CLW_MRP_AIRFRAME" in columns, columns
-    assert row["CLW_MRP_TOTAL"] == row["CLW_MRP_AIRFRAME"]
-
-
-def test_two_groups_that_differ_by_a_prefix_never_share_a_column(tmp_path):
-    """`MRP_TOTAL` and `TOTAL` each write their own eighteen."""
-    columns, _row = _written(tmp_path, ("MRP_TOTAL", "TOTAL"))
-    assert "CLW_MRP_TOTAL" in columns and "CLW_TOTAL" in columns, columns
-    assert len([name for name in columns if name.startswith("CLW_")]) == 2
+def test_two_groups_in_the_global_frame_take_their_groups_file_and_no_suffix(tmp_path):
+    """Design 2.3: `CLW_<GROUP>` is `CLW` in the group file of `<GROUP>`."""
+    parts = {}
+    for group in ("MRP_TOTAL", "MRP_W", "MRP_B"):
+        for name, values in six_history(group).items():
+            parts[name] = values
+    _workspace_, polars, _said = posted_unsteady(tmp_path, [parts], window=(2, 3))
+    total_columns, total = read_csv_table(polars / "P6002-TOTAL-ACOEF.csv")
+    air_columns, air = read_csv_table(polars / "P6002-AIRFRAME-ACOEF.csv")
+    for columns in (total_columns, air_columns):
+        assert "CLW" in columns and "CLW_MRP_TOTAL" not in columns, columns
+        assert not [name for name in columns if name.startswith("CLW_")], columns
+    assert {row["GROUP"] for row in total} == {"TOTAL"}
+    assert {row["GROUP"] for row in air} == {"AIRFRAME"}
+    assert total[0]["CLW"] == air[0]["CLW"]
 
 
 @pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])
 def test_p0410_rv2_selected_axes_preserve_unsteady_plot_groups(tmp_path, axes, suffix):
     from pyflightstream.post.polar import selected_axes
 
-    groups = ("MRP_TOTAL", "TOTAL")
-    original_columns, original = _written(tmp_path, groups)
-    path = tmp_path / "P0001_x_uns_avg.csv"
+    _written(tmp_path)
+    path = tmp_path / "camp" / "post" / "matriz" / "polars" / "P6002-TOTAL-ACOEF.csv"
+    original_columns, original = read_csv_table(path)
+    original = dict(original[0])
     selected_axes(path, axes)
     columns, rows = read_csv_table(path)
     assert len(columns) == len(set(columns))
     assert {key: rows[0][key] for key in original_columns} == original
-    for group in groups:
-        for quantity, physical in (("CD", "drag"), ("CY", "side_force"), ("CL", "lift")):
-            assert (
-                rows[0][f"selected_{physical}_coefficient_{group}"]
-                == rows[0][f"{quantity}{suffix}_{group}"]
-            )
+    # The group is the file's, so the selected quantities are the bare names.
+    for quantity in ("CD", "CY", "CL"):
+        assert rows[0][quantity] == rows[0][f"{quantity}{suffix}"]
     assert rows[0]["polar_axes"] == axes
 
 
@@ -167,30 +271,34 @@ def test_p0410_rv2_selected_axes_keep_existing_solver_plot_coefficients(tmp_path
 
     from pyflightstream.post.polar import selected_axes
 
-    columns, row = _written(tmp_path, ("MRP_TOTAL",))
-    row["CL_MRP_TOTAL"] = "7.25"
-    path = tmp_path / "P0001_x_uns_avg.csv"
+    columns, row, _said = _written(tmp_path)
+    path = tmp_path / "camp" / "post" / "matriz" / "polars" / "P6002-TOTAL-ACOEF.csv"
+    row["CL"] = "7.25"
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=[*columns, "CL_MRP_TOTAL"])
+        writer = csv.DictWriter(handle, fieldnames=[*columns, "CL"])
         writer.writeheader()
         writer.writerow(row)
-    selected_axes(path, "wind")
+    before = path.read_bytes()
+    # The solver's own `CL` is never replaced: the selection refuses and leaves the table.
+    with pytest.raises(ValueError, match="polar axes"):
+        selected_axes(path, "wind")
+    assert path.read_bytes() == before
     _, rows = read_csv_table(path)
-    assert rows[0]["CL_MRP_TOTAL"] == "7.25"
-    assert rows[0]["selected_lift_coefficient_MRP_TOTAL"] == row["CLW_MRP_TOTAL"]
+    assert rows[0]["CL"] == "7.25"
 
 
 @pytest.mark.parametrize("damage", ["missing_component", "collision"])
 def test_p0410_rv2_selected_axes_refuse_before_replacing_the_table(tmp_path, damage):
     from pyflightstream.post.polar import selected_axes
 
-    _written(tmp_path, ("MRP_TOTAL",))
-    path = tmp_path / "P0001_x_uns_avg.csv"
+    _written(tmp_path)
+    path = tmp_path / "camp" / "post" / "matriz" / "polars" / "P6002-TOTAL-ACOEF.csv"
     content = path.read_text(encoding="utf-8")
     if damage == "missing_component":
-        content = content.replace("CYW_MRP_TOTAL", "other_side_force")
+        content = content.replace(",CYW,", ",other_side_force,")
     else:
-        content = content.replace("FX_MRP_TOTAL", "selected_lift_coefficient_MRP_TOTAL")
+        content = content.replace(",CDI,", ",CD,")
+    assert content != path.read_text(encoding="utf-8")
     path.write_text(content, encoding="utf-8")
     before = path.read_bytes()
     with pytest.raises(ValueError, match="polar axes"):
@@ -198,55 +306,38 @@ def test_p0410_rv2_selected_axes_refuse_before_replacing_the_table(tmp_path, dam
     assert path.read_bytes() == before
 
 
-def test_a_rotors_own_frame_is_never_the_source_and_the_block_says_why_it_is_absent(tmp_path):
-    notes: list[str] = []
-    # The pproc declares that group in the ROTOR's frame, so the stage does not name it.
-    columns, _row = _written(tmp_path, ("PUSHER_SMRP",), notes, declared=())
-    assert not [name for name in columns if name.startswith(("CLW", "CDB"))], columns
-    assert len(notes) == 1 and "MRP" in notes[0] and "FX" in notes[0], notes
+def test_a_rotors_own_frame_is_never_the_source_and_the_post_says_why_the_axes_are_na(tmp_path):
+    # The plots hold the six of a group in the ROTOR's frame only: no group of the global
+    # frame, so the axes are NA and the warning names the plot groups that were looked for.
+    columns, row, said = _written(tmp_path, group="PUSHER_SMRP")
+    assert {row[name] for name in AXES} == {"NA"}, row
+    (reason,) = [text for text in said if "the plots hold no FX to MZ of plot group" in text]
+    assert "MRP" in reason and "FX" in reason and "NA" in reason, reason
 
 
-def test_a_row_stating_no_density_gets_no_axes_and_says_so(tmp_path):
-    notes: list[str] = []
-    bare = {key: value for key, value in CONDITION.items() if key != "RHO"}
-    path = write_unsteady_polar(
-        tmp_path / "P0001_x_uns_avg.csv",
-        points=[_Point()],
-        plots={"P": _plots(tmp_path, ("MRP_TOTAL",))},
-        window=(2, 3),
-        conditions=[bare],
-        reference=REFERENCE,
-        notes=notes,
-        axes_groups=("MRP_TOTAL",),
-    )
-    columns, _rows = read_csv_table(path)
-    assert not [name for name in columns if name.startswith("CLW")], columns
-    assert any("RHO" in note for note in notes), notes
+def test_a_row_stating_no_density_gets_na_axes_and_says_so(tmp_path):
+    columns, row, said = _written(tmp_path, density=None)
+    assert {row[name] for name in AXES} == {"NA"}, row
+    assert any("RHO" in text for text in said), said
 
 
 def test_p0440_rb6_07_missing_attitude_refuses_axis_coefficients(tmp_path):
     """Missing attitude refuses axis coefficients; explicitly stated zero is computable."""
-    notes: list[str] = []
-    bare = {key: value for key, value in CONDITION.items() if key not in ("ALPHA", "BETA")}
-    zero = {**bare, "ALPHA": 0.0, "BETA": 0.0}
-    columns = {}
-    for name, condition in (("bare", bare), ("zero", zero)):
-        folder = tmp_path / name
-        folder.mkdir()
-        path = write_unsteady_polar(
-            folder / "P0001_x_uns_avg.csv",
-            points=[_Point()],
-            plots={"P": _plots(folder, ("MRP_TOTAL",))},
-            window=(2, 3),
-            conditions=[condition],
-            reference=REFERENCE,
-            notes=notes if name == "bare" else None,
-            axes_groups=("MRP_TOTAL",),
-        )
-        names, rows = read_csv_table(path)
-        columns[name] = {key: rows[0][key] for key in names if key.startswith("CLW")}
-    assert not columns["bare"] and columns["zero"]
-    assert any("no ALPHA, BETA" in note for note in notes)
+    folder = tmp_path / "bare"
+    folder.mkdir()
+    workspace, polars, _said = posted_unsteady(
+        folder, [six_history()], window=(2, 3), drop_attitude=True
+    )
+    # A loads export that does not state its attitude is refused for the point, by name,
+    # and the point is no row of any polar file of the simulation.
+    refusals = [text for key, text in skipped_by_the_post(workspace).items() if "6002" in key]
+    assert any("Angle of attack" in text for text in refusals), refusals
+    assert not (polars / "P6002-TOTAL-ACOEF.csv").exists()
+    zero = tmp_path / "zero"
+    zero.mkdir()
+    columns, row, _said = _written(zero, alpha=0.0, beta=0.0)
+    assert math.isfinite(float(row["CLW"])), row
+    assert row["ALPHA"] == "0.00000" and row["BETA"] == "0.00000", row
 
 
 def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):

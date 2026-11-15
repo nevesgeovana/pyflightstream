@@ -923,7 +923,7 @@ class TestFr96ConvergedContinuation:
         assert cl == pytest.approx([0.1 * step * scale for step in range(1, 13)], rel=1e-6)
         # ONE REVOLUTION IS FOUR STEPS: the last of the whole march is 9 to 12, and
         # the run recorded 5 to 8, the last revolution of the run it continued.
-        entry = manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]
+        entry = manifest["products"]["polars/P7001-TOTAL-ACOEF.csv"]
         assert entry["windows"] == {"AL-020": [9, 12]}, entry
         assert entry["runs"] == [f"camp/sim_7001/r{_FR96_CONVERGED_CONTINUATION__STAMP}/AL-020"], (
             entry["runs"]
@@ -939,7 +939,7 @@ class TestFr96ConvergedContinuation:
         )
         manifest, _, series, said = _fr96_converged_continuation___posted(workspace)
         assert list(series.steps) == [9, 10, 11, 12]
-        assert manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]["windows"] == {
+        assert manifest["products"]["polars/P7001-TOTAL-ACOEF.csv"]["windows"] == {
             "AL-020": [9, 12]
         }
         assert len(said) == 1 and "Not joined: the history of 'camp/sim_7001/AL-020'" in said[0]
@@ -952,9 +952,7 @@ class TestFr96ConvergedContinuation:
         )
         manifest, _, series, said = _fr96_converged_continuation___posted(workspace)
         assert list(series.steps) == list(range(1, 9)) and said == []
-        assert manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]["windows"] == {
-            "AL-020": [5, 8]
-        }
+        assert manifest["products"]["polars/P7001-TOTAL-ACOEF.csv"]["windows"] == {"AL-020": [5, 8]}
 
     @staticmethod
     def test_an_export_restating_only_the_last_step_keeps_the_seam_exact_fr_96(tmp_path):
