@@ -300,8 +300,10 @@ def write_custom_polar_format(
         none (blank, a dash or ``NA``), so a file written by a row without
         one is unchanged.
     group_number : int, optional
-        The number line 4 states for a named group, its 1-based position in the ``[groups]`` table
-        (:func:`group_number`).
+        The number line 4 states for the group: the post passes the group's
+        ``GROUP_ID`` (0 TOTAL, 1 AIRFRAME, 10 + id a rotor, 100 + k a declared
+        group), so no two groups of a polar share one. Without it a numbered
+        group states its number and a named one is refused (:func:`group_number`).
     columns : sequence of str, optional
         The data columns of lines 8 and 9, :data:`COEFFICIENT_COLUMNS` by default.
         A polar of 26.125 names its drag split ``CDV, CDP`` in the last two, and a
@@ -341,11 +343,12 @@ def write_custom_polar_format(
         and configuration.strip() not in ("-", NOT_APPLICABLE)
     ):
         title = f"{title} - {' '.join(configuration.split())}"
+    number = group_number if group_number is not None else _group_number(group)
     lines = [
         _ascii_title(title),
         f"{polar}{_mach_code(mach):02d}",
         date if date is not None else datetime.now().strftime(CUSTOM_DATE_FORMAT),
-        f"{len(CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, position=group_number):02d}",
+        f"{len(CUSTOM_REFERENCE_COLUMNS):03d} {number:02d}",
         "".join(custom_field(name) for name in CUSTOM_REFERENCE_COLUMNS),
         "".join(_bounded_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",

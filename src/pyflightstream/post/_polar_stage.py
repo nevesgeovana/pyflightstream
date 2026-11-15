@@ -699,12 +699,10 @@ def _custom_polar(
             number = _number(value) if not isinstance(value, str) else _text_number(value)
             values.append(math.nan if number is None else number)
         rows.append(tuple(values))
-    # LINE FOUR STATES THE GROUP IN TWO DIGITS: a declared group its 1-based position
-    # in [groups], as in 0.57.0; TOTAL, AIRFRAME and a rotor's group their GROUP_ID.
+    # LINE FOUR STATES THE GROUP BY ITS GROUP_ID (post._family_columns.group_id), so
+    # AIRFRAME (1) and the first declared group (101) never read one number.
     group = next((g for g in groups if getattr(g, "name", None) == polar.group), None)
     group_id = getattr(group, "group_id", None)
-    if isinstance(group_id, int) and group_id > 100:
-        group_id -= 100
     custom = ctx.target(target.with_suffix(".dat"))
     write_custom_polar_format(
         custom,
