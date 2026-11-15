@@ -576,7 +576,10 @@ def rotor_in_plane_axes(axis: Sequence[float]) -> tuple[Vector, Vector, Vector] 
     ``T`` is the rotor's axis as declared, the sense in which its thrust is
     counted positive. ``N``, the normal, is the part of :data:`REFERENCE_UP`
     square to ``T``, normalised. ``S``, the side axis, completes the
-    right-handed set ``(T, S, N)``: ``S = N x T``, so ``T x S = N``. On a
+    right-handed set ``(T, S, N)``: ``S = N x T``, so ``T x S = N``. This is
+    the declared-sense shaft frame of the in-plane products; the polar frame
+    R<id> of :func:`rotor_frame` applies the sense rule and may be its reverse
+    (``RotorFrame.sense == -1``). On a
     level rotor whose axis points forward (``-x``, the export's x being aft)
     ``N`` is up (``+z``) and ``S`` is ``-y``: the right of a viewer standing
     upstream of the rotor and looking downstream at it.
