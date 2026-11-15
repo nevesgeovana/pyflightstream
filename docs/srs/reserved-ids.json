@@ -175,7 +175,8 @@
     "NFR-45",
     "FR-2003",
     "FR-2131",
-    "FR-3566"
+    "FR-3566",
+    "FR-707"
   ],
   "allocation_ranges": {
     "srs-application": {
