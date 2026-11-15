@@ -64,10 +64,12 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # (design-named public API) until the L3 geometry verbs routed them (+3).
 # 221: item 3 L3 routes them through `geometry generate`, `identify`, `mesh-generated` and
 # `schema` (RX-42 deleted, -3).
-_REACH_GUARD___REGISTER_CEILING = 221
+# 218: REL1-004 retires post.write_polar_table, post.write_recorded_polar and
+# post.products.polar_file_name, refused by name (-3).
+_REACH_GUARD___REGISTER_CEILING = 218
 
 
-_REACH_GUARD___REGISTER_DIGEST = "2d3e0243be483f06dec0576e3ecd6d4e30acae6952ca6585ef602e69b9e0ad72"
+_REACH_GUARD___REGISTER_DIGEST = "195170f1e34e03a6e8dc97e292a2a1bf6f26ff34c4df90fc330e92a312af840b"
 
 
 _REACH_GUARD__REASONS = (

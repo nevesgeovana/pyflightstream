@@ -327,6 +327,8 @@ RETIRED_REDUCTION_SENTENCES: dict[str, str] = {
         "polars/FAM-ACOEF-P<POL>.csv and FAM-RCOEF-P<POL>.csv."
     ),
 }
+#: REL1-004: why the writers of the 0.57.0 polar table and its file name are refused.
+_THE_0570_POLAR_TABLE = "It wrote or named the 0.57.0 polar table <polar>_M<mach>_g<NN>.csv."
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.run.SWEEP_TABLE_NAME": RetiredName(
         owner="pyflightstream.run",
@@ -493,6 +495,14 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         why="It wrote the per-Mach polar file, which 0.58.0 retires.",
         instead="A polar is one file set per polar, its condition in the run block; read",
     ),
+    # REL1-004: the 0.57.0 polar table writers, on every module that exported them.
+    **{
+        f"pyflightstream.{m}.{n}": RetiredName(
+            f"pyflightstream.{m}", n, _THE_0580_POLAR_FILES, "0.58.0", _THE_0570_POLAR_TABLE, "Read"
+        )
+        for m in ("post", "post.polar", "post.products")
+        for n in ("write_polar_table", "write_recorded_polar", "polar_file_name")
+    },
     # Public helpers that lost every caller with the retired products (reachability guard).
     "pyflightstream.post.superfile.super_file_name": RetiredName(
         owner="pyflightstream.post.superfile",

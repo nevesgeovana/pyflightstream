@@ -51,8 +51,9 @@ def _run(tmp_path, **extra):
 
 @pytest.mark.requirement("FR-3777")
 @pytest.mark.parametrize("form", ["--sweep-csv", "--sweep-csv=table.csv"])
-def test_the_command_refuses_the_retired_flag_by_name(tmp_path, capsys, form):
-    argv = ["run", str(tmp_path / "warm.fs"), "--workspace", str(tmp_path / "ws"), form]
+@pytest.mark.parametrize("prefix", [[], ["--warning-refusals"]])
+def test_the_command_refuses_the_retired_flag_by_name(tmp_path, capsys, form, prefix):
+    argv = [*prefix, "run", str(tmp_path / "warm.fs"), "--workspace", str(tmp_path / "ws"), form]
     if form == "--sweep-csv":
         argv.append("table.csv")
     assert cli_mod.main(argv) == 2

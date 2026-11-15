@@ -50,8 +50,7 @@ keep their numbers. The solver's own Total row and the parsed per-surface `CDi`
 keep the number the export printed, and `post.log` names the declined surfaces
 of each point. The rule reads the printed digits, so a trailing-edged surface
 whose induced drag rounds to zero is declined too. `SET_SIGNIFICANT_DIGITS`
-narrows that band. A polar rebuilt from point folders alone
-(`write_recorded_polar`) has no run record and declines nothing. The rule
+narrows that band. The rule
 reads `CDi` only, so a 26.125 point declines nothing in the sums. On 26.125 a
 declined surface prints `CDp` exactly 0, as earlier builds print `CDi` 0
 So `post.log` warns, once per point, for every surface the

@@ -62,6 +62,7 @@ __all__ = [
     "dummy_step",
     "init_dummy",
     "main",
+    "register_command",
 ]
 
 COUPLED_CONFIG = "config.json"

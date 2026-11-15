@@ -24,7 +24,6 @@ from pyflightstream.post._tables import (
     ReferenceValues,
     _mach_code,
     _refuse_existing_product,
-    polar_file_name,
 )
 
 __all__ = [
@@ -113,7 +112,15 @@ def custom_polar_file_name(polar: str | int, *, mach: float, group: str | int) -
     ProductError
         If ``group`` is a name: the convention states a group by number.
     """
-    return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
+    try:
+        number = int(group)
+    except (TypeError, ValueError):
+        raise ProductError(
+            f"the custom polar file name states a group by NUMBER and {group!r} is a name; "
+            "use numbered groups for custom polar file names; "
+            "workspace products use the FAM and named group files"
+        ) from None
+    return f"{polar}_M{_mach_code(mach):02d}_g{number:02d}.dat"
 
 
 def custom_field(value: object) -> str:

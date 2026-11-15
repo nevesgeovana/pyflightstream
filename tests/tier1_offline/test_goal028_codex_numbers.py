@@ -8,16 +8,17 @@ import pytest
 
 from pyflightstream.cases import ForcePlotGroup
 from pyflightstream.post.products import (
-    ProductError,
-    ReferenceValues,
     global_frame_plot_groups,
     read_csv_table,
     rotor_plot_source,
     write_campaign_products,
-    write_recorded_polar,
 )
 from pyflightstream.workspace import RunRecord
-from tests.tier1_offline.test_post_products import LOADS, PLOTS_HEADER
+from tests.tier1_offline.test_post_products import (
+    PLOTS_HEADER,
+    posted_polar,
+    posted_polars_dir,
+)
 from tests.tier1_offline.test_post_superfile import _workspace
 
 
@@ -123,14 +124,6 @@ def test_a_declared_generated_name_is_not_proof_of_rotor_membership(name, frame,
     assert "ROTOR_PROP" in candidates
 
 
-def _recorded(tmp_path, text):
-    polar = tmp_path / "POLAR-1"
-    point = polar / "P"
-    point.mkdir(parents=True)
-    (point / "P.txt").write_text(text, encoding="utf-8")
-    return polar
-
-
 @pytest.mark.parametrize("name,frame", [("MRP_TOTAL", "PROP_SMRP"), ("MRP_{family}", "SMRP")])
 def test_a_rotor_frame_named_mrp_total_is_not_a_global_axes_source(name, frame):
     pproc = SimpleNamespace(
@@ -180,44 +173,16 @@ def test_a_family_template_that_could_emit_the_automatic_name_is_never_read_as_i
     assert automatic not in actual, f"an ambiguous {automatic} was read as a source"
 
 
-def test_recorded_polar_warns_of_an_area_the_export_did_not_use(tmp_path):
-    """Outside a post the writer follows the documented default: warn, name SREF, write.
+def test_a_post_warns_of_an_area_the_export_did_not_use_and_states_the_reference(tmp_path):
+    """The post follows the documented default: warn, name SREF, write.
 
     The export divided by 50 m2 and the reference states 40: the warning names both,
-    and the table states the reference's SREF (what-every-product-states.md).
+    and the group file states the reference's SREF (what-every-product-states.md).
     """
-    polar = _recorded(tmp_path, LOADS)
     with pytest.warns(Warning, match=r"states a reference area of 50.*SREF 40"):
-        written = write_recorded_polar(
-            polar,
-            tmp_path / "out",
-            groups={"1": ["W", "B"]},
-            reference=ReferenceValues(40.0, 2.526, 20.0),
-            description="test",
-            mach=0.2,
-        )
-    assert written, "the default policy writes every computable product"
-    rows = read_csv_table(written[0])[1]
+        workspace = posted_polar(tmp_path, {"1": "all"}, sref_m2=40.0)
+    rows = read_csv_table(posted_polars_dir(workspace) / "P3207-g01-ACOEF.csv")[1]
     assert rows and float(rows[0]["SREF"]) == 40.0
-
-
-def test_recorded_polar_refuses_vectors_in_a_rotated_analysis_frame(tmp_path):
-    polar = _recorded(
-        tmp_path,
-        LOADS.replace(
-            "Coordinate frame for analysis:              MRP",
-            "Coordinate frame for analysis:              PROP_SMRP",
-        ),
-    )
-    with pytest.raises(ProductError, match="PROP_SMRP"):
-        write_recorded_polar(
-            polar,
-            tmp_path / "out",
-            groups={"1": ["W", "B"]},
-            reference=ReferenceValues(50.0, 2.526, 20.0),
-            description="test",
-            mach=0.2,
-        )
 
 
 def test_rotor_table_keeps_the_reference_aliases_when_summing_loads(tmp_path):

@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 from pyflightstream.fsi import cli as fsi_cli
 from pyflightstream.run import geom_cli
+from tests.tier1_offline.test_import_isolation import _run_child
 
 
 @pytest.mark.requirement("FR-3705")
@@ -62,9 +61,7 @@ def test_p0580_pyfs_fsi_beam_is_there_in_a_fresh_interpreter():
         "import sys; from pyflightstream.fsi.cli import main; "
         "sys.argv = ['pyfs-fsi', 'beam', '--help']; main()"
     )
-    done = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, timeout=300, check=False
-    )
+    done = _run_child("-c", code)
     assert done.returncode == 0, done.stderr
     assert "usage: pyfs-fsi beam" in done.stdout
 

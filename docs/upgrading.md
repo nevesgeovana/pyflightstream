@@ -36,9 +36,15 @@ layout is [the output catalogue](pproc/index.md).
 | `DESCRIPTION`, `GROUP` columns of a polar row | the group is the file (`GROUP`, `GROUP_ID` in a group file) |
 | `[products] superfile_format` | `[products] polar_format`, same values, applied to the FAM and group files; the old key is read with a warning for one release |
 | `[products] trim_moment = "CMB25"` (the default) | `"CmB"` (the default); `CMB25` is read as `CmB` with a warning for one release |
+| `[products] polar_axes` | warned and skipped: ACOEF files already carry every frame, W, S and B; select the columns of the frame you need |
+| `[products] rotor_cn_slope = true` | warned and skipped in `products.json`; the slope table is not written, and no replacement writer is available in 0.58.0 |
 | `[groups] TOTAL = ...`, `AIRFRAME = ...` | refused: TOTAL and AIRFRAME are written for every polar; remove the entry |
+| `[groups]` keys `FAM`, `GRP`, or opening with P and a digit | refused; choose another group name |
+| two `[groups]` keys whose filenames coincide | refused, including case-only differences, `Left/Right` and `Left_Right`, and numbered twins such as `1`, `01` and `g01`; rename one |
 | a `[groups]` key equal to a rotor alias | refused at the post: every rotor is a group by itself |
+| several rotors with the same `id`, including omitted ids | give each rotor a distinct `id` from 0 to 89; an omitted id takes the default 0 |
 | a rotor `id` of 90 or more | refused: the group of rotor `<id>` is numbered `10 + id` and the declared groups from 101 |
+| a rotor alias whose file name equals `TOTAL`, `AIRFRAME` or another rotor's | refused when the reference is read; choose a distinct alias after filename normalization, ignoring case (for example, `Left/Right` and `Left_Right` collide) |
 | `<polar>_trim.csv`, `<polar>_at_<name>.csv`, `<polar>.dat` | the same products beside each group ACOEF file, under its stem |
 
 A record written by 0.57.0 has no per-family plot in its unsteady history: its family rows
@@ -68,6 +74,15 @@ functions left with the SUPER file and the sweep table, refused by name in the s
 and `results.tables.write_sweep_table` (join the `TOTAL` group files; `Table.to_csv` writes
 the derived `sweep_table`).
 
+The writers of the 0.57.0 polar table and its file name are removed and refused by name,
+in `post.polar`, `post.products` and `post`:
+
+| 0.57.0 name | 0.58.0 |
+| --- | --- |
+| `write_polar_table`, one table with `DESCRIPTION`, `GROUP` and `CMB25` | the group files `polars/P<POL>-<GROUP>-DIM.csv`, `-ACOEF.csv` and `-RCOEF.csv` the post writes for each group |
+| `write_recorded_polar`, the tables `<polar>_M<mach>_g<NN>.csv` of a recorded folder and its sections and plots tables | record the runs in a workspace and post them (`write_campaign_products` or `pyfs-matrix post`): the FAM and group files, `sections/` and `time_history/` |
+| `polar_file_name`, `<polar>_M<mach>_g<NN>.csv` | `P<POL>-<GROUP>-<KIND>.csv`; a numbered group is `g<NN>` |
+
 ### The tree
 
 | 0.57.0 file | 0.58.0 |
@@ -88,8 +103,7 @@ the derived `sweep_table`).
 
 The tables of `time_history/`, `reductions/`, `probes/`, `sections/`, `series/` and
 `farfield/` take their header from the run block, then their own columns (a far-field
-row takes the block of its point); `write_recorded_polar` writes a recorded folder's plots
-history to `time_history/` too; a reduction that named its rotor by alias keeps
+row takes the block of its point); a reduction that named its rotor by alias keeps
 the alias and gains `ROTOR_ID` before it, and the sections table names it by `ROTOR_ID`
 only (a rotor that declares no `id` is rotor 0). The averaged surface carries the run block as
 Tecplot auxiliary data and VTK field data. The settings table opens each row with the run
@@ -192,6 +206,14 @@ name, naming its new command. Replace the program and keep the rest of the line.
 | setup `symmetry_loads` | the run matrix row's `SYMMETRY_LOADS` column (`true` or `false`) |
 | pproc `base_regions` | `[base_regions.<family>]` in the boundaries file, or the row's `BASE_REGIONS` column for a per-row choice |
 | setup `thin_boundaries` | `thin_boundaries = [...]` in the geometry's boundaries file, the same boundary names |
+
+The setup keys `valarezo_separation_boundaries`, `crossflow_separation_boundaries` and
+`axial_separation_families` remain accepted on older builds whose command database rows
+carry their commands (26.100 and earlier). On 26.101 and later they are refused at plan;
+declare separation through the named models `airfoil_separation`, `bulk_separation`,
+`axial_vortex_separation`, `cylindrical_bulk_separation` or `stratford_bulk_separation`.
+These are model declarations, not a direct rename of a boundary list; see
+[boundary conditions](boundary-conditions.md).
 
 ## 0.57.0
 

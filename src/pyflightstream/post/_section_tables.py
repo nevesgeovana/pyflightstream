@@ -233,20 +233,31 @@ def write_family_files(
     list of Path
         The files written, in the order the families first appear.
     """
+    return write_split(path, columns, rows, kind, "family", overwrite=overwrite)
+
+
+def _family_tables(
+    path: str | Path, rows: Sequence[tuple[object, ...]], kind: str
+) -> list[tuple[Path, list[tuple[object, ...]]]]:
+    """Resolve all family destinations and refuse collisions before any write."""
     target = Path(path)
     point = target.name.removesuffix(f"_{kind}.csv")
     by_family: dict[object, list[tuple[object, ...]]] = {}
     for row in rows:
         by_family.setdefault(row[1], []).append(row)
-    return [
-        write_csv_table(
-            target.with_name(family_file_name(point, "NA" if family is None else family, kind)),
-            columns,
-            own,
-            overwrite=overwrite,
-        )
-        for family, own in by_family.items()
-    ]
+    tables = []
+    owners: dict[str, object] = {}
+    for family, own in by_family.items():
+        name = family_file_name(point, "NA" if family is None else family, kind)
+        key = name.casefold()
+        if key in owners:
+            raise ProductError(
+                f"families {owners[key]!r} and {family!r} map to the same family file "
+                f"{name!r}; rename a family or use split='point'"
+            )
+        owners[key] = family
+        tables.append((target.with_name(name), own))
+    return tables
 
 
 def write_split(
@@ -277,16 +288,13 @@ def write_split(
     list of Path
         Every file written.
     """
+    tables = _family_tables(path, rows, kind) if split in ("family", "both") else []
     written = (
         [write_csv_table(Path(path), columns, rows, overwrite=overwrite)]
         if split in ("point", "both")
         else []
     )
-    made = (
-        write_family_files(path, columns, rows, kind, overwrite=overwrite)
-        if split in ("family", "both")
-        else []
-    )
+    made = [write_csv_table(target, columns, own, overwrite=overwrite) for target, own in tables]
     if family_files is not None:
         family_files.extend(made)
     return [*written, *made]

@@ -41,3 +41,25 @@ def test_p0580_the_setup_page_states_the_python_route_and_that_the_type_is_priva
     section = _runtime_section()
     assert "SolverSettings(runtime=" in section, section
     assert re.search(r"RuntimeSettings.{0,80}(not|no) (a )?public", section, re.S), section
+
+
+@pytest.mark.parametrize(
+    "terms",
+    [
+        (
+            "valarezo_separation_boundaries",
+            "crossflow_separation_boundaries",
+            "axial_separation_families",
+            "26.101",
+            "airfoil_separation",
+        ),
+        ("polar_axes", "W", "S", "B"),
+        ("rotor_cn_slope", "not written"),
+        ("FAM", "GRP", "P and a digit"),
+        ("distinct `id`", "0 to 89", "default 0"),
+    ],
+)
+def test_p0580_upgrade_section_names_the_changed_setup_and_product_contracts(terms):
+    page = PAGE.with_name("upgrading.md").read_text(encoding="utf-8")
+    section = page.split("## 0.58.0", 1)[1].split("## 0.57.0", 1)[0]
+    assert all(term in section for term in terms), terms

@@ -5,12 +5,10 @@ A second, different registration would silently keep the first; it is refused na
 
 from __future__ import annotations
 
-import subprocess
-import sys
-
 import pytest
 
 from pyflightstream import _cli
+from tests.tier1_offline.test_import_isolation import _run_child
 
 
 def test_pfs2261_a_fresh_workspace_parser_lists_every_delegated_verb():
@@ -23,9 +21,7 @@ def test_pfs2261_a_fresh_workspace_parser_lists_every_delegated_verb():
         "missing = [v for v in _cli.WORKSPACE_VERBS if v not in verbs.choices]\n"
         "print('MISSING', missing)\n"
     )
-    done = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120, check=False
-    )
+    done = _run_child("-c", code)
     assert done.returncode == 0, done.stderr
     assert "MISSING []" in done.stdout, done.stdout
 

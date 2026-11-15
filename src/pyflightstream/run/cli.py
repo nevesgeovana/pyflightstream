@@ -225,7 +225,8 @@ def _refused_sweep_csv(argv: list[str] | None) -> bool:
     from pyflightstream._retired_names import REMOVED_FORMS
 
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if not arguments or arguments[0] != "run":
+    command = next((item for item in arguments if not item.startswith("-")), None)
+    if command != "run":
         return False
     if not any(item == "--sweep-csv" or item.startswith("--sweep-csv=") for item in arguments):
         return False

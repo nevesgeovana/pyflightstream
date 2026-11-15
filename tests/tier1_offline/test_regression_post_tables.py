@@ -21,7 +21,6 @@ from pyflightstream.post._tables import (
     COEFFICIENT_COLUMNS,
     ReferenceValues,
     plots_table_series,
-    polar_file_name,
     write_csv_table,
     write_fixed_width_table,
 )
@@ -1083,7 +1082,7 @@ class TestPost1Superfile:
 class TestPost1Tables:
     """P0400 table-helper defects (post-1 lane).
 
-    P0400-NAMEDGROUP (PFS-2095.044): the recorded file-name helpers refuse a
+    P0400-NAMEDGROUP (PFS-2095.044): the recorded file-name helper refuses a
     named group with a ProductError, never a bare ValueError.
     P0400-SKIPLINE (PFS-2100.013): read_csv_table names the file's own line when
     it skips lines before the header.
@@ -1092,10 +1091,8 @@ class TestPost1Tables:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-NAMEDGROUP")])
     def test_p0400_namedgroup_is_a_product_error():
-        """P0400-NAMEDGROUP: a group named WING is refused by both helpers, by name."""
-        assert polar_file_name(7, 0.2, "3") == "7_M20_g03.csv"
-        with pytest.raises(ProductError, match="'WING'"):
-            polar_file_name(7, 0.2, "WING")
+        """P0400-NAMEDGROUP: a group named WING is refused by the helper, by name."""
+        assert custom_polar_file_name(7, mach=0.2, group="3") == "7_M20_g03.dat"
         with pytest.raises(ProductError, match="'WING'"):
             custom_polar_file_name(7, mach=0.2, group="WING")
 
