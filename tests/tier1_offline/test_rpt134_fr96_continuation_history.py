@@ -142,7 +142,7 @@ def test_the_resumed_continuation_joins_into_every_step_once_fr_96(tmp_path):
     # Verifies FR-96.
     manifest, series, said = _posted(_workspace(tmp_path, continuation="resume_plots.txt"))
     assert list(series.steps) == list(range(1, 2 * PER_REV + 1)), list(series.steps)
-    entry = manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]
+    entry = manifest["products"]["polars/FAM-ACOEF-P7001.csv"]
     assert entry["windows"] == {"AL-020": [PER_REV + 1, 2 * PER_REV]}, entry
     assert len(said) == 1 and SHAPE_SAID in said[0], said
 
@@ -165,9 +165,7 @@ def test_the_0340_continuation_re_marched_and_posts_one_revolution_fr_96(tmp_pat
     assert np.array_equal(continued, point), "the 0.34.0 continuation did not re-march the point"
     manifest, series, said = _posted(_workspace(tmp_path, continuation="continuation_plots.txt"))
     assert list(series.steps) == list(range(1, PER_REV + 1)), list(series.steps)
-    assert manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]["windows"] == {
-        "AL-020": [1, PER_REV]
-    }
+    assert manifest["products"]["polars/FAM-ACOEF-P7001.csv"]["windows"] == {"AL-020": [1, PER_REV]}
     assert len(said) == 2 and f"{SHAPE_SAID} to step {PER_REV}" in said[0], said
     assert "adds no time step" in said[1], said
 
@@ -177,9 +175,7 @@ def test_the_recorded_point_alone_posts_its_own_revolution_control_fr_96(tmp_pat
     # Verifies FR-96.
     manifest, series, said = _posted(_workspace(tmp_path, continuation=None))
     assert list(series.steps) == list(range(1, PER_REV + 1)) and said == []
-    assert manifest["products"]["polars/P7001_AL-020_uns_avg.csv"]["windows"] == {
-        "AL-020": [1, PER_REV]
-    }
+    assert manifest["products"]["polars/FAM-ACOEF-P7001.csv"]["windows"] == {"AL-020": [1, PER_REV]}
 
 
 def test_the_package_keeps_the_reopened_state_as_rpt_134_resume_arm_fr_96():

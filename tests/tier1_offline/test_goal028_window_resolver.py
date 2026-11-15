@@ -225,7 +225,8 @@ def _posted(tmp_path, window: str) -> dict:
 def test_editing_the_window_in_the_matrix_moves_the_reductions_with_no_re_run(tmp_path):
     ran = _posted(tmp_path / "as_run", "LAST_ITERS_AVG: 4")
     edited = _posted(tmp_path / "edited", "LAST_ITERS_AVG: 6")
-    key = "polars/P7001_AL-020_uns_avg.csv"
+    # The window average is the FAM and group files' row since 0.58.0 (D14).
+    key = "polars/FAM-ACOEF-P7001.csv"
     # 8 steps, the last 4 are 5 to 8; the last 6 are 3 to 8.
     assert ran["products"][key]["windows"] == {"AL-020": [5, 8]}
     assert edited["products"][key]["windows"] == {"AL-020": [3, 8]}, (
