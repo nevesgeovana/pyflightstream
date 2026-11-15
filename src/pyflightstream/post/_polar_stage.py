@@ -547,32 +547,10 @@ def family_polar_products(ctx: SimContext) -> None:
     families, rotors, groups = layout
     instant = _said_instant(ctx)
     gathered = _gather(ctx, (families, rotors))
-    if gathered.left_out:
-        ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}"] = (
-            "these points of the sweep are not rows of the polar files: "
-            + "; ".join(gathered.left_out)
-        )
-    for name, reason in gathered.refused:
-        for group in groups:
-            key = f"{POLARS_DIR}/{group_file_name(ctx.sim_id, group.name, 'ACOEF')}#{name}"
-            ctx.skipped[key] = f"point {name} is no row of the polar files: {reason}"
-        warn(
-            f"{POLARS_DIR}/P{ctx.sim_id}: point {name} is no row of the polar files: {reason}",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
+    _say_left_out(ctx, gathered, groups)
     if not gathered.rows:
         return
     _say_the_na_points(ctx, gathered)
-    if gathered.lacking:
-        warn(
-            f"{POLARS_DIR}/{ctx.sim_id}: the plots hold no FX to MZ of plot group(s) "
-            f"{', '.join(sorted(gathered.lacking))}, so those families' rows of the FAM files "
-            "are NA; the group rows come from the group plots the run has. A run declares one "
-            f"{FAMILY_PLOT_GROUP} plot group per family (docs/pproc/fam-dim.md).",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
     unsteady = ctx.window is not None
     omitted: list[tuple[str, int]] = []
     files = polar_files(
@@ -603,21 +581,61 @@ def family_polar_products(ctx: SimContext) -> None:
     with stated_identifiers({}):
         for polar in files:
             target = _write(ctx, polar)
-            own = entry
-            if polar.group is not None:
-                # A FILE NAMES THE RUNS OF ITS OWN ROWS: a point the group selects
-                # nothing at is no row of it, so it is no run of it either.
-                gone = {index for name, index in omitted if name == polar.group}
-                runs = [
-                    rid
-                    for index, point in enumerate(gathered.held)
-                    if index not in gone
-                    for rid in ctx.sources[point.name]
-                ]
-                own = {**entry, "runs": runs, "group": polar.group}
+            own = _file_entry(ctx, entry, polar, gathered.held, omitted)
             ctx.add(target, own)
             if polar.group is not None and polar.kind == "ACOEF":
                 _derived_polars(ctx, target, polar, own, groups)
+
+
+def _file_entry(
+    ctx: SimContext,
+    entry: Mapping[str, object],
+    polar: PolarFile,
+    held: Sequence[PolarPoint],
+    omitted: Sequence[tuple[str, int]],
+) -> dict[str, object]:
+    """Return one file's manifest entry: a FILE NAMES THE RUNS OF ITS OWN ROWS.
+
+    A point a group selects nothing at is no row of the group's files, so it
+    is no run of them either.
+    """
+    if polar.group is None:
+        return dict(entry)
+    gone = {index for name, index in omitted if name == polar.group}
+    runs = [
+        rid
+        for index, point in enumerate(held)
+        if index not in gone
+        for rid in ctx.sources[point.name]
+    ]
+    return {**entry, "runs": runs, "group": polar.group}
+
+
+def _say_left_out(ctx: SimContext, gathered: _Gathered, groups: Sequence[PolarGroup]) -> None:
+    """Name the points that are no row, and the family plots the record lacks."""
+    if gathered.left_out:
+        ctx.skipped[f"{POLARS_DIR}/P{ctx.sim_id}"] = (
+            "these points of the sweep are not rows of the polar files: "
+            + "; ".join(gathered.left_out)
+        )
+    for name, reason in gathered.refused:
+        for group in groups:
+            key = f"{POLARS_DIR}/{group_file_name(ctx.sim_id, group.name, 'ACOEF')}#{name}"
+            ctx.skipped[key] = f"point {name} is no row of the polar files: {reason}"
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: point {name} is no row of the polar files: {reason}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if gathered.rows and gathered.lacking:
+        warn(
+            f"{POLARS_DIR}/{ctx.sim_id}: the plots hold no FX to MZ of plot group(s) "
+            f"{', '.join(sorted(gathered.lacking))}, so those families' rows of the FAM files "
+            "are NA; the group rows come from the group plots the run has. A run declares one "
+            f"{FAMILY_PLOT_GROUP} plot group per family (docs/pproc/fam-dim.md).",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 _NO_RCOEF_NOTE = "its members are not all inside one rotor, so it has DIM and ACOEF files only"
