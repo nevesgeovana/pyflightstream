@@ -19,7 +19,10 @@ J0, MTIP0, MHEL0, RPM1, J1, MTIP1, MHEL1` and `D0, ADISC0, PITCH0, TOE0, D1,
 ...`. The rotor columns name the rotor by its id with no underscore. A
 reference that declares no rotor writes none of them. `<IDENTIFIER>` stands
 for one column per name of the row's `IDENTIFIERS` pairs, in the order
-written, and for none when the row states none.
+written, and for none when the row states none. A name the block already
+writes (`POL`, `ALPHA`, `RPM0`) is refused by name, under `skipped` as
+`run_block/<POL>#identifiers` and in a warning, and the block and every table
+are written without it.
 
 | Column | Unit | Source |
 |---|---|---|

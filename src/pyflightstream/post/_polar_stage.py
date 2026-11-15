@@ -53,7 +53,7 @@ from pyflightstream.post._family_polar import (
     steady_family_loads,
 )
 from pyflightstream.post._manifest_schema import FamilyEntry, GroupEntry, note_polar
-from pyflightstream.post._point_stage import point_block_rows
+from pyflightstream.post._point_stage import point_block_rows, run_block_identifiers
 from pyflightstream.post._run_block import RUN_TYPES
 from pyflightstream.post._stage import (
     _PLOTS_CLOCK_COLUMNS,
@@ -702,7 +702,7 @@ def family_polar_products(ctx: SimContext) -> None:
         rotors=rotors,
         reference=ctx.reference,
         load_frame="MRP" if unsteady else _load_frame(ctx),
-        identifiers=tuple(getattr(ctx.matrix_row, "identifiers", {}) or {}),
+        identifiers=tuple(run_block_identifiers(ctx)),
         drag_split=[name for pair in (gathered.splits or [DEFAULT_DRAG_SPLIT]) for name in pair],
         omitted=omitted,
     )
@@ -932,7 +932,7 @@ def _note_the_polar(
         ],
         load_frame=load_frame,
         drag_split=drag_split,
-        identifiers=tuple(getattr(ctx.matrix_row, "identifiers", {}) or {}),
+        identifiers=tuple(run_block_identifiers(ctx)),
     )
 
 

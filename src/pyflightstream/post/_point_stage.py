@@ -28,7 +28,14 @@ if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
     from pyflightstream.post.polar import PolarPoint
 
-__all__ = ["finish_sections", "point_block_rows", "rotor_ids_of", "run_block_scope", "split_of"]
+__all__ = [
+    "finish_sections",
+    "point_block_rows",
+    "rotor_ids_of",
+    "run_block_identifiers",
+    "run_block_scope",
+    "split_of",
+]
 
 _MOMENT_POINT = ("XMOM", "YMOM", "ZMOM")
 
@@ -43,6 +50,36 @@ def rotor_ids_of(ctx: SimContext) -> dict[str, int]:
     """
     rotors = getattr(ctx.live, "rotors", None) or {}
     return {str(alias): int(getattr(block, "id", 0) or 0) for alias, block in rotors.items()}
+
+
+def run_block_identifiers(ctx: SimContext) -> dict[str, object]:
+    """Return the row's identifiers the run block carries; the refused ones are named.
+
+    THE PLAN OF THE RUN BLOCK REFUSES A NAME IT WRITES (lane I2): an identifier
+    spelled ``ALPHA`` or ``POL`` is a column the block already holds, and it cost
+    the simulation every polar file; it is refused by name, under ``skipped`` as
+    ``run_block/<sim>#identifiers`` and in a warning, and every table is written
+    without it.
+
+    Examples
+    --------
+    >>> run_block_identifiers.__name__
+    'run_block_identifiers'
+    """
+    from pyflightstream._errors import PyflightstreamWarning, warn
+    from pyflightstream.post._run_block import block_identifiers
+
+    stated = dict(getattr(ctx.matrix_row, "identifiers", {}) or {})
+    kept, refused = block_identifiers(stated, tuple(rotor_ids_of(ctx).values()))
+    key = f"run_block/{ctx.sim_id}#identifiers"
+    if refused and key not in ctx.skipped:
+        ctx.skipped[key] = (
+            f"POL {ctx.sim_id}: IDENTIFIERS names {', '.join(refused)}, which the run block "
+            "already writes, so the run block and every table that opens with it are written "
+            "without them; rename the identifier"
+        )
+        warn(ctx.skipped[key], PyflightstreamWarning, stacklevel=3)
+    return kept
 
 
 def _run_type(record: object) -> str:
@@ -141,7 +178,7 @@ def point_block_rows(ctx: SimContext) -> dict[str, dict[str, object]]:
     'point_block_rows'
     """
     rotors = getattr(ctx.live, "rotors", None) or {}
-    identifiers = dict(getattr(ctx.matrix_row, "identifiers", {}) or {})
+    identifiers = run_block_identifiers(ctx)
     variables = getattr(ctx.matrix_row, "variables", {}) or {}
     lengths = ctx.reference.as_lengths()
     moment = ctx.reference.as_moment_point()
