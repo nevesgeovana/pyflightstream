@@ -24,6 +24,7 @@ sweep over angle.
 
 from __future__ import annotations
 
+import csv
 import json
 from pathlib import Path
 
@@ -326,6 +327,18 @@ def test_two_records_rendering_one_point_name_do_not_overwrite_each_other(tmp_pa
 
 
 # --- FR-85: the polar table's name, and the column that tells its rows apart -------
+
+
+@pytest.mark.requirement("FR-85")
+def test_p0580_fr85_requirement_names_the_current_polar_artifacts() -> None:
+    """The requirement must name the same family/group files its product test accepts."""
+    path = Path(__file__).resolve().parents[1] / "requirements_l3.csv"
+    with path.open(encoding="utf-8", newline="") as source:
+        row = next(item for item in csv.DictReader(source) if item["uid"] == "FR-85")
+    statement = row["statement"]
+    assert "FAM-<KIND>-P<POL>.csv" in statement
+    assert "P<POL>-<GROUP>-<KIND>.csv" in statement
+    assert "point conditions" in statement
 
 
 def test_the_polar_table_takes_the_standard_name_with_sweep_in_the_swept_field(tmp_path):
