@@ -66,7 +66,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 
 \stage{3. RUN}
-\sub{run <matrix>}{run every active point and write the sweep table. Needs a current plan. Linux with a submission profile submits to the cluster; Windows runs locally}
+\sub{run <matrix>}{run every active point. Needs a current plan. Linux with a submission profile submits to the cluster; Windows runs locally}
 \begin{flags}
 \item \fl{--resume} skip points already recorded (a grown matrix runs only new points); without it a recorded point refuses
 \item \fl{--force-rerun POINT} REDO a recorded point (by point name, run\_id or steady JOB id; repeatable). Old records and outputs are archived, nothing deleted. Not with \fl{--resume}

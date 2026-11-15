@@ -164,7 +164,7 @@ A matrix is a pipe-delimited text file, \file{<name>.fs}, one row per simulation
 \end{tabular}
 
 \hd{Several matrices in one workspace}
-Each matrix keeps its own \file{post/<matrix>/} folder, named after its file stem, with its own plan receipt and sweep table. A POL may be used by one row of one matrix only: \cmd{pyfs-matrix plan} finds a repeat, and its option to renumber is on stage 4.
+Each matrix keeps its own \file{post/<matrix>/} folder, named after its file stem, with its own plan receipt. A POL may be used by one row of one matrix only: \cmd{pyfs-matrix plan} finds a repeat, and its option to renumber is on stage 4.
 
 \hd{How a point is named}
 The point name writes each flight-condition variable as a code and a fixed-width integer: \texttt{M144RE438AL+000BE+000J+080}. Scripts and exports are \texttt{P<sim>-<name>}, the run id is \texttt{<campaign>/sim\_<POL>/<name>}, and a steady row is one job, \texttt{<campaign>/sim\_<POL>/sweep}.
@@ -439,7 +439,7 @@ One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need
 
 \columnbreak
 \hd{Commands}
-\begin{cmdblock}{pyfs-matrix run}{<matrix>}{Run every active point and write the sweep table.}
+\begin{cmdblock}{pyfs-matrix run}{<matrix>}{Run every active point.}
 \opt{--resume}{skip points already recorded, so a grown matrix runs only its new points; without it a recorded point refuses.}
 \opt{--force-rerun POINT}{REDO a recorded point, by point name, full run id or a steady row's job id (repeatable): the records and outputs are archived first, nothing is deleted.}
 \opt{--force-rerun-all}{REDO every recorded point, SUBMITTED ones included; the count of points and jobs, the licenses it spends, prints first. It does not cancel an old job: cancel it in the scheduler first.}

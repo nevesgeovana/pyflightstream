@@ -175,3 +175,15 @@ def test_an_option_the_parser_drops_is_named_where_the_sheet_still_offers_it():
         "pyfs-matrix free-space: --list is not its option",
         "--list: no parser has it",
     ]
+
+
+def test_the_sheets_name_no_sweep_table_the_run_no_longer_writes():
+    """FR-3777: the run writes no sweep table, so no page of the cheatsheet says it does.
+
+    P0580-I3-SWEEP-TABLE
+    """
+    # P0580-I3-SWEEP-TABLE
+    sheets = sorted(BY_STAGE.parent.glob("*.tex"))
+    assert sheets
+    said = [sheet.name for sheet in sheets if "sweep table" in sheet.read_text(encoding="utf-8")]
+    assert not said, said
