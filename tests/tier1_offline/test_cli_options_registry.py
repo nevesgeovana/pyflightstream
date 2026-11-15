@@ -137,6 +137,12 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-fsi", "node_count"): CASE,
     ("pyfs-fsi", "dir"): SUBJECT,
     ("pyfs-fsi", "legacy_dir"): SUBJECT,
+    # 0.58.0 (PFS-2260): `pyfs-fsi beam`, moved from the geometry group. The mesh and the blades
+    # name what it cuts; the station count defines the sections written; the drawing is a switch.
+    ("pyfs-fsi", "geometry"): SUBJECT,
+    ("pyfs-fsi", "families"): SUBJECT,
+    ("pyfs-fsi", "stations"): CASE,
+    ("pyfs-fsi", "visual_inspection"): SWITCH,
     ("pyfs-workspace", "root"): SUBJECT,
     ("pyfs-workspace", "sim_id"): SUBJECT,
     # 0.31.0 (G3), `pyfs-workspace field mirror|move|subtract|time-mean`. The
@@ -746,6 +752,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "open_only"): frozenset({"log"}),
     ("pyfs-fsi", "dir"): frozenset({"external", "init-dummy", "step"}),
     ("pyfs-fsi", "legacy_dir"): frozenset({"init-dummy", "step"}),
+    ("pyfs-fsi", "geometry"): frozenset({"beam"}),
+    ("pyfs-fsi", "families"): frozenset({"beam"}),
+    ("pyfs-fsi", "stations"): frozenset({"beam"}),
+    ("pyfs-fsi", "visual_inspection"): frozenset({"beam"}),
     ("pyfs-fsi", "node_count"): frozenset({"init-dummy"}),
     ("pyfs-manual", "build"): frozenset({"register"}),
     ("pyfs-manual", "by_section"): frozenset({"sweep"}),

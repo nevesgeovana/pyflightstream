@@ -26,6 +26,7 @@ from typing import Any
 
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.fsi.cli import register_command as register_fsi_command
 from pyflightstream.run._cli_merge import add_merge_parser, run_merge
 from pyflightstream.run._cli_mesh import (
     _progress_printer,
@@ -258,7 +259,7 @@ def add_geometry_commands(subparsers: Any) -> None:
 
 
 def _add_beam(verbs: Any) -> None:
-    """Add ``geometry beam``: a blade's sections cut from its mesh (PFS-2185.11)."""
+    """Add ``beam``: a blade's sections cut from its mesh (PFS-2185.11), a pyfs-fsi command."""
     beam = verbs.add_parser(
         "beam",
         help="cut a blade's sections from its mesh into <geometry>.<family>.beam.toml",
@@ -1104,8 +1105,9 @@ def run_geometry(args: argparse.Namespace) -> int:
 
 
 def _registered() -> None:
-    """Register the group into ``pyfs-workspace`` (module import does it once)."""
+    """Register the group into ``pyfs-workspace`` and ``beam`` into ``pyfs-fsi`` (at import)."""
     register_command_group("geometry", add_geometry_commands, run_geometry)
+    register_fsi_command("beam", _add_beam, _cmd_beam)
 
 
 _registered()
