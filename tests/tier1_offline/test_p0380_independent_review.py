@@ -16,7 +16,6 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.run import cli
 from pyflightstream.workspace import audit_mesh, refine_mesh
 from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_grid
 from tests.p0380_mesh_fixtures import (
@@ -28,6 +27,7 @@ from tests.p0380_mesh_fixtures import (
     tube_zipper,
     write_source,
 )
+from tests.tier1_offline import _geometry_verbs as cli
 
 
 def _source(folder: Path, stem: str = "wing", refine_toml: str | None = None) -> Path:
@@ -316,7 +316,7 @@ def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_p
     """P0380-REFINE (FR-915, FR-925, IND-03): a smooth tube keeps three nodes around.
 
     The body has 24 nodes around; chordwise 2/24 leaves two, which
-    ``refine_mesh`` and ``pyfs-matrix refine`` refuse before any work with the
+    ``refine_mesh`` and ``pyfs-workspace geometry refine`` refuse before any work with the
     same text. Control: 3/24 writes the level.
     """
     body = body_of_revolution(pole=True)

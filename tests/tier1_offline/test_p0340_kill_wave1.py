@@ -221,7 +221,11 @@ def test_a_0331_cli_action_exists_unchanged(program, key):
     # option fails; an action the release adds is not in the golden and passes.
     current = _current()[program]
     # PFS-2141.031 / N3: only the explicit 0.38.0 workspace migration remains.
-    retired = {"pyfs-matrix": {"rename", "upgrade"}, "pyfs-workspace": {"migrate-geometries"}}
+    # PFS-2237: `inventory` left pyfs-matrix for `pyfs-workspace geometry inventory`.
+    retired = {
+        "pyfs-matrix": {"rename", "upgrade", "inventory"},
+        "pyfs-workspace": {"migrate-geometries"},
+    }
     if (program, key) in _REMOVED or key.split("|", 1)[0] in retired.get(program, set()):
         assert key not in current, f"{program}: retired action {key!r} returned"
         return

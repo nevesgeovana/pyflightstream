@@ -25,6 +25,7 @@ import pytest
 from pyflightstream.cases import CampaignConfigError, windows
 from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+from tests.support_matrix_layout import current_layout
 
 #: A run of 1000 steps turning a rotor at 250 steps per revolution, four blades
 #: on the flat path, with a second rotor block at 500 steps per revolution.
@@ -172,10 +173,13 @@ _MATRIX_HEAD = (
 
 
 def _matrix(window: str) -> str:
-    return _MATRIX_HEAD + (
-        "7001 | 0 | 1 | RIG | - | ROTOR_UNSTEADY | MACH:0.2, ALPHA:sweep, BETA:0 | -2 "
-        "| 05_NX.fsm | r001 | s001 | p001 | - | - | - | - | 26.120 | unsteady "
-        f"| DELTA_TIME: 0.001 / TIME_ITERATIONS: 8 / {window}\n"
+    return current_layout(
+        _MATRIX_HEAD
+        + (
+            "7001 | 0 | 1 | RIG | - | ROTOR_UNSTEADY | MACH:0.2, ALPHA:sweep, BETA:0 | -2 "
+            "| 05_NX.fsm | r001 | s001 | p001 | - | - | - | - | 26.120 | unsteady "
+            f"| DELTA_TIME: 0.001 / TIME_ITERATIONS: 8 / {window}\n"
+        )
     )
 
 

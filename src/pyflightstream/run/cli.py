@@ -88,7 +88,6 @@ from pyflightstream.run._alias import failure_alias_lines, listed_ids, split_typ
 from pyflightstream.run._cli_parsers import (
     GEOMETRY_COMMANDS,
     _build_parser,
-    cmd_geometry,
     cmd_mark_converged,
     cmd_search_log_batch,
     collect_interval_error,
@@ -219,6 +218,17 @@ def _refused_campaign_file(argv: list[str] | None) -> bool:
     return True
 
 
+def _refused_geometry_verb(argv: list[str] | None) -> bool:
+    """Name the ``pyfs-workspace geometry`` home of a geometry verb ``pyfs-matrix`` once had."""
+    from pyflightstream._retired_names import REMOVED_FORMS
+
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments or arguments[0] not in GEOMETRY_COMMANDS:
+        return False
+    print(REMOVED_FORMS[f"pyfs-matrix.{arguments[0]}"].message(), file=sys.stderr)
+    return True
+
+
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code.
@@ -235,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code: 0 on success, 2 for a refused argument or
         recipe, and the code the chosen subcommand returns otherwise.
     """
-    if _refused_campaign_file(argv):
+    if _refused_campaign_file(argv) or _refused_geometry_verb(argv):
         return 2
     parser = _build_parser()
     # FR-436: what the command line does not state, the workspace files may.
@@ -272,12 +282,6 @@ def main(argv: list[str] | None = None) -> int:
                 return _cmd_post(args)
             if args.subcommand == "collect":
                 return _cmd_collect(args)
-            if args.subcommand in GEOMETRY_COMMANDS:
-                # FR-1136: the identical result, and one warning naming the home.
-                from pyflightstream.run._cli_geometry import alias_warning
-
-                warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
-                return cmd_geometry(args)
             try:
                 recipes = _parse_recipes(args.recipe)
                 if args.subcommand in ("run", "plan", "inspect-setups"):

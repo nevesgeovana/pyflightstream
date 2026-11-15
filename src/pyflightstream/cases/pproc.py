@@ -38,7 +38,6 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 
-from pyflightstream._deprecations import ROW_EACH_BLADE, refusal_text
 from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
@@ -47,7 +46,7 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
-from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS
+from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, REMOVED_FORMS
 from pyflightstream._tokens import REDUCTION_COLUMNS
 
 # The quasi-steady wheel's correction choice, a table of the pproc; its
@@ -668,7 +667,8 @@ class SectionDistribution(_LocatedSpec):
         """
         if self.families == "each_blade":
             raise InputValueError(
-                f"section distribution over {self.planes}: {refusal_text(ROW_EACH_BLADE)}"
+                f"section distribution over {self.planes}: "
+                f"{REMOVED_FORMS['pproc.each_blade'].message()}"
                 ". Change the key named above."
             )
         return self
@@ -1025,7 +1025,7 @@ class ForcePlotGroup(_LocatedSpec):
         """`each_blade` said what `LOCAL_AXIS` says, so it is a second home for one fact."""
         if self.families == "each_blade":
             raise InputValueError(
-                f"plot group {self.name!r}: {refusal_text(ROW_EACH_BLADE)}"
+                f"plot group {self.name!r}: {REMOVED_FORMS['pproc.each_blade'].message()}"
                 ". Change the key named above."
             )
         return self

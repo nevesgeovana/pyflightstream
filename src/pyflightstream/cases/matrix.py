@@ -57,12 +57,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pyflightstream._textio as _textio
-from pyflightstream._deprecations import MATRIX_LAYOUT_0_56_0
 from pyflightstream._errors import NotApplicableWarning as NotApplicableWarning
-from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._errors import demote as demote
-from pyflightstream._errors import warn as _warn
 from pyflightstream._matrix_identifiers import (
     IDENTIFIERS_VARIABLE as IDENTIFIERS_VARIABLE,
 )
@@ -1034,16 +1031,7 @@ def _matrix_data_rows(path: str | Path) -> list[tuple[int, list[str]]]:
     header = tuple(cell.strip() for cell in content[0].split("|"))
     _refuse_an_earlier_layout(header, path)
     layout = _COLUMNS
-    if header == _LAYOUT_0_56_0:
-        # THE FROZEN LAYOUT OF 0.56.0 READS: its route is unstated and the file says
-        # how to be migrated. The promise is the ledger's, and so is its sentence.
-        layout = _LAYOUT_0_56_0
-        _warn(
-            f"{path}: {MATRIX_LAYOUT_0_56_0.message()}",
-            PyflightstreamDeprecationWarning,
-            stacklevel=4,
-        )
-    elif header != _COLUMNS:
+    if header != _COLUMNS:
         # Exact tuple equality recognises legacy layouts above. A partially
         # edited header can match neither those nor the current layout; name
         # the converter in the refusal so the user has a supported way forward.
@@ -1105,8 +1093,6 @@ def _matrix_data_rows(path: str | Path) -> list[tuple[int, list[str]]]:
                     else ""
                 )
             )
-        if layout is _LAYOUT_0_56_0:
-            cells.insert(_COLUMNS.index("MESH_ROUTE"), UNSTATED_CELL)
         data.append((row_number, cells))
     return data
 

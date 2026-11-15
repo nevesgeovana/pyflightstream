@@ -589,7 +589,7 @@ def _declare_boundaries(
                 f"{PurePath(str(case.geometry)).name} lists {', '.join(names)} and the "
                 f"sidecar {sidecar_name} lists {', '.join(case.inventory)}; the two "
                 "disagree, so no boundary index this run would cite can be trusted. "
-                "Rewrite the sidecar from the file with `pyfs-matrix inventory "
+                "Rewrite the sidecar from the file with `pyfs-workspace geometry inventory "
                 "<geometry>`, overwrite (CLI: --overwrite), if the file is current, or "
                 "restage the file "
                 "the sidecar describes."

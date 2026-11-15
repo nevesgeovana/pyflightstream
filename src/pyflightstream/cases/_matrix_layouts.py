@@ -10,9 +10,8 @@ from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import InputKey
 from pyflightstream.cases.workflows import ROW_KEY_MEANINGS, WALLTIME_UNITS_GLOSS, WALLTIME_VARIABLE
 
-#: The layout of 0.56.0, frozen: the current one without MESH_ROUTE. It is read, with
-#: a warning, as a layout whose route is unstated, and ``pyfs-workspace migrate``
-#: rewrites it (the ledger entry ``MATRIX_LAYOUT_0_56_0`` promises its removal).
+#: The layout of 0.56.0, frozen: the current one without MESH_ROUTE. The matrix
+#: reader refuses it, naming the current layout; ``pyfs-workspace migrate`` rewrites it.
 _LAYOUT_0_56_0 = (
     "POL",
     "HIDDEN",

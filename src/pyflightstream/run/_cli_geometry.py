@@ -8,10 +8,9 @@ one. The work itself is the workspace layer's:
 :mod:`pyflightstream.workspace._geometry_build` plans, builds, reads back and
 records, :mod:`pyflightstream.workspace._geometry_convert` converts a sidecar.
 
-``refine``, ``audit``, ``inventory`` and ``degenerate`` are the parsers and the
-handlers of ``pyfs-matrix refine``, ``audit-mesh``, ``inventory`` and
-``degenerate``, unchanged (FR-477): the parsers are copied as parents, the
-handler is the one ``pyfs-matrix`` runs.
+``refine``, ``audit``, ``inventory`` and ``degenerate`` are the verbs this group
+holds (FR-477): the parsers are the mesh parsers copied as parents, and each verb's
+handler is the one its parser names.
 """
 
 from __future__ import annotations
@@ -25,7 +24,6 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._deprecations import MATRIX_GEOMETRY_ALIASES
 from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.run._cli_merge import add_merge_parser, run_merge
@@ -75,7 +73,6 @@ __all__ = [
     "GEOMETRY_VERBS",
     "PYFS_MATRIX_ALIASES",
     "add_geometry_commands",
-    "alias_warning",
     "matrix_parsers",
     "run_geometry",
 ]
@@ -1104,19 +1101,6 @@ def run_geometry(args: argparse.Namespace) -> int:
     except PyflightstreamError as error:
         print(str(error), file=sys.stderr)
         return 2
-
-
-def alias_warning(verb: str) -> str:
-    """Return the warning a ``pyfs-matrix`` geometry verb prints once per invocation (FR-1136)."""
-    group = next(name for name, matrix in PYFS_MATRIX_ALIASES.items() if matrix == verb)
-    promise = next(
-        entry for entry in MATRIX_GEOMETRY_ALIASES if entry.subject == f"pyfs-matrix {verb}"
-    )
-    return (
-        f"pyfs-matrix {verb} is an alias of `pyfs-workspace geometry {group}`, the home of "
-        "every geometry command; the alias gives the identical result. "
-        f"{promise.message()} See docs/geometry.md."
-    )
 
 
 def _registered() -> None:

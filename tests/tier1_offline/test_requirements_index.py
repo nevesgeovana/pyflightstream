@@ -395,15 +395,22 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
         "FR-3241",
         "FR-3242",
         "FR-3310",
+        # 0.58.0 post outputs (PFS-2231 to PFS-2235): family-keyed polar products, group
+        # products, the post-tree folders and the mesh frame.
+        "FR-3771",
+        "FR-3780",
+        "FR-3786",
+        "FR-3790",
     ]
     assert [r["uid"] for r in features] == expected
     # Trimmed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF); nine
     # rewordings of the 0.43.0 instantiation review (R-INST-17, R-INST-18), the
     # restored FR-3152 (R-INST-32), the two widened refinement features (R-INST-34),
     # FR-3241 (R-INST-35), FR-3242 (NL-TRST-7-ROW), and the authorized PFS-2184.03
-    # retirement of FR-3020 in favor of retained connectivity FR-3310.
+    # retirement of FR-3020 in favor of retained connectivity FR-3310, and the four 0.58.0
+    # post-output features FR-3771, FR-3780, FR-3786 and FR-3790.
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "2b215cea0a8ec7216e457ff34b8856bba148ed6b86cd3399cd895b8170a0c18f"
+        "ebbf16187ecf39062096a93ebe26d6d1fb3f6ab988066120700adf797add4c60"
     )
     for feature in features:
         members = [

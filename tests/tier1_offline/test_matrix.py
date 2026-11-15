@@ -35,6 +35,7 @@ from pyflightstream.cases.matrix import (
     read_matrix,
     to_campaign,
 )
+from tests.support_matrix_layout import current_layout
 
 FIXTURE = Path(__file__).parent / "fixtures" / "matrix.fs"
 #: The same matrix at the width that preceded ``WORKFLOW``.
@@ -1442,7 +1443,8 @@ def _one_legacy_row(path, pol, recipe_cell):
         f"| - | r003 | s002 | p001 | - | - | - | - | 26.120 | LEGACY "
         f"| RECIPE: {recipe_cell} / OUTPUTS: out.txt"
     )
-    path.write_text(_NAMED_RECIPE_HEADER + "\n" + "-" * 20 + "\n" + row + "\n", encoding="utf-8")
+    text = _NAMED_RECIPE_HEADER + "\n" + "-" * 20 + "\n" + row + "\n"
+    path.write_text(current_layout(text), encoding="utf-8")
     return path
 
 

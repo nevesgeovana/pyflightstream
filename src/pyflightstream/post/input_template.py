@@ -492,10 +492,10 @@ z_m = 0.0
 """
 
 _INVENTORY_EXAMPLE = """\
-# The boundary inventory of aircraft.fsm, as `pyfs-matrix inventory` writes it from its mesh
-# block: the solver's order (name i is boundary i), then the faces it counted there. A run
+# The boundary inventory of aircraft.fsm, as `pyfs-workspace geometry inventory` writes it from
+# its mesh block: the solver's order (name i is boundary i), then the faces it counted there. A run
 # whose sidecar disagrees with the file is refused before the solver starts; rewrite it with
-# `pyfs-matrix inventory inputs/geometries/aircraft/aircraft.fsm --overwrite`.
+# `pyfs-workspace geometry inventory inputs/geometries/aircraft/aircraft.fsm --overwrite`.
 file = "aircraft.fsm"
 boundaries = [
     "Wing",

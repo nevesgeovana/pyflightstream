@@ -47,6 +47,7 @@ from pyflightstream.run._continuation_frame import (
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, PointName, RunRecord, RunStatus
+from tests.support_matrix_layout import current_layout
 from tests.tier1_offline.test_goal021_inputs_absolute import (
     _rotor_row as _fr96_converged_continuation___rotor_row,
 )
@@ -316,7 +317,7 @@ def _matrix_with(tmp_path, extra: str):
         "MOTIONS: {MOVING_BC_ALIAS: P / RPM: 800}" + extra + "\n"
     )
     path = tmp_path / "m.fs"
-    path.write_text(header + "-" * 80 + "\n" + row, encoding="utf-8")
+    path.write_text(current_layout(header + "-" * 80 + "\n" + row), encoding="utf-8")
     return path
 
 

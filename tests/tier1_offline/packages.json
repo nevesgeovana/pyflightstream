@@ -244,7 +244,7 @@
       "tests/tier1_offline/test_p0570_tipcap.py",
       "tests/tier1_offline/test_p0580_citation.py",
       "tests/tier1_offline/test_p0580_cut_blunt_base.py",
-      "tests/tier1_offline/test_p0580_deprecation_cli.py",
+      "tests/tier1_offline/test_p0580_removed_forms.py",
       "tests/tier1_offline/test_p0580_runtime_settings_doc.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",

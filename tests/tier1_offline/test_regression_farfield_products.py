@@ -67,6 +67,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import RunRecord as _FarfieldProductsRunRecord
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+from tests.support_matrix_layout import current_layout
 from tests.tier1_offline.test_post_products import LOADS as _FARFIELD_PRODUCTS__LOADS
 from tests.tier1_offline.test_post_products import LOADS as _FFPROOF_POST__LOADS
 from tests.tier1_offline.test_post_products import LOADS as _LITB_POST__LOADS
@@ -3890,7 +3891,7 @@ def test_p0470_qsfix_a_sector_compares_its_wheel(tmp_path):
     for name, loads in {"whole": None, "sector": "false", "loads": "true"}.items():
         matrix = None
         if loads is not None:
-            matrix = (
+            matrix = current_layout(
                 "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
                 "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
                 "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
@@ -4668,7 +4669,7 @@ def test_p0470_r2_periodic_wake_comparisons_use_wheel_loads(tmp_path, symmetry_l
 
 def test_p0470_r2_repeated_blade_cuts_do_not_add_blades(tmp_path):
     """P0470-R2: repeating a cut of the same physical blade cannot multiply disk loading."""
-    matrix = (
+    matrix = current_layout(
         "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
         "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
         "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
@@ -5216,11 +5217,13 @@ def test_p0551_near_c_uses_half_model_load_convention(tmp_path):
         if r["VARIANT"] == "C"
     )
     (Path(workspace.root) / "mirror.fs").write_text(
-        "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
-        "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
-        "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
-        "3207 | 1 | 1 | A | - | d | TASmps:68.058, ALPHA:sweep | -2.0 | g.fsm | "
-        "r001 | s001 | p001 | MIRROR | false | 1 | - | 26.120 | steady | \n",
+        current_layout(
+            "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
+            "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
+            "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
+            "3207 | 1 | 1 | A | - | d | TASmps:68.058, ALPHA:sweep | -2.0 | g.fsm | "
+            "r001 | s001 | p001 | MIRROR | false | 1 | - | 26.120 | steady | \n"
+        ),
         encoding="utf-8",
     )
     _ffproof_post___set_record(workspace, matrix_stem="mirror")

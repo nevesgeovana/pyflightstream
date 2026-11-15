@@ -203,23 +203,23 @@ def test_the_guard_refuses_an_expired_manifest_key(monkeypatch) -> None:
         test_no_promise_of_any_kind_survives_its_removal_version(entry)
 
 
-def test_the_two_promises_made_before_the_ledger_could_hold_them_are_in_it() -> None:
-    """PFS-2021.02: a promise that names no release cannot be checked.
+def test_the_promises_that_reached_their_removal_are_out_of_the_ledger_and_refused() -> None:
+    """PFS-2237: every shim the ledger once held is gone, and its old form is refused by name.
 
-    Two shims warned "in a future release" and sat outside the ledger in
-    a comment. Measured RED on the base tree: neither subject was among
-    the ledger's entries, and the warning text of ``analysis_setup``
-    said "a future minor release", which NFR-20's policy forbids from
-    1.0 and which no test could hold to a date before it. Both stay
-    until 1.0.0, the decision recorded beside the entries.
+    The three promises of 1.0.0 (analysis_setup's vorticity_drag_boundaries, and fs_version
+    of the two matrix entry points) were removed with the rest of the ledger, so none may
+    be back in it, and each has its refusal, which names the new spelling.
     """
+    from pyflightstream._retired_names import REMOVED_FORMS
+
     subjects = {entry.subject for entry in DEPRECATIONS}
-    for subject in (
-        "vorticity_drag_boundaries of analysis_setup",
-        "fs_version of plan_matrix",
-        "fs_version of run_matrix",
+    for subject, key in (
+        ("vorticity_drag_boundaries of analysis_setup", "analysis_setup.vorticity_drag_boundaries"),
+        ("fs_version of plan_matrix", "plan_matrix.fs_version"),
+        ("fs_version of run_matrix", "run_matrix.fs_version"),
     ):
-        assert subject in subjects, f"{subject} is not in the ledger; it warns without a deadline"
+        assert subject not in subjects, f"{subject} is back in the ledger"
+        assert REMOVED_FORMS[key].new in REMOVED_FORMS[key].message()
 
 
 def test_every_promise_defined_in_the_ledger_is_in_the_tuple() -> None:
@@ -227,12 +227,15 @@ def test_every_promise_defined_in_the_ledger_is_in_the_tuple() -> None:
     from ``DEPRECATIONS`` left the suite green while the shim kept warning,
     because the shim reaches its entry by name and the deadline tests iterate
     the tuple. An entry defined at module scope and absent from the tuple is a
-    promise with no deadline, which is the defect this module exists to refuse."""
+    promise with no deadline, which is the defect this module exists to refuse.
+    The ledger holds no entry since 0.58.0, so the check is that none is defined
+    outside the tuple."""
     from pyflightstream import _deprecations
     from pyflightstream._deprecations import (
         DeprecatedColumn,
         DeprecatedFlag,
         DeprecatedFunction,
+        DeprecatedLayout,
         DeprecatedParameter,
     )
 
@@ -243,37 +246,15 @@ def test_every_promise_defined_in_the_ledger_is_in_the_tuple() -> None:
         DeprecatedFunction,
         DeprecatedManifestKey,
         DeprecatedColumn,
+        DeprecatedLayout,
     )
     defined = {
         name: value for name, value in vars(_deprecations).items() if isinstance(value, kinds)
     }
-    assert defined, "the ledger defines no entry at module scope, so this proves nothing"
-    # TWO HOMES, AND AN ENTRY BELONGS TO EXACTLY ONE. `DEPRECATIONS` holds a
-    # live shim with a deadline; `REFUSED_IN_0_15_0` holds an entry whose old
-    # spelling this release REFUSES, kept only so the refusal and the ledger
-    # print one sentence. What is still forbidden is an entry in neither,
-    # which is a promise nothing keeps.
-    refused = _deprecations.REFUSED_IN_0_15_0
-    listed = {id(entry) for entry in DEPRECATIONS} | {id(entry) for entry in refused}
+    listed = {id(entry) for entry in DEPRECATIONS}
     missing = sorted(name for name, entry in defined.items() if id(entry) not in listed)
-    assert not missing, (
-        f"defined in the ledger and in neither DEPRECATIONS nor REFUSED_IN_0_15_0: {missing}"
-    )
-    both = sorted(
-        name
-        for name, entry in defined.items()
-        if id(entry) in {id(one) for one in DEPRECATIONS}
-        and id(entry) in {id(one) for one in refused}
-    )
-    assert not both, (
-        f"{both} are in DEPRECATIONS and in REFUSED_IN_0_15_0 at once, so the same "
-        "spelling is promised and refused; the deadline guard would watch a shim "
-        "that no longer exists"
-    )
-    assert refused, (
-        "REFUSED_IN_0_15_0 is empty. It holds the batch this release breaks rather "
-        "than carries, and an empty tuple makes the disjointness above vacuous."
-    )
+    assert not missing, f"defined in the ledger and not in DEPRECATIONS: {missing}"
+    assert not hasattr(_deprecations, "REFUSED_IN_0_15_0"), "the refused batch lives elsewhere"
 
 
 @pytest.mark.parametrize("entry", DEPRECATIONS, ids=_subject)

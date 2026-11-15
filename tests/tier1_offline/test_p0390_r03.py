@@ -912,33 +912,6 @@ def _docs_clean_plan_evidence(captured: bytes) -> bytes:
     return captured
 
 
-_MATRIX_LAYOUT_WARNING = (
-    r"\[warning\] <ROOT>/polars\.fs: the matrix layout of v0\.56\.0 "
-    r"(?:(?!\n\n).)*\n\n"
-)
-_MATRIX_LAYOUT_BLOCK = re.compile(
-    r"Warnings \((\d+)\)\n((?:" + _MATRIX_LAYOUT_WARNING + r")*)\n(?=#{20})", re.DOTALL
-)
-
-
-def _without_matrix_layout_deprecation(console: str) -> str:
-    """Take the held v0.56.0 matrix-layout deprecation block out of a console (PFS-2229).
-
-    The block is removed only where it holds no warning text (a run that hides the text keeps
-    the title) or as many matrix-layout warnings as its count, and the blank line a plan
-    prints before it is moved back in front of ``Cases``.
-    """
-    match = _MATRIX_LAYOUT_BLOCK.search(console)
-    if match is None:
-        return console
-    shown = len(re.findall(r"\[warning\]", match.group(2)))
-    assert shown in (0, int(match.group(1)))
-    console = console[: match.start()] + console[match.end() :]
-    if console.startswith("exit 0\n--- stdout\npyfs-matrix plan\n"):
-        console = console.replace("\nCases\n", "\n\nCases\n", 1)
-    return console
-
-
 def _minimum_cp_evidence_prose() -> bytes:
     """The serialized notes of SOLVER_MINIMUM_CP as the plan carries them, from the database.
 
@@ -981,15 +954,6 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
                 .replace("CHANGE_SCENE_TO_PLOTS\r\nSTART_SOLVER\r\n", "START_SOLVER\r\n")
                 .replace("CHANGE_SCENE_TO_PLOTS\nSTART_SOLVER\n", "START_SOLVER\n")
             )
-    # PFS-2229 (0.58.0): a person at the command line sees a deprecation of the package. This
-    # scenario's matrix still has the v0.56.0 layout (no MESH_ROUTE column), deprecated since
-    # v0.57.0, so each console now carries the held warning block that v0.38.0 never printed,
-    # and a plan prints the blank line after its header on stderr, in front of that block,
-    # instead of on stdout. Only that block is taken out and the blank line put back; any
-    # other warning, or the same warning in another place, stays in the compared text.
-    for name in outputs:
-        if name.endswith(".console"):
-            outputs[name] = _without_matrix_layout_deprecation(outputs[name])
     captured = {
         path.relative_to(V0380).as_posix(): path.read_bytes()
         for path in sorted(V0380.rglob("*"))
@@ -1217,37 +1181,15 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     head = b"(refuse instead of warn)\n"
     assert captured[log_name].count(head) == 1
     assert captured[log_name].endswith(head)
-    # PFS-2214 G10.1 (0.57.0): the matrix written here has the v0.56.0 layout (no MESH_ROUTE
-    # column), so each post warns once that the layout is superseded; the capture of v0.38.0
-    # stays as it was printed and the reviewed warning line is added after each block head.
-    layout = (
-        b"WARNING point=campaign product=stage: <ROOT>/polars.fs: the matrix layout of v0.56.0"
-        b" (no MESH_ROUTE column) was superseded in v<V> and will be removed in v0.60.0; the"
-        b" file reads until then with MESH_ROUTE unstated, and pyfs-workspace migrate --apply"
-        b" rewrites its header.\n"
-    )
+    # PFS-2237 (0.58.0): the scenario's matrix (``_p0390_r03_scenario.py``) is written at the
+    # current layout, with the MESH_ROUTE column after GEOMETRY and every row stating it
+    # unstated. The comparison still holds byte for byte: the header of v0.56.0 is no longer
+    # read, so the scenario cannot keep it, and an unstated route changes no output of
+    # plan, run, post or collect (the post tables' MESH_ROUTE column is taken out above, as
+    # for every post table since 0.57.0). Nothing of the 0.38.0 capture was edited for it.
     captured[log_name] = (
-        captured[log_name].replace(head, head + b"sims=7002\n")
-        + layout
-        + captured[log_name]
-        + layout
+        captured[log_name].replace(head, head + b"sims=7002\n") + captured[log_name]
     )
-    record_name = "tree/post/polars/post.log.json"
-    record = json.loads(captured[record_name])
-    assert record["records"] == []
-    record["records"] = [
-        {
-            "point": "campaign",
-            "product": "stage",
-            "message": layout.decode()
-            .removeprefix("WARNING point=campaign product=stage: ")
-            .rstrip("\n"),
-            "remedy": None,
-            "category": "section-layout",
-            "severity": "warning",
-        }
-    ]
-    captured[record_name] = json.dumps(record, indent=1).encode() + b"\n"
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name == "tree/runs.json":

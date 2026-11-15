@@ -170,9 +170,9 @@ def test_p0560_r2_003_a_boolean_angle_is_refused_not_read_as_one_degree(tmp_path
 def test_p0560_r1_morph_010_a_boolean_ring_width_is_refused_naming_the_key(tmp_path, capsys):
     """P0560-R1-MORPH-010: width = true is no length; it is refused, not read as 1."""
     source = build(tmp_path)
-    cfg = morph_control(tmp_path, "[hub_rings]\nrings = 2\nwidth = true\n")
+    cfg = morph_control(tmp_path, "[hub_rings]\nrings = 2\nband_width = true\n")
     assert morph_invoke("hub-rings", source, cfg, tmp_path / "rings.obj") == 2
-    assert "hub_rings.width must be a positive length" in capsys.readouterr().err
+    assert "hub_rings.band_width must be a positive length" in capsys.readouterr().err
     assert not list(tmp_path.glob("rings.*"))
 
 

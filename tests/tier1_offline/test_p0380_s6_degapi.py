@@ -2,7 +2,7 @@
 
 Pipeline role: quality gate on FR-429. ``derive_thin_blade``, ``ThinBlade`` and
 ``thin_blade_path`` of 0.37.0 are offered by ``pyflightstream.workspace`` with
-their signatures unchanged, the ``pyfs-matrix degenerate`` command reaches the
+their signatures unchanged, the ``pyfs-workspace geometry degenerate`` command reaches the
 function through that public name, and the generated API reference lists the
 three. The geometry itself is held by ``test_p0340_thin_blade.py``; the blades
 here are the synthetic ones that file builds.
@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 
 from pyflightstream import workspace
-from pyflightstream.run import cli
 from pyflightstream.workspace import _degenerate
+from tests.tier1_offline import _geometry_verbs as cli
 from tests.tier1_offline.test_p0340_thin_blade import ROOT, TIP, _blade, _sha, _write_obj
 
 REPO = Path(__file__).resolve().parents[2]
@@ -48,7 +48,7 @@ def _source(folder: Path, *, name: str = "blade.obj") -> Path:
 
 
 def _command(capsys, *argv: str) -> tuple[int, str, str]:
-    """Run ``pyfs-matrix degenerate`` on ``argv`` and return its code and streams."""
+    """Run ``pyfs-workspace geometry degenerate`` on ``argv`` and return its code and streams."""
     code = cli.main(["degenerate", *argv])
     seen = capsys.readouterr()
     return code, seen.out, seen.err

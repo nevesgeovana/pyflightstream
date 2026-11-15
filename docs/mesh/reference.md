@@ -54,8 +54,7 @@ its boundaries file and `<out>.hub_rings.json`.
 | `blades` | Blade families, over the top-level `blades` |
 | `hub` | Hub families, over the top-level `hub` |
 
-`width` is a deprecated alias for `band_width`; equal values supplied together are accepted
-once, conflicting values are refused. No removal release is assigned. The name describes the
+`width` in `[hub_rings]` is refused, naming `band_width`. The name describes the
 band extent in both `[hub_rings]` and `[repitch]`, but each route retains its own defaults,
 units, capping and applicability; the routes do not promise equal meshes. Existing report
 keys (`width`, `width_stated`) are unchanged.
@@ -554,14 +553,14 @@ by hand: a setup artifact that carries `mesh_order_list` is
 refused, and the order is written from the file itself:
 
 ```text
-pyfs-matrix inventory inputs/geometries/30_WB.fsm
+pyfs-workspace geometry inventory inputs/geometries/30_WB.fsm
 ```
 
 writes `inputs/geometries/30_WB.fsm.boundaries.toml`, a `boundaries` list in the
 file's order, and refuses to overwrite one that exists without `--overwrite`.
 The sidecar sits beside the file, so a geometry kept in its own folder,
 `inputs/geometries/30_WB/30_WB.fsm`, has it inside that folder, and the run reads it
-from there. `pyfs-matrix inventory` reads an `.obj`'s order from its groups
+from there. `pyfs-workspace geometry inventory` reads an `.obj`'s order from its groups
 instead ([above](#the-surface-names)), and refuses any other file without a
 mesh block (an `.stl`, or a file the solver never saved) by name, because it
 has no block to read the order from.
@@ -585,11 +584,11 @@ the script creates an action with the name of a saved one, the saved one
 stays and the solver runs ITS command, so a geometry saved on a workstation
 after an unsteady run carries that workstation's walltime clock, interpreter
 path included, and every unsteady run of it on a cluster aborts when the
-clock fires. `pyfs-matrix inventory` names each saved action, on every call,
+clock fires. `pyfs-workspace geometry inventory` names each saved action, on every call,
 with the command that removes them:
 
 ```text
-pyfs-matrix inventory inputs/geometries/30_WB/30_WB.fsm --clean
+pyfs-workspace geometry inventory inputs/geometries/30_WB/30_WB.fsm --clean
 ```
 
 `--clean` reduces the file to its meshes and the boundary conditions
@@ -625,7 +624,7 @@ boundaries it lists did not change, unless `--overwrite` is given too. To
 clean every geometry of a workspace kept one per folder:
 
 ```text
-for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-matrix inventory "$f" --clean; done
+for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-workspace geometry inventory "$f" --clean; done
 ```
 
 **The plan warns too.** `pyfs-matrix plan` reads the geometry of
@@ -639,17 +638,17 @@ warnings.
 
 ## The refinement file and the audit
 
-This section is the reference of `pyfs-matrix refine` and `pyfs-matrix
+This section is the reference of `pyfs-workspace geometry refine` and `pyfs-matrix
 audit-mesh`; the walk-through is
 [Refining or coarsening a mesh](how-to.md#refining-or-coarsening-a-mesh).
 
 ### The two commands
 
 ```text
-pyfs-matrix refine MESH [FACTOR] [--families A,B] [--parallel F] [--normal F]
+pyfs-workspace geometry refine MESH [FACTOR] [--families A,B] [--parallel F] [--normal F]
                    [--accept-remesh] [--accept-unknown] [--strict-factors] [--config FILE]
                    [--out DIR] [--overwrite]
-pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
+pyfs-workspace geometry audit OBJ [--against SOURCE] [--out FILE]
 ```
 
 | argument | of | meaning |
@@ -1142,7 +1141,7 @@ Each of these is imported from `pyflightstream.workspace`.
 | `PreparedMesh` | frozen: `obj`, `config` (the refine file) and `nodes` (the node list) written, and `patches`, the patch names of each original family in order |
 | `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
 | `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `degenerate_faces` (as in `audit.json`), `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)`; the static method `MeshAudit.files_read(mesh)` returns the files an audit of `mesh` reads, each with what it is (the OBJ, its boundaries file, its trailing-edge points files), a file that does not exist included |
-| `derive_thin_blade(geometry, *, root_offset, overwrite=False, boundary=None)` | the function behind `pyfs-matrix degenerate`: derives the thin blade of a blade mesh (an `.fsm` or an OBJ), writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
+| `derive_thin_blade(geometry, *, root_offset, overwrite=False, boundary=None)` | the function behind `pyfs-workspace geometry degenerate`: derives the thin blade of a blade mesh (an `.fsm` or an OBJ), writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
 
 ### Limits of the refinement
 

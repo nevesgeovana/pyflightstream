@@ -27,10 +27,10 @@ from pyflightstream.cases import CampaignConfigError, FluidState, SolverSettings
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import build_script, workflow_registry
 from pyflightstream.run import CampaignErrors, PlanStatus
-from pyflightstream.run.cli import main
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import InputArtifactError
+from tests.tier1_offline._geometry_verbs import main
 from tests.tier1_offline.test_goal021_inputs_absolute import _rotor_row, _workspace
 from tests.tier1_offline.test_goal024_rpm import ROTOR_BLOCK as _TWO_BLADE_BLOCK
 from tests.tier1_offline.test_workflows import rotor_case, steady_case, unsteady_case

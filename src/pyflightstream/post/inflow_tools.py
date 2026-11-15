@@ -40,12 +40,10 @@ from typing import Any, cast
 
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import negated_text
-from pyflightstream._deprecations import INFLOW_STATION_HARMONICS
+from pyflightstream._deprecations import removed_names_hook
 from pyflightstream._errors import (
     ProductError,
     ProductExistsError,
-    PyflightstreamDeprecationWarning,
-    warn,
 )
 from pyflightstream._identifier_columns import stamped_names
 from pyflightstream._tokens import NOT_APPLICABLE
@@ -338,11 +336,7 @@ class InflowStationHarmonics:
     k_eff: float | None
 
 
-def __getattr__(name: str) -> object:
-    if name == "StationHarmonics":
-        warn(INFLOW_STATION_HARMONICS.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-        return InflowStationHarmonics
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+__getattr__ = removed_names_hook(__name__)
 
 
 def _refuse_a_wrong_axis(axis: Sequence[float]) -> None:

@@ -136,7 +136,7 @@ FR-85,l3,FR-32,,tests/requirements_l3.csv
 FR-86,kept,,,docs/unpublished/requirements/recs.md
 FR-87,l3,FR-117,,tests/requirements_l3.csv
 FR-88,kept,,,docs/unpublished/requirements/dred.md
-FR-89,kept,,,docs/unpublished/requirements/dred.md
+FR-89,retired,,FR-3778,docs/unpublished/requirements/retired.md
 FR-90,l3,FR-32,,tests/requirements_l3.csv
 FR-91,l3,FR-117,FR-2049,tests/requirements_l3.csv
 FR-92,kept,,,docs/unpublished/requirements/exec.md
@@ -1000,7 +1000,7 @@ FR-1135,kept,,,docs/unpublished/requirements/spcm.md
 FR-477,l3,FR-44,,tests/requirements_l3.csv
 FR-1136,l3,FR-44,,tests/requirements_l3.csv
 FR-1199,l3,FR-104,FR-1360,tests/requirements_l3.csv
-FR-1200,l3,FR-89,FR-2170,tests/requirements_l3.csv
+FR-1200,l3,FR-3778,FR-2170,tests/requirements_l3.csv
 FR-1201,l3,FR-176,FR-2229,tests/requirements_l3.csv
 FR-1202,kept,,,docs/unpublished/requirements/recs.md
 FR-1203,kept,,,docs/unpublished/requirements/recs.md

@@ -791,12 +791,6 @@
    "statements": 65,
    "positional": 1
   },
-  "run/cli.py:main": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 21,
-   "positional": 1
-  },
   "run/collect.py:_complete": {
    "complexity": 11,
    "branches": 10,
@@ -838,12 +832,6 @@
    "branches": 14,
    "statements": 46,
    "positional": 2
-  },
-  "script/helpers.py:analysis_setup": {
-   "complexity": 14,
-   "branches": 13,
-   "statements": 33,
-   "positional": 1
   },
   "script/motion.py:MotionLedger.follow": {
    "complexity": 17,

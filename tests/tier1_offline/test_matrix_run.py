@@ -78,6 +78,7 @@ from tests.support_helpers import fixture_codes as fixture_codes
 from tests.support_helpers import make_library as make_library
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation_with
 from tests.support_helpers import stage_geometry as stage_geometry
+from tests.support_matrix_layout import current_layout
 from tests.tier1_offline.test_excel_sync import blank as _fr310_matrix_homes_all__blank
 from tests.tier1_offline.test_excel_sync import matrix as _fr310_matrix_homes_all__excel_matrix
 
@@ -1838,31 +1839,6 @@ def test_the_default_version_reaches_the_plan_under_its_new_name(tmp_path):
     assert [point.status for point in plan.points] == [PlanStatus.READY] * 4
 
 
-def test_the_former_spelling_still_works_and_says_it_is_the_former_one(tmp_path):
-    """Callers of these two entry points exist outside this package.
-
-    The command line keeps ``--fs-version`` by the author's decision of
-    2026-08-03, which unified the flag across every CLI here, so only the
-    PYTHON keyword moves and the old one keeps working until a release
-    removes it.
-    """
-    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
-    # The former spelling names the release that removes it, 1.0.0, and
-    # the text is the ledger entry's (PFS-2021.02); "a future release"
-    # was a promise no test could check.
-    with pytest.warns(DeprecationWarning, match=r"fs_version of plan_matrix .*removed in v1\.0\.0"):
-        plan = plan_matrix(
-            REGISTRY_FIXTURE,
-            workspace,
-            name="matrix",
-            fs_version="26.120",
-            recipes=RECIPES,
-            recipe_registry={"steady": matrix_recipe},
-            write_plan=False,
-        )
-    assert plan.fs_version == "26.120"
-
-
 def test_a_matrix_whose_rows_all_name_a_build_needs_no_default(tmp_path):
     """PFS-2029.01: the default answers for rows that name none, and there are none.
 
@@ -1880,41 +1856,6 @@ def test_a_matrix_whose_rows_all_name_a_build_needs_no_default(tmp_path):
         write_plan=False,
     )
     assert plan.fs_version == "26.120", "the campaign version is the rows' own build"
-
-
-def test_the_two_spellings_agreeing_is_accepted_with_the_notice(tmp_path):
-    """The arm between the other two: both names, one value.
-
-    Left untested it would be counted as covered by the disagreement
-    case, which takes the other branch and never reaches it.
-    """
-    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
-    with pytest.warns(DeprecationWarning, match="default_fs_version"):
-        plan = plan_matrix(
-            REGISTRY_FIXTURE,
-            workspace,
-            name="matrix",
-            default_fs_version="26.120",
-            fs_version="26.120",
-            recipes=RECIPES,
-            recipe_registry={"steady": matrix_recipe},
-            write_plan=False,
-        )
-    assert plan.fs_version == "26.120"
-
-
-def test_the_two_spellings_disagreeing_is_refused_rather_than_resolved(tmp_path):
-    """Two names for one argument, given two values, is not a thing to guess at."""
-    workspace = make_library(tmp_path)
-    with pytest.raises(MatrixError, match="two names for one argument"):
-        plan_matrix(
-            REGISTRY_FIXTURE,
-            workspace,
-            name="matrix",
-            default_fs_version="26.120",
-            fs_version="26.121",
-            recipes=RECIPES,
-        )
 
 
 # --- PFS-2009.08.03: refused above the binding, with and without fs_exe -----
@@ -3878,12 +3819,12 @@ def test_mesh_order_list_is_refused_naming_the_inventory_command():
     with pytest.raises(InputArtifactError) as caught:
         _resolve(setup, "s001")
     message = str(caught.value)
-    assert "mesh_order_list" in message and "pyfs-matrix inventory" in message
+    assert "mesh_order_list" in message and "pyfs-workspace geometry inventory" in message
     assert ".boundaries.toml" in message
 
 
 def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
-    """`pyfs-matrix inventory` wrote it, the run checked it at OPEN, the record says so."""
+    """`geometry inventory` wrote it, the run checked it at OPEN, the record says so."""
     from pyflightstream.workspace.inputs import write_inventory
 
     workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
@@ -4045,7 +3986,8 @@ def _flat_rotor_matrix(tmp_path, origin):
         "/ DELTA_THETA: 30 / REVOLUTIONS: 0.5"
     )
     path = tmp_path / "flat_origin.fs"
-    path.write_text(_FLAT_ORIGIN_HEADER + "\n" + "-" * 20 + "\n" + row + "\n", encoding="utf-8")
+    text = _FLAT_ORIGIN_HEADER + "\n" + "-" * 20 + "\n" + row + "\n"
+    path.write_text(current_layout(text), encoding="utf-8")
     return path
 
 

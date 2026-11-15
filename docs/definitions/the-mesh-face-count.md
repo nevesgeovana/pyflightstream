@@ -7,7 +7,7 @@
   so a reader that takes those columns by position keeps each of them. It holds
   the face count of the geometry the row's run opened.
 - **It comes from the boundary inventory, and the post never counts a face.**
-  `pyfs-matrix inventory <geometry>`, and the plan for an OBJ that has no
+  `pyfs-workspace geometry inventory <geometry>`, and the plan for an OBJ that has no
   inventory, write into `<stem>.boundaries.toml`, when they take the inventory,
   `mesh_faces`, the face count of a saved simulation's mesh block or of an OBJ;
   `boundary_faces`, the count of each boundary in the order of `boundaries`,
@@ -23,7 +23,7 @@
   between the inventory and the run, the count is still carried and `post.log`
   warns, naming the inventory, both sha256 and the run. The warning never
   blocks the post; take the inventory again if the geometry changed.
-- **Taking the count again.** For a saved simulation, `pyfs-matrix inventory
+- **Taking the count again.** For a saved simulation, `pyfs-workspace geometry inventory
   <geometry> --overwrite` rewrites its inventory with the count. The package
   never rewrites an OBJ's inventory, because it may carry tables written by
   hand: move it aside, take the inventory again, and copy those tables beneath
