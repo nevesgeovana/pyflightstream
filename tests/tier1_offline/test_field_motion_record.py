@@ -209,7 +209,9 @@ def test_continuation_preserves_predecessor_motion_without_replacing_history(tmp
     assert historical.solver_setup == setup
     from pyflightstream.post.products import read_csv_table
 
-    histories = list((workspace.root / "post/products/probes").glob("*_plots.csv"))
+    # The plots history lives in time_history/ since 0.58.0 (D7), no longer in probes/.
+    histories = list((workspace.root / "post/products/time_history").glob("*_plots.csv"))
+    assert not list((workspace.root / "post/products").glob("probes/*_plots.csv"))
     assert len(histories) == 1
     columns, rows = read_csv_table(histories[0])
     assert "SURFACE_upper_cp" in columns
