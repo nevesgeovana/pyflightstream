@@ -44,18 +44,15 @@ CREF, BREF = 2.526, 20.0
 STEMS = ("CD", "CY", "CL", "Cl", "Cm", "Cn")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="REL1-004 follow-up: the 0.58.0 group files admit an export stating no analysis "
-    "frame; the retired recorded writer refused it",
-)
 def test_p0430_f152_missing_analysis_frame_is_refused(tmp_path):
     text = LOADS.replace("     Coordinate frame for analysis:              MRP\n", "")
     assert text != LOADS, "the fixture's frame line moved"
     workspace = posted_polar(tmp_path, {"1": "W"}, points=[("AL-020", -2.0, text)])
     skipped = _products_manifest(workspace)["skipped"]
     reasons = [why for key, why in skipped.items() if key.startswith("polars/")]
-    assert any("frame" in why for why in reasons), skipped
+    assert any(
+        "missing the analysis frame" in why and "POLAR-3207_AL-020.txt" in why for why in reasons
+    ), skipped
 
 
 def _passive(axis, angle_rad: float) -> np.ndarray:

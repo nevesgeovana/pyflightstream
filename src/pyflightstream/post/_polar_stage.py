@@ -549,7 +549,10 @@ def _point_loads(
         cref_m=ctx.reference.cref_m,
     )
     stated_frame = str(point.loads.frame or "").strip().casefold()
-    if stated_frame and stated_frame not in GEOMETRY_ANALYSIS_FRAMES:
+    if not stated_frame:
+        gathered.refused.append((point.name, f"{point.loads_path} is missing the analysis frame"))
+        return None
+    if stated_frame not in GEOMETRY_ANALYSIS_FRAMES:
         # A FRAME OF UNKNOWN ROTATION IS NO ROW, never a row of NA: the reason of the
         # 0.57.0 polar (post.polar.polar_rows), named per group file of the point.
         gathered.refused.append(
