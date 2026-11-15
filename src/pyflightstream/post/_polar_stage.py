@@ -319,6 +319,20 @@ def _say_the_na_points(ctx: SimContext, gathered: _Gathered) -> None:
             PyflightstreamWarning,
             stacklevel=3,
         )
+    at_rest = [
+        name
+        for name, row in zip(names, gathered.rows, strict=True)
+        if row.rpm and _number(row.vinf_m_s) == 0.0
+    ]
+    if at_rest:
+        warn(
+            f"{POLARS_DIR}/P{ctx.sim_id}: {len(at_rest)} point(s) are static points, VINF = 0 "
+            f"({', '.join(at_rest)}): with q = 0 and J = 0 the RCOEF files state no ETA, no "
+            "ETA<f> and none of TC to MCA there; T, Q, P, CT, CQ, CP and the in-plane "
+            "coefficients are reported (docs/definitions/rotor-coefficients.md).",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _said_instant(ctx: SimContext) -> bool:
