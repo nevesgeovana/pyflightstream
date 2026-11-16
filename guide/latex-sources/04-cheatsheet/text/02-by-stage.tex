@@ -658,6 +658,7 @@ Guide 7 and the page \textit{Post-processing definitions}, the definition of rec
 % =====================================================================
 \stagepage{8}{Maintenance: space, records and saved geometries}{A workspace grows and records go wrong. These commands measure and free space, delete simulations, mark a run failed after the fact, restore or rebuild the records, and clean a saved geometry. Each previews until \texttt{--apply}.}
 \begin{multicols}{3}
+\fontsize{7.5}{8.5}\selectfont
 \hd{What it is for}
 Run the preview, read it, then apply. Every storage call, the preview included, is recorded in \file{storage_management.json}, and every rewrite of \file{runs.json} archives the previous copy first, so \cmd{pyfs-workspace restore} can undo it.
 
