@@ -9,6 +9,7 @@ record does not state is ``NA``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -157,6 +158,30 @@ def _passages(ctx: SimContext, revs: float) -> float | None:
     return revs * blades if isinstance(blades, int) and blades > 0 else None
 
 
+def _reduction_periods(ctx: SimContext) -> dict[str, dict[str, float]]:
+    """Read the clock and named rotors' periods from each point's recorded plan."""
+    out: dict[str, dict[str, float]] = {}
+    for point, record in ctx.record_of.items():
+        plan = getattr(record, "reductions", None)
+        if not isinstance(plan, Mapping):
+            continue
+        blocks = plan.get("rotors")
+        entries = dict(blocks) if isinstance(blocks, Mapping) else {}
+        entries[""] = plan
+        periods: dict[str, float] = {}
+        for alias, entry in entries.items():
+            value = entry.get("steps_per_revolution") if isinstance(entry, Mapping) else None
+            if (
+                isinstance(value, int | float)
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+                and value > 0
+            ):
+                periods[str(alias)] = float(value)
+        out[point] = periods
+    return out
+
+
 def point_block_rows(ctx: SimContext) -> dict[str, dict[str, object]]:
     """Return the run block row of every point of the simulation, by point name.
 
@@ -250,7 +275,7 @@ def run_block_scope(ctx: SimContext) -> Iterator[None]:
         record = ctx.record_of.get(name)
         if record is not None:
             collect_block(record.run_id, row)
-    with run_blocks(rows, rotor_ids_of(ctx)):
+    with run_blocks(rows, rotor_ids_of(ctx), _reduction_periods(ctx)):
         yield
 
 

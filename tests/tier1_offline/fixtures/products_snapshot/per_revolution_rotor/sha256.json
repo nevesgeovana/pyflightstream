@@ -23,8 +23,8 @@
  "products/products.json": "58991272df6b668ec4bcbe3400adfbd013c250126951da7aff3705f3ed07a26d",
  "products/provenance/archive/<STAMP>/camp_sim_7001_AL-020.prov.json": "3748505ec4b4b15dd93eebde22786de591bd67a9101b027f934d479430e2bdb0",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "3748505ec4b4b15dd93eebde22786de591bd67a9101b027f934d479430e2bdb0",
- "products/reductions/AL-020_per_revolution_PROP.csv": "9c7a0ae780877ec586b759efaf0abcd2ad25aa313655d8430085db3e858e2836",
- "products/reductions/archive/<STAMP>/AL-020_per_revolution_PROP.csv": "9c7a0ae780877ec586b759efaf0abcd2ad25aa313655d8430085db3e858e2836",
+ "products/reductions/AL-020_per_revolution_PROP.csv": "3d53d1bded5fd4d4328365d58394f663112a8bd2fd9bb4290a46487b791c9f40",
+ "products/reductions/archive/<STAMP>/AL-020_per_revolution_PROP.csv": "3d53d1bded5fd4d4328365d58394f663112a8bd2fd9bb4290a46487b791c9f40",
  "products/time_history/AL-020_plots.csv": "7fe0eb7b4a87916e2059af1e9d18a78ccdcb3ac66acea40c9d57f53fc22e7647",
  "products/time_history/archive/<STAMP>/AL-020_plots.csv": "7fe0eb7b4a87916e2059af1e9d18a78ccdcb3ac66acea40c9d57f53fc22e7647"
 }

@@ -950,6 +950,17 @@ def _refuse_a_clock(per_revolution: float, depth: float) -> None:
         )
 
 
+def _phase_step_metadata(steps: set[int], read_steps: set[int] | None) -> dict[str, int | None]:
+    """Record just this azimuth's support while retaining the caller's complete read set."""
+    if read_steps is not None:
+        read_steps.update(steps)
+    return {
+        "FIRST_STEP": min(steps) if steps else None,
+        "LAST_STEP": max(steps) if steps else None,
+        "STEPS": len(steps),
+    }
+
+
 def phase_locked_rows(
     series: TimestepSeries,
     columns: Sequence[str],
@@ -1113,6 +1124,7 @@ def phase_locked_rows(
     ]
     rows: list[dict[str, object]] = []
     for step in final_revolution:
+        row_steps: set[int] = set()
         fewest = int(len(samples(float(step))))
         row: dict[str, object] = {
             "AZIMUTH": blade_one_azimuth(
@@ -1125,16 +1137,15 @@ def phase_locked_rows(
             "REVOLUTIONS": fewest,
         }
         for name in columns:
-            values = series.fields[name]
             moments = samples(step - offset_of(name))
             row["REVOLUTIONS"] = fewest = min(fewest, len(moments))
             if not len(moments):
                 row[name] = None
                 continue
-            history = np.asarray(values, dtype=float).reshape(len(steps), -1)[:, 0]
-            if read_steps is not None:
-                _note_read_steps(read_steps, steps, moments)
+            history = np.asarray(series.fields[name], dtype=float).reshape(len(steps), -1)[:, 0]
+            _note_read_steps(row_steps, steps, moments)
             row[name] = float(np.mean(np.interp(moments, steps, history)))
+        row.update(_phase_step_metadata(row_steps, read_steps))
         rows.append(row)
     rows.sort(key=lambda row: float(row["AZIMUTH"]))  # type: ignore[arg-type]
     return rows

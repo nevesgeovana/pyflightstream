@@ -511,4 +511,21 @@ def test_the_table_bytes_are_those_of_the_relative_rule(tmp_path):
     assert _drift_lines(quiet) == [] and _drift_lines(loud) != []
     written = (quiet.root / path).read_bytes()
     assert written == (loud.root / path).read_bytes()
-    assert hashlib.sha256(written).hexdigest() == TABLE_SHA256_BEFORE_THE_SCALE_RULE
+    # P0580: the owner's schema change removes WINDOW_PASSAGES and changes the
+    # revolution window from the three-turn point to each one-turn average.
+    # Reverse exactly those two metadata edits before checking the unchanged
+    # historical digest. No mean, drift, bound or other byte is normalized.
+    lines = written.decode("utf-8").splitlines()
+    header = lines[0].split(",")
+    at = header.index("WINDOW_REVS")
+    assert "WINDOW_PASSAGES" not in header
+    header.insert(at + 1, "WINDOW_PASSAGES")
+    restored = [",".join(header)]
+    for line in lines[1:]:
+        cells = line.split(",")
+        assert float(cells[at]) == 1
+        cells[at] = "3.00000"  # twelve steps at four steps per turn
+        cells.insert(at + 1, "NA")  # the fixture declares no reference rotor
+        restored.append(",".join(cells))
+    historical = ("\n".join(restored) + "\n").encode("utf-8")
+    assert hashlib.sha256(historical).hexdigest() == TABLE_SHA256_BEFORE_THE_SCALE_RULE

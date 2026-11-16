@@ -147,7 +147,7 @@ def test_p0430_f1389_phase_metadata_names_actual_support(tmp_path):
     )
     _, rows = read_csv_table(target)
     assert {(row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) for row in rows} == {
-        ("5", "8", "4")
+        (str(step), str(step), "1") for step in range(5, 9)
     }
 
 
@@ -346,7 +346,6 @@ def test_the_table_is_one_row_per_azimuth_and_each_value_the_mean_across_revolut
     assert expected_azimuths == [30.0, 120.0, 210.0, 300.0]
     assert [float(row["AZIMUTH"]) for row in rows] == expected_azimuths
     assert {row["REVOLUTIONS"] for row in rows} == {"2"}, rows
-    assert {(row["FIRST_STEP"], row["LAST_STEP"]) for row in rows} == {("5", "12")}
 
     # THE ORACLE, by search and not by arithmetic on offsets: for each row's
     # azimuth, every step of the last two revolutions (5 to 12) at which THAT
@@ -355,6 +354,7 @@ def test_the_table_is_one_row_per_azimuth_and_each_value_the_mean_across_revolut
     window = range(5, STEPS + 1)
     for row in rows:
         azimuth = float(row["AZIMUTH"])
+        support = set()
         for name, position in (
             ("FX_MRP_TOTAL", 0),
             ("FX_LOCAL_Blade1", 0),
@@ -362,8 +362,14 @@ def test_the_table_is_one_row_per_azimuth_and_each_value_the_mean_across_revolut
         ):
             at = [s for s in window if abs(_azimuth_of_blade(s, position) - azimuth) < 1e-9]
             assert len(at) == 2, (name, azimuth, at)
+            support.update(at)
             expected = float(np.mean([history[name][s - 1] for s in at]))
             assert float(row[name]) == pytest.approx(expected, abs=1e-5), (name, azimuth, at)
+        assert (int(row["FIRST_STEP"]), int(row["LAST_STEP"]), int(row["STEPS"])) == (
+            min(support),
+            max(support),
+            len(support),
+        )
 
     # AND IT IS NONE OF THE NUMBERS A WRONG REDUCTION GIVES: at 30 degrees blade
     # one is at steps 8 and 12, so the total is (6 + 8) / 2.

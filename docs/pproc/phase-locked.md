@@ -8,7 +8,7 @@ for an unsteady-rotor point, once per point.
 
 | Columns | Content |
 | --- | --- |
-| the run block | [the run block](../definitions/the-run-block.md#the-run-block); `FIRST_STEP`, `LAST_STEP` and `STEPS` are those of the row's own window |
+| the run block | [the run block](../definitions/the-run-block.md#the-run-block); `FIRST_STEP`, `LAST_STEP`, `STEPS` and `WINDOW_REVS` describe the row's own average; `WINDOW_PASSAGES` is omitted |
 | `REDUCTION` | `phase_locked` |
 | `ROTOR_ID`, `ROTOR` | the declared id and the alias of the rotor; `NA` for a row that names none |
 | `AZIMUTH`, `STEP`, `REVOLUTIONS` | with a `[phase_locked]` table, the azimuth the row is the mean at, the step of that mean and the revolutions it averages; without one, one row per blade passage |

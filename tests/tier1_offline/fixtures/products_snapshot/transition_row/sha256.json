@@ -11,9 +11,9 @@
  "products/post.log.json": "e3f94f68f52ee7b79f950b08f8a265cf8e91f4a46e997f864568b4493dcb0aae",
  "products/products.json": "2f37dd8c55ab8d4a932d31277bb0141812de6827f45ebca6567a9e8ecb69919d",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "3cdec2e55fd70cf8a568c210f67419422356b5eeb8d4ba367c0137e8e8cee989",
- "products/reductions/AL-020_per_revolution_LIFT_L1.csv": "30d8f5f97e4dd89f79598156a694d0c468a1ced5f32ec2eec3967455974ed405",
- "products/reductions/AL-020_per_revolution_PUSHER.csv": "9bf153e89cf531849208a3435f7dddc55e05e2d9f0ddb9aee7d7d43c662e5047",
- "products/reductions/AL-020_phase_locked_LIFT_L1.csv": "10212b709f4dca1a7283d8d11e99e9ae5eb84ac273e90d71fa6d913078fd6a09",
- "products/reductions/AL-020_phase_locked_PUSHER.csv": "aea855c4ffc9695bc512be19cda619a6bae8e533acb752c87a5999ecfa13c763",
+ "products/reductions/AL-020_per_revolution_LIFT_L1.csv": "a8d3cc2896388dc40592e30ea0f46f625e072c04f73d3547234b784c047e32ce",
+ "products/reductions/AL-020_per_revolution_PUSHER.csv": "430940197ac9948bc0497f4fae19b4d52002b02d906f29a75759d26ee51dfcc5",
+ "products/reductions/AL-020_phase_locked_LIFT_L1.csv": "59d539e269980609870a468fe03a2c907623508efee1d2147cb9a7bc9f6bf672",
+ "products/reductions/AL-020_phase_locked_PUSHER.csv": "f5dbc992c56380e219ff4c66985af38abfeb41e36e1acc342a389754d99ac5f4",
  "products/time_history/AL-020_plots.csv": "8c9646b7fa2f7567b04a17e358aa3d3011dcc01230a27f000080cfd44e0004da"
 }

@@ -7,7 +7,10 @@ holding one file can tell which polar, point and condition each row is of, and
 two files of one point join on their first columns. A column that does not
 apply to a row is `NA` ([the token for a value that does not
 exist](the-token-for-a-value-that-does-not-exist.md)), never absent, so the
-schema is the same for every run type. Units and sources are stated once in
+schema is the same for every run type. Reduction rows with their own windows
+end the block at `WINDOW_REVS` and omit `WINDOW_PASSAGES`, as defined in
+[the window of a reduction row](../post-processing-definitions.md#the-window-of-a-reduction-row).
+Units and sources are stated once in
 `products.json`, not in the csv.
 
 A row is a steady value when `RUN_TYPE` is `steady` and a window average
@@ -87,6 +90,8 @@ at in `J_CLOCK`. Either is `NA` where the record does not state the speed, the
 reference does not state the diameter, or the row turns several rotors and
 names no clock. `WINDOW_REVS` and `WINDOW_PASSAGES` count the clock rotor's
 revolutions and blade passages over the averaging window.
+For a reduction row with its own window, the row's own average supplies
+`WINDOW_REVS`; the point window is never substituted.
 
 <a id="tecplot-and-vtk"></a>
 

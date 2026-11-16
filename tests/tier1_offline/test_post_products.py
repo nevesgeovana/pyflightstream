@@ -787,7 +787,9 @@ def _products_manifest(workspace):
 
 def beyond_the_block(columns):
     """The columns a table states after the canonical run block (PFS-2231)."""
-    return tuple(columns[list(columns).index("WINDOW_PASSAGES") + 1 :])
+    from pyflightstream.post._block_scope import after_run_block
+
+    return tuple(columns[after_run_block(columns) :])
 
 
 def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path):

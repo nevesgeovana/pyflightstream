@@ -2,6 +2,13 @@
 
 ## 0.58.0
 
+Reduction rows with their own windows omit `WINDOW_PASSAGES`; `WINDOW_REVS`
+counts revolutions in that row's own average. Read separate `FIRST_STEP` and
+`LAST_STEP` columns for each azimuth's contributing steps. Readers locating
+the end of a reduction run block now stop at `WINDOW_REVS`. Point-level window
+fields keep their definitions. See [the window of a reduction
+row](post-processing-definitions.md#the-window-of-a-reduction-row).
+
 Every form that 0.57.0 and earlier still accepted with a deprecation warning is removed.
 Each old form is now refused, and the refusal names the new spelling, so the migration is
 one edit. The post tree changes too: see [0.58.0 post tree](#0580-post-tree).

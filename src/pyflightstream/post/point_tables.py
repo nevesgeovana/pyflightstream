@@ -1157,7 +1157,7 @@ def write_phase_locked_table(
         if isinstance(stated, Sequence) and not isinstance(stated, str)
         else []
     )
-    first, last = int(window[0]), int(window[1])
+    last = int(window[1])
     names = [name for name in columns if name not in _PLOTS_CLOCK_COLUMNS]
     read_steps: set[int] = set()
     try:
@@ -1175,8 +1175,6 @@ def write_phase_locked_table(
         )
     except ProductError as error:
         raise ProductError(f"the phase_locked reduction of rotor {rotor!r}: {error}") from error
-    first = min(read_steps) if read_steps else first
-    last = max(read_steps) if read_steps else last
     context = context_row(condition, None if reference is None else reference.as_lengths())
     moment = context_row(
         None if reference is None else reference.as_moment_point(),
@@ -1191,9 +1189,9 @@ def write_phase_locked_table(
             row["AZIMUTH"],
             row["STEP"],
             row["REVOLUTIONS"],
-            first,
-            last,
-            len(read_steps),
+            row["FIRST_STEP"],
+            row["LAST_STEP"],
+            row["STEPS"],
             *context,
             *moment,
             *(row.get(name) for name in names),

@@ -9,8 +9,8 @@ columns after it. A column the table and the block both state keeps the
 table's value in each row (a reduction's own window), and the block's where the
 table holds none. Outside a post, or for a table of no point, nothing changes.
 
-The block ends at :data:`RUN_BLOCK_LAST`; a reader that must skip it finds that
-column (:func:`after_run_block`).
+The point block ends at :data:`RUN_BLOCK_LAST`; a reduction with its own window
+ends at ``WINDOW_REVS``. :func:`after_run_block` recognizes both.
 """
 
 from __future__ import annotations
@@ -66,6 +66,7 @@ class _Blocks:
 
     rows: dict[str, dict[str, object]]
     rotor_ids: dict[str, int]
+    periods: dict[str, dict[str, float]]
 
     def of(self, file_name: str) -> dict[str, object] | None:
         """Return the row of the point whose name opens ``file_name`` (longest name wins)."""
@@ -81,7 +82,9 @@ _SCOPE: ContextVar[_Blocks | None] = ContextVar("run_block_scope", default=None)
 
 @contextmanager
 def run_blocks(
-    rows: Mapping[str, Mapping[str, object]], rotor_ids: Mapping[str, int] | None = None
+    rows: Mapping[str, Mapping[str, object]],
+    rotor_ids: Mapping[str, int] | None = None,
+    periods: Mapping[str, Mapping[str, float]] | None = None,
 ) -> Iterator[None]:
     """Open the tables written inside this block with the run block of their point.
 
@@ -93,6 +96,9 @@ def run_blocks(
     rotor_ids : mapping of str to int, optional
         Each rotor alias to its declared id, for a table that names a rotor by
         alias and states its id beside it.
+    periods : mapping of str to mapping, optional
+        Each point's recorded solver steps per revolution, by rotor alias.
+        The empty alias names the point's clock rotor.
 
     Yields
     ------
@@ -105,7 +111,13 @@ def run_blocks(
     ...     pass
     """
     token = _SCOPE.set(
-        _Blocks({str(p): dict(r) for p, r in rows.items()}, dict(rotor_ids or {})) if rows else None
+        _Blocks(
+            {str(p): dict(r) for p, r in rows.items()},
+            dict(rotor_ids or {}),
+            {p: dict(r) for p, r in (periods or {}).items()},
+        )
+        if rows
+        else None
     )
     try:
         yield
@@ -302,7 +314,45 @@ def with_run_block(
     block = scope.of(target.name)
     if block is None:
         return columns, rows
+    if target.parent.name == "reductions" and {"FIRST_STEP", "LAST_STEP", "STEPS"} <= set(columns):
+        return _with_reduction_blocks(columns, rows, block, scope)
     return apply_row_blocks(columns, rows, [block] * len(rows), scope.rotor_ids, head=block)
+
+
+def _with_reduction_blocks(
+    columns: Sequence[str],
+    rows: Sequence[Sequence[object]],
+    block: Mapping[str, object],
+    scope: _Blocks,
+) -> tuple[Sequence[str], Sequence[Sequence[object]]]:
+    """Open each reduction row with its own window; never borrow the point's window."""
+    if any(len(row) != len(columns) for row in rows):
+        return columns, rows
+    keep = [i for i, name in enumerate(columns) if name != "WINDOW_PASSAGES"]
+    header = [columns[i] for i in keep]
+    table = [[row[i] for i in keep] for row in rows]
+    head = {name: value for name, value in block.items() if name != "WINDOW_PASSAGES"}
+    periods = scope.periods.get(str(block.get("POINT")), {})
+    blocks = [_reduction_block(head, dict(zip(header, row, strict=True)), periods) for row in table]
+    return apply_row_blocks(header, table, blocks, scope.rotor_ids, head=head)
+
+
+def _reduction_block(
+    block: Mapping[str, object], row: Mapping[str, object], periods: Mapping[str, float]
+) -> dict[str, object]:
+    """Return the metadata of the row's own mean, using its recorded rotor clock."""
+    out = dict(block)
+    out.update({name: row.get(name) for name in ("FIRST_STEP", "LAST_STEP", "STEPS")})
+    out["WINDOW_REVS"] = None
+    if "AZIMUTH" in row and row.get("REDUCTION") == "phase_locked":
+        out["WINDOW_REVS"] = row.get("REVOLUTIONS")
+    else:
+        rotor = str(row.get("ROTOR") or "")
+        period = periods.get(rotor, periods.get("") if rotor in ("", "NA") else None)
+        first, last = row.get("FIRST_STEP"), row.get("LAST_STEP")
+        if period is not None and isinstance(first, int | float) and isinstance(last, int | float):
+            out["WINDOW_REVS"] = (last - first + 1) / period
+    return out
 
 
 def apply_row_blocks(
@@ -414,7 +464,8 @@ def after_run_block(columns: Sequence[str]) -> int:
     Returns
     -------
     int
-        One past :data:`RUN_BLOCK_LAST`, or 0.
+        One past :data:`RUN_BLOCK_LAST`, or ``WINDOW_REVS`` for a reduction
+        with its own window; 0 where neither is present.
 
     Examples
     --------
@@ -424,7 +475,10 @@ def after_run_block(columns: Sequence[str]) -> int:
     0
     """
     names = list(columns)
-    return names.index(RUN_BLOCK_LAST) + 1 if RUN_BLOCK_LAST in names else 0
+    for last in (RUN_BLOCK_LAST, "WINDOW_REVS"):
+        if last in names:
+            return names.index(last) + 1
+    return 0
 
 
 # --- the run block in a visualization file: Tecplot auxiliary data and VTK field data ---

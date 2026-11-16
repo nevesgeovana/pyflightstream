@@ -14,7 +14,7 @@ from pyflightstream.post._block_scope import (
 from pyflightstream.post._run_block import RUN_BLOCK_SPEC, run_block_columns, run_block_row
 from pyflightstream.post._tables import plots_table_series, read_csv_table, write_csv_table
 from pyflightstream.post.products import write_campaign_products
-from tests.tier1_offline.test_post_products import ROTOR_PLAN, _unsteady_workspace
+from tests.tier1_offline.test_post_products import ROTOR_PLAN, TWO_ROTOR_PLAN, _unsteady_workspace
 
 BLOCK = run_block_columns((), ())
 
@@ -109,7 +109,8 @@ def test_p0580_every_table_of_an_unsteady_point_opens_with_the_block_in_order(tm
     assert len(tables) >= 3
     for table in tables:
         columns, rows = read_csv_table(table)
-        assert columns[: len(BLOCK)] == BLOCK, table.name
+        expected = BLOCK[:-1] if table.parent.name == "reductions" else BLOCK
+        assert columns[: len(expected)] == expected, table.name
         assert {row["POL"] for row in rows} == {"7001"}, table.name
         assert {row["POINT"] for row in rows} == {"AL-020"}, table.name
         assert {row["RUN_TYPE"] for row in rows} == {"unsteady_rotor"}, table.name
@@ -132,3 +133,85 @@ def test_p0580_the_window_of_a_point_is_in_its_block(tmp_path):
     table = workspace.root / "post" / "products" / "time_history" / "AL-020_plots.csv"
     _, rows = read_csv_table(table)
     assert {(r["FIRST_STEP"], r["LAST_STEP"], r["STEPS"]) for r in rows} == {("3", "8", "6")}
+
+
+@pytest.mark.requirement("FR-3778")
+def test_p0580_each_of_the_three_passage_rows_states_its_own_revolutions(tmp_path):
+    """P0580: the owner's three two-step rows in a six-step, half-turn point.
+
+    The retained evidence has bounds 1-2, 3-4, 5-6 at twelve steps per turn.
+    Each mean covers 1/6 turn; the point still covers 1/2 turn.
+    """
+    plan = {
+        **ROTOR_PLAN,
+        "time_iterations": 6,
+        "steps_per_revolution": 12.0,
+        "time_average": {"windows": [[1, 6]]},
+        "phase_locked": {"windows": [[1, 2], [3, 4], [5, 6]], "period_steps": 2},
+    }
+    workspace = _unsteady_workspace(tmp_path, reductions=plan, rows=6)
+    write_campaign_products(workspace)
+    root = workspace.root / "post" / "products"
+    columns, rows = read_csv_table(root / "reductions" / "AL-020_phase_locked.csv")
+    assert [(r["FIRST_STEP"], r["LAST_STEP"], r["STEPS"]) for r in rows] == [
+        ("1", "2", "2"),
+        ("3", "4", "2"),
+        ("5", "6", "2"),
+    ]
+    assert [float(r["WINDOW_REVS"]) for r in rows] == pytest.approx([1 / 6] * 3, abs=5e-6)
+    assert "WINDOW_PASSAGES" not in columns
+    point_columns, point_rows = read_csv_table(root / "time_history" / "AL-020_plots.csv")
+    assert "WINDOW_PASSAGES" in point_columns
+    assert {r["WINDOW_REVS"] for r in point_rows} == {"0.50000"}
+
+
+@pytest.mark.requirement("FR-3778")
+def test_p0580_each_azimuth_states_only_the_steps_its_columns_averaged(tmp_path):
+    """Two four-step turns: the means read 4/8, 1/5, 2/6 and 3/7."""
+    import numpy as np
+
+    from pyflightstream.post.point_tables import write_phase_locked_table
+    from pyflightstream.post.unsteady import TimestepSeries
+
+    history = TimestepSeries(
+        steps=np.arange(1, 9),
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={"FX": np.arange(1.0, 9.0)[:, None]},
+        sources=(),
+    )
+    target = tmp_path / "reductions" / "AL-020_phase_locked.csv"
+    with run_blocks({"AL-020": _row(FIRST_STEP=1, LAST_STEP=8, STEPS=8, WINDOW_REVS=2)}):
+        write_phase_locked_table(
+            target,
+            history,
+            ["FX"],
+            window=(1, 8),
+            revolutions=2,
+            steps_per_revolution=4,
+            rotor="PROP",
+            blades=1,
+            facts={"blade1_azimuth_deg": 0, "rpm": 1000},
+        )
+    columns, rows = read_csv_table(target)
+    assert [(r["FIRST_STEP"], r["LAST_STEP"], r["STEPS"]) for r in rows] == [
+        ("4", "8", "2"),
+        ("1", "5", "2"),
+        ("2", "6", "2"),
+        ("3", "7", "2"),
+    ]
+    assert {float(r["WINDOW_REVS"]) for r in rows} == {2}
+    assert "WINDOW_PASSAGES" not in columns
+    assert [float(r["FX"]) for r in rows] == [6, 3, 4, 5]
+
+
+@pytest.mark.requirement("FR-3778")
+def test_p0580_each_rotor_reduction_uses_its_own_recorded_period(tmp_path):
+    """Four-step and eight-step rotors each average one turn per revolution row."""
+    workspace = _unsteady_workspace(tmp_path, reductions=TWO_ROTOR_PLAN)
+    write_campaign_products(workspace)
+    root = workspace.root / "post" / "products" / "reductions"
+    for alias in ("LIFT_L1", "PUSHER"):
+        columns, rows = read_csv_table(root / f"AL-020_per_revolution_{alias}.csv")
+        assert rows and {float(r["WINDOW_REVS"]) for r in rows} == {1}
+        assert "WINDOW_PASSAGES" not in columns

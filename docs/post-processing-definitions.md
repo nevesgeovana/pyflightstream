@@ -9,6 +9,30 @@ page is right and the code is a defect**.
 Every definition below states the requirement a product is built to. None of
 them was inferred from an implementation.
 
+## The window of a reduction row
+
+A reduction row with its own `FIRST_STEP`, `LAST_STEP` and `STEPS` states the
+window of **that row's average**. `FIRST_STEP` and `LAST_STEP` are separate
+columns: the first and last solver steps actually read for that row, inclusive.
+`STEPS` counts distinct contributing frames, including nonzero interpolation
+support. Each azimuth row states its own contributing steps, including the
+steps read for its shifted blade columns.
+
+`WINDOW_REVS` is the number of rotor revolutions in that row's own average.
+For a consecutive window it is `(LAST_STEP - FIRST_STEP + 1)` divided by the
+recorded solver steps per revolution of the row's rotor (the clock rotor when
+the row names none). For a fixed-azimuth mean across revolutions it follows
+the existing `REVOLUTIONS` definition: the fewest revolutions sampled by any
+column of that row. It is `NA` where the required rotor clock is absent.
+Reduction rows with their own windows carry no `WINDOW_PASSAGES` column and
+never borrow their window metadata from the point.
+
+For example, a half-turn point at twelve steps per revolution has six steps.
+Its three consecutive reduction windows, 1-2, 3-4 and 5-6, each average two
+steps and each state `WINDOW_REVS = 1/6`. The point's run block still states
+`WINDOW_REVS = 1/2` and retains its own `WINDOW_PASSAGES`. The point block's
+window fields are unchanged.
+
 !!! note "For whoever maintains this package"
     Read this page before changing any reduction, any averaging window, or any
     product's column set. Test reductions against these definitions and their
