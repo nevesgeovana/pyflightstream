@@ -37,7 +37,7 @@ def test_qsteady_advance_ratio_follows_the_block_diameter(tmp_path):
 # --- F5-1112: a wheel's blades are surfaces, import renames are read, case is folded ----
 
 
-def _wheel(tmp_path, inventory, *, aliases=None, rotor=None, operations=None):
+def _wheel(tmp_path, inventory, *, aliases=None, rotor=None):
     from tests.tier1_offline.test_goal035_qsteady_rotor import _blade_obj, _case, _with_obj
 
     kwargs = {} if rotor is None else {"rotor": rotor}
@@ -57,16 +57,15 @@ def test_f033_two_blade_names_for_one_surface_are_one_blade_in_a_wheel(tmp_path)
         _lines(case)
 
 
-def test_f071_the_chord_is_read_from_the_blade_under_its_renamed_name(tmp_path):
+def test_p0580_chord_assessment_skips_a_blade_the_mesh_lacks(tmp_path):
+    """The saved fixture has no Blade1 faces; the remaining equal blades give the assessment."""
     plain = qsteady_validity(_wheel(tmp_path, ("Blade1", "Blade2", "Blade3")))
     assert plain is not None and "holds no face of blade" not in str(plain.get("note"))
-    renamed = _wheel(
-        tmp_path,
-        ("Spare", "Blade2", "Blade3"),
-        operations=[{"op": "rename", "surface": "Blade1", "to": "Spare"}],
-    )
-    record = qsteady_validity(renamed)
-    assert record is not None and "holds no face of blade Blade1" in str(record["note"])
+    missing = _wheel(tmp_path, ("Spare", "Blade2", "Blade3"))
+    record = qsteady_validity(missing)
+    assert record is not None and record["note"] is None
+    for key in ("k_min", "k_max", "k_mean"):
+        assert record[key] == pytest.approx(plain[key])
 
 
 def test_f1321_a_blade_present_under_another_letter_case_gets_its_frame(tmp_path):

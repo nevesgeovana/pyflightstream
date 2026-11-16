@@ -87,11 +87,16 @@ def _rotor_continuation(**variables: str) -> SimCase:
 
 
 def _with_geometry(case: SimCase, tmp_path: Path, **solver: object) -> SimCase:
-    """``case`` with a raw mesh of two families and the setup ``solver`` states."""
+    """The selected families and the case's rotor blades, with the setup ``solver`` states."""
+    names = (
+        "Blade",
+        "Hub",
+        *(name for rotor in case.rotors.values() for name in rotor.families_blades),
+    )
     return case.model_copy(
         update={
-            "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", ("Blade", "Hub"))),
-            "inventory": ("Blade", "Hub"),
+            "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", names)),
+            "inventory": names,
             "inventory_source": "sidecar",
             "mesh_import": MeshImport(units="METER"),
             "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),

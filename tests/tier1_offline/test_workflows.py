@@ -4172,9 +4172,9 @@ def test_a_wake_termination_in_revolutions_is_refused_without_the_wrong_reason()
 # --- FR-54, PFS-2030.03: every setting the author's scripts state reaches the script --
 
 
-def _wb_geometry(tmp_path: Path) -> Path:
-    """A wing-body saved simulation: the two families the author's steady row carries."""
-    return _saved_simulation(tmp_path / "30_WB.fsm", ["W", "B"])
+def _wb_geometry(tmp_path: Path, *extra_families: str) -> Path:
+    """A wing-body saved simulation, with any rotor families the fixture also declares."""
+    return _saved_simulation(tmp_path / "30_WB.fsm", ["W", "B", *extra_families])
 
 
 def test_reference_velocity_sideslip_and_initialisation_are_stated(tmp_path):

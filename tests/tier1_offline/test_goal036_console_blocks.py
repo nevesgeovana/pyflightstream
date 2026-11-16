@@ -63,9 +63,12 @@ def _two_case_matrix(tmp_path, *, values="3000,6000", inside=False):
         values=values,
         cell=ROTOR_CELL,
     )
-    _saved_simulation(workspace.inputs_dir / "geometries" / "wing_clean.fsm", [], names=("OTHER",))
+    _saved_simulation(
+        workspace.inputs_dir / "geometries" / "wing_clean.fsm", [], names=("Blade_1",)
+    )
     # Real blades with a stored unit let the blade-order check pass without a
-    # warning; the sidecar still names only OTHER, so every point stays blocked.
+    # warning; the sidecar omits Blade_2, so every point stays blocked without
+    # introducing an ignored-family warning of its own.
     mesh = workspace.inputs_dir / "geometries" / "wing_clean.fsm"
     saved_actions = mesh.read_text(encoding="utf-8").split("$MESH_END$", 1)[1]
     wheel(mesh, 2, 1)
@@ -75,7 +78,7 @@ def _two_case_matrix(tmp_path, *, values="3000,6000", inside=False):
         encoding="utf-8",
     )
     mesh.with_name(mesh.name + ".boundaries.toml").write_text(
-        'boundaries = ["OTHER"]\n', encoding="utf-8"
+        'boundaries = ["Blade_1"]\n', encoding="utf-8"
     )
     setup = workspace.inputs_dir / "setups" / "s002.toml"
     setup.write_text(
@@ -124,7 +127,7 @@ def test_plan_prints_each_title_in_order_with_a_blank_line_between_blocks(tmp_pa
     # P0310-CONSOLE-BLOCKS
     workspace, matrix = _two_case_matrix(tmp_path)
     code, out = _console(workspace, matrix)
-    assert code == 1, out  # the fixture mesh has no PORT boundary, so every point is BLOCKED
+    assert code == 1, out  # the incomplete sidecar keeps every point BLOCKED
     lines = out.splitlines()
     at = [lines.index(title) for title in TITLES if title in lines]
     assert [lines[index] for index in at] == TITLES, out

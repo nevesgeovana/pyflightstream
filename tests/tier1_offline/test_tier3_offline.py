@@ -522,25 +522,27 @@ def _moving_payload(root, matrix):
     script = Script("26.120")
     build_script(resolved.campaign.sims[0].model_copy(update={"point": {"alpha": 0.0}}), script)
     lines = script.render().splitlines()
-    at = next(index for index, line in enumerate(lines) if line.startswith("SET_MOTION_BOUNDARIES"))
-    return lines[at + 1]
+    at = next(
+        (index for index, line in enumerate(lines) if line.startswith("SET_MOTION_BOUNDARIES")),
+        None,
+    )
+    return None if at is None else lines[at + 1]
 
 
 @pytest.mark.requirement("FR-30b")
 def test_a_rotor_row_cites_its_moving_boundaries_by_name_at_the_matrix_surface(tmp_path):
     """FR-30b at the surface it claims, which is a matrix row against a staged
     geometry and its inventory sidecar: `MOVING_BOUNDARIES: Blade1,S` on the pusher
-    row is refused because 40_PUSHER carries Body, Base and Blade1 and no S, and the
-    refusal names the file, the sidecar and what it declares; `Blade1` alone is
+    row ignores S because 40_PUSHER carries Body, Base and Blade1 and no S;
+    the retained Blade1 moves boundary 3. `Blade1` alone is
     accepted and resolves to the position the sidecar holds it at; a position still
     works. The script-layer half is tests/tier1_offline/test_script_entities.py."""
     root = _tier3_copy(tmp_path)
-    refused = _one_row_matrix(root, "s.fs", _rotor_row("7201", "MOVING_BOUNDARIES: Blade1,S"))
-    plan = _plan(root, refused)
-    assert plan.blocked, "a name the inventory lacks planned READY"
-    message = str(plan.blocked[0].error)
-    for fragment in ("7201", "'S'", "40_PUSHER.fsm", "40_PUSHER.boundaries.toml", "'Blade1'"):
-        assert fragment in message, message
+    partial = _one_row_matrix(root, "s.fs", _rotor_row("7201", "MOVING_BOUNDARIES: Blade1,S"))
+    with pytest.warns(PyflightstreamWarning, match="(?s)'S'.*skipped"):
+        plan = _plan(root, partial)
+    assert not plan.blocked
+    assert _moving_payload(root, partial) == "3"
     named = _one_row_matrix(root, "n.fs", _rotor_row("7202", "MOVING_BOUNDARIES: Blade1"))
     assert _moving_payload(root, named) == "3", "Blade1 is the third boundary of 40_PUSHER"
     with pytest.warns(PyflightstreamWarning, match="POSITION"):
@@ -555,14 +557,13 @@ def test_moving_boundaries_may_name_a_group_of_the_pproc_artifact(tmp_path):
     root = _tier3_copy(tmp_path)
     grouped = _one_row_matrix(root, "g.fs", _rotor_row("7204", "MOVING_BOUNDARIES: g4"))
     assert _moving_payload(root, grouped) == "3"
-    # Group 2 of p099 is Wing, which the pusher does not carry: a group that
-    # names nothing the geometry holds is refused, not silently emptied.
+    # Group 2 of p099 is Wing, which the pusher does not carry: the whole
+    # motion entry is omitted when none of its families remains.
     empty = _one_row_matrix(root, "e.fs", _rotor_row("7205", "MOVING_BOUNDARIES: g2"))
-    plan = _plan(root, empty)
-    assert plan.blocked, "a group naming nothing the geometry carries planned READY"
-    message = str(plan.blocked[0].error)
-    for fragment in ("7205", "g2", "p099", "'Wing'", "40_PUSHER.fsm", "'Blade1'"):
-        assert fragment in message, message
+    with pytest.warns(PyflightstreamWarning, match="Wing|g2"):
+        plan = _plan(root, empty)
+    assert not plan.blocked
+    assert _moving_payload(root, empty) is None
 
 
 def test_moving_boundaries_may_name_an_alias_of_the_setup(tmp_path):
@@ -570,7 +571,7 @@ def test_moving_boundaries_may_name_an_alias_of_the_setup(tmp_path):
     wherever a boundary is cited. `rotor = ["Blade", "Spinner"]` on a copy of the
     unsteady preset resolves to Blade1 of 40_PUSHER, the third boundary, and the
     member the file lacks is ignored; an alias no member of which the file
-    carries is refused as a name the inventory lacks, naming the alias."""
+    carries is omitted as well, with no motion to emit."""
     root = _tier3_copy(tmp_path)
     # THE TABLE LIVES IN THE REFERENCE SINCE 0.15.0 (FR-59): a boundary
     # name is a property of the configuration and a preset is per
@@ -597,9 +598,10 @@ def test_moving_boundaries_may_name_an_alias_of_the_setup(tmp_path):
         "ghost.fs",
         _rotor_row("7210", "MOVING_BOUNDARIES: ghost"),
     )
-    plan = _plan(root, ghost)
-    assert plan.blocked, "an alias resolving to nothing planned READY"
-    assert "ghost" in str(plan.blocked[0].error)
+    with pytest.warns(PyflightstreamWarning, match="ghost|Spinner"):
+        plan = _plan(root, ghost)
+    assert not plan.blocked
+    assert _moving_payload(root, ghost) is None
 
 
 def test_moving_boundaries_naming_all_moves_every_boundary(tmp_path):

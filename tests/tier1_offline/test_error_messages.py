@@ -961,23 +961,27 @@ def test_a_geometry_without_a_mesh_block_is_named_rather_than_the_row(tmp_path):
     assert "absent.fsm" in str(unreadable.value) and "could not be read" in str(unreadable.value)
 
 
-def test_a_label_absent_from_a_declared_inventory_names_the_inventory(tmp_path):
+def test_p0580_an_absent_motion_label_is_skipped_or_refused_by_the_choice(tmp_path):
     from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.workflows import build_script
     from tests.tier1_offline.test_workflows import _saved_simulation
 
-    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
-    with pytest.raises(CampaignConfigError) as caught:
-        build_script(_rotor_row_against(sector, "Nacelle"), Script("26.123"))
-    message = str(caught.value)
-    assert "the mesh block of sector.fsm" in message
-    assert "'Blade1', 'S', 'N'" in message and "'Nacelle'" in message
-    with_sidecar = _rotor_row_against(sector, "Nacelle").model_copy(
-        update={"inventory": ("Blade1", "S", "N")}
-    )
-    with pytest.raises(CampaignConfigError) as sidecar:
-        build_script(with_sidecar, Script("26.123"))
-    assert "the sidecar sector.fsm.boundaries.toml" in str(sidecar.value)
+    names = ("Blade1", "Blade2", "Blade3", "Blade4", "S", "N")
+    sector = _saved_simulation(tmp_path / "sector.fsm", list(names))
+    base = _rotor_row_against(sector, "Nacelle")
+    with_sidecar = base.model_copy(update={"inventory": names})
+    for case in (base, with_sidecar):
+        script = Script("26.123")
+        build_script(case, script)
+        assert "CREATE_NEW_MOTION ROTARY" not in script.render()
+        refused = case.model_copy(
+            update={"variables": {**case.variables, "IGNORE_MISSING_FAMILIES": False}}
+        )
+        with pytest.raises(CampaignConfigError) as caught:
+            build_script(refused, Script("26.123"))
+        message = str(caught.value)
+        for fragment in ("Nacelle", "sector.fsm", "ignore_missing_families"):
+            assert fragment in message, message
 
 
 def test_the_rebuild_command_a_failed_products_write_offers_is_one_post_accepts(

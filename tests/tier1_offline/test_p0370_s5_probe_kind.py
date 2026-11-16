@@ -89,7 +89,8 @@ def _script(tmp_path: Path, run_type: str, spec: PprocSpec) -> Script:
     """Build one row of ``run_type`` naming ``spec``, its outputs as the pproc declares them."""
     base = steady_case() if run_type == "steady" else _case_for(run_type)
     tmp_path.mkdir(parents=True, exist_ok=True)
-    case = _with_pproc(base, _wb_geometry(tmp_path), pproc=spec)
+    blades = [name for rotor in base.rotors.values() for name in rotor.families_blades]
+    case = _with_pproc(base, _wb_geometry(tmp_path, *blades), pproc=spec)
     names = [name.replace("{name}", "P") for name in spec.outputs(run_type != "steady")]
     case = case.model_copy(update={"outputs": names})
     script = Script("26.124")
@@ -279,9 +280,10 @@ def _continuation(tmp_path: Path, run_type: str, spec: PprocSpec) -> tuple[Scrip
         RESTART_ITERATIONS_VARIABLE: "12",
     }
     (tmp_path / "cont").mkdir(parents=True)
+    blades = [name for rotor in base.rotors.values() for name in rotor.families_blades]
     case = _with_pproc(
         base.model_copy(update={"variables": {**base.variables, **restart}}),
-        _wb_geometry(tmp_path / "cont"),
+        _wb_geometry(tmp_path / "cont", *blades),
         pproc=spec,
     )
     names = [name.replace("{name}", "P") for name in spec.outputs(True)]
@@ -362,9 +364,10 @@ def _windowed(tmp_path: Path, run_type: str, kind: str = "default") -> tuple[Sim
     key = "EXPORT_UNSTEADY_AFTER_ITER" if run_type == "unsteady" else "EXPORT_UNSTEADY_LAST_ITER"
     base = _case_for(run_type)
     tmp_path.mkdir(parents=True, exist_ok=True)
+    blades = [name for rotor in base.rotors.values() for name in rotor.families_blades]
     case = _with_pproc(
         base.model_copy(update={"variables": {**base.variables, key: "2"}}),
-        _wb_geometry(tmp_path),
+        _wb_geometry(tmp_path, *blades),
         pproc=spec,
     )
     case = case.model_copy(

@@ -43,7 +43,8 @@ COMMANDS = ("SET_LOADS_AND_MOMENTS_UNITS", "SET_SOLVER_ANALYSIS_BOUNDARIES", "SE
 
 
 def _with_geometry(case, tmp_path):
-    return case.model_copy(update={"geometry": str(_wb_geometry(tmp_path))})
+    blades = [name for rotor in case.rotors.values() for name in rotor.families_blades]
+    return case.model_copy(update={"geometry": str(_wb_geometry(tmp_path, *blades))})
 
 
 @pytest.mark.requirement("FR-114")
@@ -110,17 +111,22 @@ def test_g09_a_unit_the_command_does_not_know_is_refused(tmp_path):
     assert "COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE" in text, text
 
 
-def test_g09_analysis_families_the_geometry_lacks_are_refused_naming_the_key(tmp_path):
-    """No family resolves: refused at plan; an empty list: refused when the file is read."""
+def test_p0580_absent_analysis_families_are_omitted_unless_refusal_is_requested(tmp_path):
+    """Default omission, explicit refusal, and an explicit empty list are distinct inputs."""
     case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
         update={"solver": SolverSettings(analysis_families=["P", "N"])}
     )
-    # A fatal site under every policy (REL2-003): going on would load every boundary.
     for strict in (False, True):
         with option_context("warning_refusals", strict):
+            assert not any(
+                line.startswith("SET_SOLVER_ANALYSIS_BOUNDARIES") for line in _render(case)
+            )
+            refused = case.model_copy(
+                update={"variables": {**case.variables, "IGNORE_MISSING_FAMILIES": False}}
+            )
             with pytest.raises(CampaignConfigError, match="analysis_families") as raised:
-                _render(case)
-        assert "carries none of them" in str(raised.value), raised.value
+                _render(refused)
+        assert "ignore_missing_families" in str(raised.value), raised.value
     with pytest.raises(InputArtifactError, match="analysis_families = \\[\\]"):
         setup_case(tmp_path, "analysis_families = []\n")
 
@@ -146,7 +152,7 @@ def test_g09_the_keys_of_an_unsteady_row_precede_the_solve_and_warn(make, solver
     case = make().model_copy(update={"solver": SolverSettings(**solver)})
     (key,) = solver
     if key == "analysis_families":
-        # A family the opened geometry carries; one it lacks is refused (above).
+        # A family the opened geometry carries, alongside the rotor's declared blades.
         case = _with_geometry(case, tmp_path)
     with pytest.warns(PyflightstreamWarning, match=key) as caught:
         lines = _render(case)

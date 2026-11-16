@@ -1792,10 +1792,16 @@ class TestFr317Fr318MomentsModel:
         then START_SOLVER (FR-568 of 0.35.0, RPT-133; 0.34.0 emitted the list after
         START_SOLVER, the limit FR-318 stated).
         """
-        case = _fr317_fr318_moments_model__rotor_case().model_copy(
+        base = _fr317_fr318_moments_model__rotor_case()
+        names = (
+            "Blade",
+            "Hub",
+            *(name for rotor in base.rotors.values() for name in rotor.families_blades),
+        )
+        case = base.model_copy(
             update={
-                "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", ("Blade", "Hub"))),
-                "inventory": ("Blade", "Hub"),
+                "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", names)),
+                "inventory": names,
                 "inventory_source": "sidecar",
                 "mesh_import": MeshImport(units="METER"),
                 "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),

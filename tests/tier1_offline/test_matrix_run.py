@@ -4299,15 +4299,18 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     assert "SET_VORTICITY_DRAG_BOUNDARIES" in message, f"the command: {message}"
     assert "FSM-26.120 p.202" in message, f"the manual's sentence: {message}"
 
-    # A nonempty family list passes artifact validation and reaches the shared
-    # builder's inventory check. This synthetic workspace carries no family W.
+    # A nonempty list passes artifact validation. This fixture has no readable
+    # geometry inventory, so the native label guard still refuses its reference.
     setup.write_text("iterations = 800\nvorticity_drag_boundaries = ['W']\n", encoding="utf-8")
     pproc.write_text(kept[0], encoding="utf-8")
     with option_context("warning_refusals", True):
         plan = _plan_first_matrix(workspace, first)
     assert len(plan.points) == 2
     assert all(point.status == PlanStatus.BLOCKED for point in plan.points)
-    assert all("absent: W" in point.error for point in plan.points)
+    for point in plan.points:
+        assert point.error is not None
+        assert "unknown mesh boundary label 'W'" in point.error, point.error
+        assert "no mesh boundary labels are registered" in point.error, point.error
 
 
 def test_an_empty_group_is_refused_before_a_campaign_runs(tmp_path):

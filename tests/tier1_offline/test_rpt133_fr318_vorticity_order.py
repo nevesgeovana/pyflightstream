@@ -95,10 +95,16 @@ def test_the_package_emits_the_order_rpt_133_measured_as_arm_b_fr_318(tmp_path):
     evidence of that order.
     """
     # Verifies FR-318.
-    case = rotor_case().model_copy(
+    base = rotor_case()
+    names = (
+        "Blade",
+        "Hub",
+        *(name for rotor in base.rotors.values() for name in rotor.families_blades),
+    )
+    case = base.model_copy(
         update={
-            "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", ("Blade", "Hub"))),
-            "inventory": ("Blade", "Hub"),
+            "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", names)),
+            "inventory": names,
             "inventory_source": "sidecar",
             "mesh_import": MeshImport(units="METER"),
             "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
