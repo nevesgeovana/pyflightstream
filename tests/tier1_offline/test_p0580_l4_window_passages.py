@@ -328,20 +328,15 @@ def test_p0580_l4_named_motion_views_use_each_rotors_present_families():
 
 
 def test_p0580_l4_an_existing_inferred_copy_path_keeps_its_wheel_count():
-    from pyflightstream.cases.workflows._reductions import _blade_count
-    from pyflightstream.cases.workflows._rows import (
-        _the_copies_the_sector_stands_for,
-        _wheel_blade_count,
-    )
-    from pyflightstream.script import Script
+    from pyflightstream.cases.workflows._reductions import reduction_windows
     from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
 
     full = FIXTURE_ROTOR.model_copy(update={"families_blades": [f"Blade{i}" for i in range(1, 7)]})
-    case = rotor_case(BLADES=None, SYMMETRY="PERIODIC", MOVING_BC_ALIAS="ROTOR").model_copy(
-        update={"rotors": {full.alias: full}, "inventory": ("Blade1",)}
-    )
-    script = Script("26.127")
-    script.entities.declare_boundaries({"Blade1": 1})
-    assert _the_copies_the_sector_stands_for(case, script) == (6, "")
-    assert _wheel_blade_count(case, full) == 6
-    assert _blade_count(case) == 6
+    case = rotor_case(
+        BLADES=None, SYMMETRY="PERIODIC", MOVING_BC_ALIAS="ROTOR", LAST_REVS_AVG="0.166667"
+    ).model_copy(update={"rotors": {full.alias: full}, "inventory": ("Blade1",)})
+    require_whole_passages(case)
+    plan = reduction_windows(case)
+    assert plan is not None and plan["blades"] == 6
+    assert plan["blade_families"] == ["Blade1"]
+    assert plan["phase_locked"]["period_steps"] == pytest.approx(500 / 6)
