@@ -215,6 +215,7 @@ class Assembly(RemovalSteps):
 
     def _load(self):
         worst, where = 0, {}
+        features = []
         for name, patches in self.sources.items():
             model = self.models.get(name)
             if model is None:
@@ -235,6 +236,10 @@ class Assembly(RemovalSteps):
             gap = abs(len(built) - int(self.expected_faces.get(name, expected)))
             if gap > worst or not where:
                 worst, where = gap, {"component": name, "built": len(built)}
+            feature = self._input_feature(name, built)
+            features.append(feature)
+            if feature["status"] == "failed":
+                return [feature], {"inputs": {"component": name}}
             self.faces[name] = self._self_fragment(name, built)
             self.input_free_edges += [
                 self._samples(edge, 17)
@@ -267,7 +272,37 @@ class Assembly(RemovalSteps):
                 cause="STRATEGY: the pieces of a row do not touch (placement)",
             ),
         ]
+        checks.append(
+            min(
+                (c for c in features if c["status"] != "skipped"),
+                key=lambda c: c["measured"],
+                default=skip(["assembly.thin_feature"], "no active dominance face")[0],
+            )
+        )
         return checks, {"inputs": {"patches": {n: len(p) for n, p in self.sources.items()}}}
+
+    def _input_feature(self, name, faces):
+        """Refuse a source face whose opposing sewing bands leave no resolvable width."""
+        if not any(name in (op.dominant, op.dominated) for op in self.plan):
+            return skip(["assembly.thin_feature"], "no dominance operation on this piece")[0]
+        active = [f for f in faces if not self._inert(f)]
+        if not active:
+            return skip(["assembly.thin_feature"], "no active dominance face")[0]
+        face = min(active, key=self._face_width)
+        width = self._face_width(face)
+        index = self.origin[face][1]
+        model = self.models.get(name)
+        family = list(model.bases)[index] if model else self.sources[name][index].family
+        return jn.measured(
+            "assembly.thin_feature",
+            width,
+            2 * jn.SEW_M,
+            unit="m",
+            bound="min",
+            where={"component": name, "face": family},
+            cause=f"STRATEGY: thin feature {name}.{family} is below the sewing resolution; "
+            "increase its mean width above two sewing tolerance bands before assembly",
+        )
 
     def _record_input_slivers(self, name):
         """Keep the thin source faces as the export sewing reference."""
@@ -601,12 +636,14 @@ class Assembly(RemovalSteps):
         The faces are those in :attr:`faces` when the cut runs, the active ones: an inert face
         takes no part in the fragment. A group with no face has no width to keep.
         """
-        widths = [
-            jn.mean_width(self.k.area(f), sum(self._length(abs(e)) for e in self.k.boundary(f)))
-            for name in group
-            for f in self.faces[name]
-        ]
+        widths = [self._face_width(f) for name in group for f in self.faces[name]]
         return min(widths, default=float("inf"))
+
+    def _face_width(self, face: Face) -> float:
+        """Return the face's mean width, twice its area divided by its perimeter."""
+        return jn.mean_width(
+            self.k.area(face), sum(self._length(abs(e)) for e in self.k.boundary(face))
+        )
 
     def _remove(self):
         with self._active_faces():

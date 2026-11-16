@@ -75,6 +75,18 @@ per `[[sets]]` table of the second file and continues after a failed set, each i
 process of its own. `pyfs-geom stages` lists the stages and their checks, `validate` prints every
 resolved value with its source and `configurations` lists the registry.
 
+Assembly refuses a source face participating in a dominance operation when
+its mean width, twice its area divided by its perimeter, is below 20 um.
+That is two 10 um sewing tolerance bands: the opposing edge bands must leave
+a resolvable face between them. The `S10.D1` check `assembly.thin_feature`
+stops before fragmentation and names the component, source face, measured
+width and limit, with a thin-feature cause and a request to increase the
+width. For example, a 20 um blunt trailing-edge base on a 2.5 m wing is
+refused there instead of reaching a cut and reporting a BUG. No floor
+changes the geometry. Standalone sources without dominance operations and
+inert moving or cove faces retain their current treatment; this check is
+separate from the wider sliver-quality diagnostic.
+
 ## Plain controls
 
 Plain flaps and ailerons cut stationary and moving pieces from the same lifting

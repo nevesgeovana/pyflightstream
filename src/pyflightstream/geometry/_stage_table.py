@@ -207,6 +207,7 @@ STAGE_ROWS: tuple[StageRow, ...] = (
         True,
         ("assembly.face_count", "the faces the generation built, per piece"),
         ("placement.contact", "the row's tolerance_m: the pieces of a row touch"),
+        ("assembly.thin_feature", "mean width at least two SEW_M bands, 2e-5 m"),
     ),
     _row("S10.C5", "Piece regenerated", True, ("piece.regenerated", "REGENERATE_M, 1e-9 m")),
     _row("S10.C6", "Symmetry edges", True, ("piece.symmetry_edges", "SYMMETRY_M, 1e-6 m")),

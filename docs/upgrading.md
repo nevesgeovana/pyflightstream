@@ -11,6 +11,13 @@ refusals. Filter `PyflightstreamDeprecationWarning` explicitly when needed;
 it is now a `FutureWarning`, visible to TOML readers as well as CLI users.
 Post logs still retain every warning when console warnings are disabled.
 
+Geometry assembly checks source faces participating in a dominance operation
+before fragmentation. A mean width below 20 um (two 10 um sewing tolerance
+bands) fails `assembly.thin_feature`, naming the component and face. Increase
+that face's width above the stated resolution; no floor is applied. A source
+with no dominance operation and an inert moving or cove face retain their
+current treatment. See [parametric geometry](geometry-parametrization.md).
+
 ## 0.58.0
 
 Reduction rows with their own windows omit `WINDOW_PASSAGES`; `WINDOW_REVS`

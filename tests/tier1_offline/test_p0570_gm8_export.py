@@ -872,7 +872,11 @@ def _written_halves(folder, height=1.0):
     try:
         assembly = Assembly(kernel, {"plate": piece}, [], out=folder)
         loaded = assembly.step("S10.D1")
-        assert all(c["status"] == "passed" for c in loaded["checks"])
+        checks = {c["id"]: c for c in loaded["checks"]}
+        feature = checks.pop("assembly.thin_feature")
+        assert feature["status"] == "skipped"
+        assert feature["note"] == "no active dominance face"
+        assert all(c["status"] == "passed" for c in checks.values())
         written = write_assembly(assembly, folder / "combined.igs")
     finally:
         kernel.close()

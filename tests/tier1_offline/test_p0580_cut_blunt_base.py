@@ -153,3 +153,72 @@ def test_p0580_the_cut_fuzzy_value_is_a_tenth_of_the_thinnest_face(
     with asm._active_faces():
         fuzzy = asm._group_fuzzy(["BODY", "WING"])
     assert fuzzy == pytest.approx(expected, rel=1e-3)
+
+
+@pytest.mark.parametrize("base", [5e-6, 20e-6], ids=["P0581-BASE-5UM", "P0581-BASE-20UM"])
+@pytest.mark.parametrize("operation", ["cut", "project"], ids=["P0581-CUT", "P0581-PROJECT"])
+@pytest.mark.parametrize("dominant", ["BODY", "WING"], ids=["P0581-HOST", "P0581-DOMINANT"])
+def test_p0581_thin_base_is_refused_by_name_before_the_cut(
+    kernel, tmp_path, base, operation, dominant
+):
+    """PFS-2236: a 2.5 m wing with a 20 um base needs a named input refusal.
+
+    Reproduction: assemble the body with its seam in the base plane and the wing.
+    The two sewing tolerance bands must not consume the base before its cut.
+    """
+    from pyflightstream.workspace._geom_assembly import Assembly
+
+    asm = Assembly(
+        kernel,
+        {"BODY": body(2.5), "WING": blunt_wing(base)},
+        [
+            {
+                "dominant": [dominant],
+                "dominated": ["WING" if dominant == "BODY" else "BODY"],
+                "operation": operation,
+            }
+        ],
+        out=tmp_path,
+        kinds=KINDS,
+    )
+    record = asm.step("S10.D1")
+    failed = [c for c in record["checks"] if c["status"] == "failed"]
+    assert failed, record
+    check = failed[0]
+    assert "thin_feature" in check["id"], check
+    assert check["where"]["component"] == "WING", check
+    assert check["where"]["face"] == "te_base", check
+    assert check["measured"] == pytest.approx(base, rel=1e-3), check
+    assert check["limit"] == pytest.approx(20e-6), check
+    assert "sewing" in check["note"] and "BUG" not in check["note"], check
+    assert not asm.cut_done
+
+
+@pytest.mark.parametrize((), [pytest.param(id="P0581-THIN-UNUSED-SOURCE")])
+def test_p0581_thin_source_with_no_dominance_operation_keeps_loading(kernel, tmp_path):
+    """The refusal protects an operation's input, preserving a standalone source export."""
+    from pyflightstream.workspace._geom_assembly import Assembly
+
+    asm = Assembly(kernel, {"WING": blunt_wing(20e-6)}, [], out=tmp_path)
+    assert not [c for c in asm.step("S10.D1")["checks"] if c["status"] == "failed"]
+
+
+@pytest.mark.parametrize("inert", [False, True], ids=["P0581-GENERATED-NAME", "P0581-INERT"])
+def test_p0581_generated_base_keeps_its_source_name_and_inert_exclusion(kernel, tmp_path, inert):
+    from dataclasses import replace
+
+    from pyflightstream.geometry.stages import GeneratedPiece
+    from pyflightstream.workspace._geom_assembly import Assembly
+
+    wing = GeneratedPiece.from_patches("WING", "1", blunt_wing(20e-6))
+    base = next(key for key, patch in wing.bases.items() if patch.family == "te_base")
+    if inert:
+        wing = replace(wing, inert_bases=(base,))
+    asm = Assembly(kernel, {"BODY": body(2.5), "WING": wing}, [CUT], out=tmp_path, kinds=KINDS)
+    failed = [c for c in asm.step("S10.D1")["checks"] if c["status"] == "failed"]
+    if inert:
+        assert not failed, failed
+    else:
+        assert len(failed) == 1, failed
+        assert failed[0]["where"] == {"component": "WING", "face": base}
+        assert "BUG" not in failed[0]["note"]
