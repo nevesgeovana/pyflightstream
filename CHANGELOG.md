@@ -13,6 +13,8 @@ FlightStream versions.
 
 MESH_ROUTE moves from a matrix column to an optional VAR_NAMES variable; the column is gone.
 
+An `ADVANCE_RATIO:sweep` states each point's rotor speed during matrix planning, including farfield output discovery; swept RPM and flow conditions use the same concrete point view. migration: J sweeps need no RPM workaround.
+
 Accepted deprecated TOML keys and CLI flags name their replacement once under default warning filters, including `superfile_format` and the former `trim_moment` spellings during a quiet post. The warnings remain in post logs, and explicit warning filters and `--warning-off` still apply. `PyflightstreamDeprecationWarning` now derives from `FutureWarning` so TOML readers see it outside the CLI too. Forms removed in 0.58.0 retain their named refusals. PFS-2229. migration: filter the package's deprecation category explicitly to suppress these messages.
 
 A source face in a dominance operation whose mean width is below two sewing tolerance bands (20 um) stops assembly before fragmentation, naming its component and face, measured width, limit and remedy. A 20 um blunt trailing-edge base now fails `assembly.thin_feature` with a thin-feature cause instead of reaching a cut with a BUG cause. No floor changes the geometry; standalone thin sources and inert faces retain their treatment. PFS-2236. migration: increase the named face's mean width above 20 um before assembling it.

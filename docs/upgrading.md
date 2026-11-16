@@ -2,6 +2,12 @@
 
 ## 0.58.1
 
+A rotary row stating `ADVANCE_RATIO:sweep` in `FLIGHT_CONDITION` and its J values
+in `SWEEP_VALUES` now plans with farfield revolution windows. Each point derives
+its own speed from `n = V / (J D)`; no `RPM` workaround is needed. Output discovery
+uses the first concrete point, including its resolved flow state. A row stating
+neither `ADVANCE_RATIO` nor `RPM` still refuses the missing rotor speed.
+
 `MESH_ROUTE` is an optional `VAR_NAMES_VALUES` variable, for example
 `MESH_ROUTE: native`, `MESH_ROUTE: full_grid` or `MESH_ROUTE: quad_dominant`.
 The matrix header has no `MESH_ROUTE` column. An absent variable states no route.

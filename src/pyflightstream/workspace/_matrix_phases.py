@@ -22,6 +22,7 @@ from pyflightstream.cases import (
     RawCommand,
     ReferenceData,
     SimCase,
+    case_at_point,
     point_state_key,
 )
 from pyflightstream.cases.acoustics import resolve_observers_file
@@ -947,9 +948,7 @@ def _swept_condition_key(row: MatrixRow) -> str | None:
     the swept one is the key whose value each point carries.
     """
     key = POINT_AXIS_KEYS.get(row.sweep.type)
-    if key is None or key in ATTITUDE_KEYS:
-        return None
-    return key
+    return None if key in ATTITUDE_KEYS else key
 
 
 def _attitude_at(row: MatrixRow, key: str, point: Mapping[str, float]) -> float | None:
@@ -1634,7 +1633,11 @@ def _bind_rows(binding: _Binding) -> None:
         _bind_row_variables(binding, case, row, update)
         _bind_states(binding, row, update)
         if row.workflow != LEGACY_WORKFLOW:
-            update["outputs"] = row_outputs(case.model_copy(update=update), row.workflow)
+            # Output discovery can read a rotor clock through a farfield window.
+            # Use the first concrete point, as the row's resolved state does;
+            # swept J, RPM and flow values do not exist on the unexpanded row.
+            first = case_at_point(case.model_copy(update=update), next(row.sweep.points(), {}))
+            update["outputs"] = row_outputs(first, row.workflow)
         bound_case = case.model_copy(update=update)
         if (
             (bound_case.fsi is not None or bound_case.fsi_external is not None)

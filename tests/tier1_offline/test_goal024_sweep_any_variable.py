@@ -18,11 +18,19 @@ select them.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from pyflightstream.cases.matrix import MatrixError, read_matrix, to_campaign
-from pyflightstream.cases.workflows import workflow_registry
+from pyflightstream.cases import CampaignConfigError, case_at_point
+from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix, to_campaign
+from pyflightstream.cases.workflows import build_script, workflow_registry
+from pyflightstream.run import PlanStatus
 from pyflightstream.run.matrix import plan_matrix
+from pyflightstream.script import Script
+from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace.matrix import resolve_matrix
+from tests.support_helpers import saved_mesh_fixture
 from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
 
 #: The axes a configuration declares, so a row may state a body rate.
@@ -279,4 +287,125 @@ def test_f5_0304_fr104_each_point_state_follows_the_gas_law_and_its_own_mach(tmp
         )
         assert fluid.pressure_pa == pytest.approx(
             fluid.density_kg_m3 * gas_constant * fluid.temperature_k, rel=2e-3
+        )
+
+
+# P0581-JSWEEP: farfield output planning reads a concrete rotor point.
+
+
+def _jsweep_fixture(tmp_path: Path, axis: str, values: str) -> tuple[CampaignWorkspace, Path]:
+    workspace = CampaignWorkspace.init(tmp_path / "campaign")
+    inputs = workspace.inputs_dir
+    (inputs / "references/r001.toml").write_text(
+        "area_m2 = 1.0\nchord_m = 1.0\nspan_m = 2.0\n"
+        '[ROTOR]\nkind = "rotor"\naxis = "X"\nrpm_sign = 1\n'
+        'diameter_m = 2.0\nfamilies_blades = ["Blade1"]\n'
+        'blade1 = {azimuth_deg = 0.0, zero = "Z"}\n',
+        encoding="utf-8",
+    )
+    (inputs / "setups/s001.toml").write_text("iterations = 10\n", encoding="utf-8")
+    (inputs / "pproc/p001.toml").write_text(
+        '[groups]\n"1" = "all"\n[[farfields]]\nname = "wake"\n'
+        'variant = "wake"\nexport_type = "export_window"\n',
+        encoding="utf-8",
+    )
+    saved_mesh_fixture(inputs / "geometries/rotor.fsm", ["Blade1"])
+    condition = {"TASmps": "30", "REmi": "1.2", "ALPHA": "0", "BETA": "0"}
+    if axis != "NONE":
+        condition["RPM" if axis != "ADVANCE_RATIO" else "ADVANCE_RATIO"] = "1200"
+        condition[axis] = "sweep"
+    else:
+        condition["ALPHA"] = "sweep"
+    row = {
+        "POL": "1001",
+        "HIDDEN": "1",
+        "RUN": "1",
+        "AIRCRAFT": "RotorRig",
+        "FLIGHT_CONDITION": ", ".join(f"{key}:{value}" for key, value in condition.items()),
+        "SWEEP_VALUES": values,
+        "GEOMETRY": "rotor.fsm",
+        "REF": "r001",
+        "SET": "s001",
+        "PPROC": "p001",
+        "FS_BUILD": "26.127",
+        "WORKFLOW": "unsteady_rotor",
+        "VAR_NAMES_VALUES": "CLOCK_MOTION: ROTOR / MOTIONS: {MOVING_BC_ALIAS: ROTOR} / "
+        "DELTA_THETA: 5 / REVOLUTIONS: 2 / LAST_REVS_AVG: 1 / EXPORT_UNSTEADY_LAST_REV: 1",
+    }
+    matrix = workspace.root / "rotor.fs"
+    matrix.write_text(
+        " | ".join(MATRIX_COLUMNS)
+        + "\n"
+        + " | ".join(row.get(key, "-") for key in MATRIX_COLUMNS)
+        + "\n",
+        encoding="utf-8",
+    )
+    return workspace, matrix
+
+
+@pytest.mark.parametrize(
+    ("axis", "values", "expected_rpm"),
+    [
+        ("ADVANCE_RATIO", "0.8,1,1.4", [1125, 900, 642.8571]),
+        ("RPM", "900,1200,1800", [900, 1200, 1800]),
+        ("TASmps", "20,30,40", [1200, 1200, 1200]),
+        ("MACH", "0.1,0.2,0.3", [1200, 1200, 1200]),
+        ("REmi", "1,2,3", [1200, 1200, 1200]),
+        ("ALPHA", "0,2,4", [1200, 1200, 1200]),
+        ("BETA", "0,2,4", [1200, 1200, 1200]),
+    ],
+    ids=lambda value: f"P0581-JSWEEP-{value}" if isinstance(value, str) else None,
+)
+def test_p0581_jsweep_plans_and_emits_each_points_own_rotor_speed(
+    tmp_path, axis, values, expected_rpm
+):
+    workspace, matrix = _jsweep_fixture(tmp_path, axis, values)
+    # A Mach sweep states its velocity through MACH alone.
+    if axis == "MACH":
+        matrix.write_text(
+            matrix.read_text(encoding="utf-8").replace("TASmps:30, ", ""), encoding="utf-8"
+        )
+    options = {"name": "rotor", "recipes": {}, "fs_exe": "unused-solver.exe"}
+    try:
+        plan = plan_matrix(
+            matrix,
+            workspace,
+            default_fs_version="26.127",
+            write_plan=False,
+            recipe_registry=workflow_registry(),
+            **options,
+        )
+    except CampaignConfigError as exc:
+        raise AssertionError(f"The {axis} sweep states its rotor speed: {exc}") from exc
+    assert [point.status for point in plan.points] == [PlanStatus.READY] * 3, plan.summary()
+    resolved = resolve_matrix(matrix, workspace, fs_version="26.127", **options)
+    (case,) = resolved.campaign.sims
+    speeds = []
+    for point, expected in zip(case.sweep.points(), expected_rpm, strict=True):
+        concrete = case_at_point(case, point)
+        if axis == "ADVANCE_RATIO":
+            assert concrete.point["advance_ratio"] == point["advance_ratio"]
+        script = Script("26.127")
+        build_script(concrete, script)
+        emitted = [
+            line.split()
+            for line in script.render().splitlines()
+            if line.startswith("SET_MOTION_ROTOR_RPM ")
+        ]
+        assert [float(line[2]) for line in emitted] == pytest.approx([expected])
+        speeds.append(float(emitted[0][2]))
+    assert speeds == pytest.approx(expected_rpm)
+
+
+def test_p0581_jsweep_a_row_stating_neither_speed_form_is_still_refused(tmp_path):
+    workspace, matrix = _jsweep_fixture(tmp_path, "NONE", "0,2,4")
+    with pytest.raises(CampaignConfigError, match="states no rotor speed"):
+        plan_matrix(
+            matrix,
+            workspace,
+            name="rotor",
+            recipes={},
+            fs_exe="unused-solver.exe",
+            default_fs_version="26.127",
+            write_plan=False,
         )
