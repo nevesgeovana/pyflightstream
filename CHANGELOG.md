@@ -4319,7 +4319,8 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.58.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.58.1...HEAD
+[0.58.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.58.0...v0.58.1
 [0.58.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.57.0...v0.58.0
 [0.50.2]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.1...v0.50.2
 [0.50.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.0...v0.50.1
