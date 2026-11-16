@@ -215,3 +215,31 @@ def test_p0580_each_rotor_reduction_uses_its_own_recorded_period(tmp_path):
         columns, rows = read_csv_table(root / f"AL-020_per_revolution_{alias}.csv")
         assert rows and {float(r["WINDOW_REVS"]) for r in rows} == {1}
         assert "WINDOW_PASSAGES" not in columns
+
+
+@pytest.mark.requirement("FR-3778")
+@pytest.mark.parametrize("own_window", [False, True])
+def test_p0580_rewriting_a_reduction_preserves_its_recorded_window_scope(tmp_path, own_window):
+    """A correction reads the canonical block; it does not choose another window."""
+    point = _row(FIRST_STEP=1, LAST_STEP=6, STEPS=6, WINDOW_REVS=0.5, WINDOW_PASSAGES=3)
+    columns: tuple[str, ...] = ("POL", "ROTOR", "H0")
+    cells: tuple[object, ...] = ("7001", "PROP", 7.5)
+    if own_window:
+        columns = ("POL", "ROTOR", "FIRST_STEP", "LAST_STEP", "STEPS", "H0")
+        cells = ("7001", "PROP", 1, 2, 2, 7.5)
+    raw = tmp_path / "reductions" / "AL-020_harmonics.csv"
+    copied = raw.with_name("AL-020_harmonics_corrected.csv")
+    with run_blocks({"AL-020": point}, {"PROP": 0}, {"AL-020": {"PROP": 12.0}}):
+        write_csv_table(raw, columns, [cells])
+        before_columns, before = read_csv_table(raw)
+        assert before[0]["WINDOW_REVS"] == ("0.166667" if own_window else "0.50000")
+        assert ("WINDOW_PASSAGES" in before_columns) is not own_window
+        write_csv_table(
+            copied,
+            (*before_columns, "CORRECTION_ROUTE"),
+            [(*[row[name] for name in before_columns], "table") for row in before],
+        )
+    after_columns, after = read_csv_table(copied)
+    assert after_columns == (*before_columns, "CORRECTION_ROUTE")
+    assert [{name: row[name] for name in before_columns} for row in after] == before
+    assert {row["CORRECTION_ROUTE"] for row in after} == {"table"}

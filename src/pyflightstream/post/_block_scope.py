@@ -315,6 +315,8 @@ def with_run_block(
     if block is None:
         return columns, rows
     if target.parent.name == "reductions" and {"FIRST_STEP", "LAST_STEP", "STEPS"} <= set(columns):
+        if tuple(columns[: len(block)]) == tuple(block):
+            return columns, rows
         return _with_reduction_blocks(columns, rows, block, scope)
     return apply_row_blocks(columns, rows, [block] * len(rows), scope.rotor_ids, head=block)
 

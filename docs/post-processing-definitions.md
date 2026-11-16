@@ -27,6 +27,10 @@ column of that row. It is `NA` where the required rotor clock is absent.
 Reduction rows with their own windows carry no `WINDOW_PASSAGES` column and
 never borrow their window metadata from the point.
 
+A corrected table retains the raw product's window block and its recorded
+support. Reading and rewriting a canonical block does not turn a point-level
+window into a row-specific average, or recompute an already recorded row window.
+
 For example, a half-turn point at twelve steps per revolution has six steps.
 Its three consecutive reduction windows, 1-2, 3-4 and 5-6, each average two
 steps and each state `WINDOW_REVS = 1/6`. The point's run block still states
