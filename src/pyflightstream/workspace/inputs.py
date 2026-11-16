@@ -763,11 +763,12 @@ class PprocArtifact(PprocSpec):
     Use the built-in ``all`` only when no reference alias or boundary has that
     name; otherwise declare a unique reference alias with the intended members.
     The input is one string; the model normalizes it to a one-member list.
+    ``TOTAL`` and ``AIRFRAME`` are automatic groups; custom groups use other names.
 
-    >>> PprocArtifact(groups={"TOTAL": "all"}).groups
-    {'TOTAL': ['all']}
-    >>> PprocArtifact(groups={"AIRFRAME": "airframe"}).groups
-    {'AIRFRAME': ['airframe']}
+    >>> PprocArtifact(groups={"ALL_SURFACES": "all"}).groups
+    {'ALL_SURFACES': ['all']}
+    >>> PprocArtifact(groups={"WING_BODY": "wing_body"}).groups
+    {'WING_BODY': ['wing_body']}
     """
 
     @model_validator(mode="wrap")
