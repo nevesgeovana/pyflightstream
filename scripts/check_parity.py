@@ -14,11 +14,12 @@ from that tree:
    WITHOUT ``__all__`` offers (bound at module level, not starting with ``_``,
    not a module, not imported from outside the package; see
    :func:`offered_names`). Modules with a private dotted segment are excluded
-   (AD-15). Only the fully qualified retired bindings in ``API_EXEMPT`` are exempt.
+   (AD-15). Retirements require a current migration note and the exact registered
+   actionable refusal; earlier exemptions remain in ``API_EXEMPT``.
 2. **cli**: every console script of the base ``pyproject.toml``, every
    subcommand, every option string and every ``choices`` value is still in the
-   release parser (a parser diff; each parser is captured at the moment its
-   ``main`` calls ``parse_args``).
+   release parser (captured at ``parse_args``), or its declared command home
+   carries the identical suffix after the old command refuses by name.
 3. **scripts**: the emitted scripts of the golden campaign set
    (``GOLDEN_RENDERS`` of ``tests/tier1_offline/test_workflows.py``) and of the
    tier-3 matrices (``tests.tier3_licensed.offline.render``), each rendered by
@@ -69,6 +70,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import csv
 import datetime as dt
 import difflib
@@ -105,6 +107,7 @@ EXPORTED = (
     "src",
     "tests",
     "docs/srs",
+    "docs/upgrading.md",
     REQUIREMENTS_DIR.as_posix(),
     "pyproject.toml",
     "scripts/_requirements_paths.py",
@@ -936,9 +939,55 @@ PLANTED_NAME = "__parity_control_name__"
 PLANTED_FLAG = "--parity-control-flag"
 
 
-def cli_refused(base: set[str], release: set[str]) -> list[str]:
+def cli_migrations(
+    base: set[str], release: set[str], retirements: dict[str, Any]
+) -> dict[str, Any]:
+    """Name only verified prefix moves whose unchanged suffix exists at its new home."""
+    migrated = {}
+    for old in sorted(base - release):
+        prefixes = [p for p in retirements if old == p or old.startswith(p + " ")]
+        if not prefixes:
+            continue
+        prefix = max(prefixes, key=len)
+        entry = retirements[prefix]
+        suffix = old[len(prefix) :]
+        current = entry["replacement"] + suffix
+        if re.fullmatch(r"pyfs-[\w-]+(?: [\w-]+)*", entry["replacement"]):
+            if current not in release:
+                continue
+        elif prefix == "pyfs-matrix run --sweep-csv" and not suffix:
+            current = None
+        elif prefix == "pyfs-workspace geometry" and suffix in ("", " --help", " -h"):
+            homes = re.findall(r"\bpyfs-[a-z-]+\b", entry["replacement"])
+            if not homes or any(home + suffix not in release for home in homes):
+                continue
+            current = [home + suffix for home in homes]
+        else:
+            continue
+        migrated[old] = {**entry, "current": current}
+    return migrated
+
+
+def cli_refused(
+    base: set[str], release: set[str], retirements: dict[str, Any] | None = None
+) -> list[str]:
     """Return the command-line spellings the base accepts and the release no longer does."""
-    return sorted(base - release)
+    return sorted(base - release - cli_migrations(base, release, retirements or {}).keys())
+
+
+def _scoped_retirements(cli: dict[str, Any], base_version: str) -> dict[str, Any]:
+    """Keep observed retirements after the base, naming AD-15 and the migration page."""
+    return {
+        kind: {
+            name: entry
+            for name, entry in cli.get("retirements", {}).get(kind, {}).items()
+            if entry.get("decision") == "AD-15"
+            and entry.get("migration") == "docs/upgrading.md"
+            and entry.get("since") == "0.58.0"
+            and in_scope(entry, base_version)
+        }
+        for kind in ("api", "cli")
+    }
 
 
 #: The planted controls a run must catch: three api, one cli, one scripts, two post (a changed
@@ -1179,7 +1228,73 @@ def collect_cli(tree: Path) -> dict[str, Any]:
             continue
         spellings.add(console)
         _spellings(parser, console, spellings)
-    return {"targets": dict(scripts), "spellings": sorted(spellings), "unavailable": unavailable}
+    return {
+        "targets": dict(scripts),
+        "spellings": sorted(spellings),
+        "unavailable": unavailable,
+        "retirements": _collect_retirements(tree, scripts),
+    }
+
+
+def _collect_retirements(tree: Path, scripts: dict[str, str]) -> dict[str, Any]:
+    """Observe each documented old name's exact refusal in this tree, with no execution."""
+    result: dict[str, Any] = {"api": {}, "cli": {}}
+    migration = tree / "docs/upgrading.md"
+    architecture = tree / "docs/srs/architecture-srs.md"
+    if not migration.is_file() or not architecture.is_file():
+        return result
+    if 'decision "AD-15 Observable changes are named"' not in architecture.read_text("utf-8"):
+        return result
+    notes = migration.read_text("utf-8").split("## 0.57.0", 1)[0]
+    if "## 0.58.0" not in notes:
+        return result
+    ledger = importlib.import_module(f"{PACKAGE}._retired_names")
+
+    def facts(entry: Any) -> dict[str, str]:
+        return {
+            "since": entry.retired_in,
+            "replacement": entry.new,
+            "message": entry.message(),
+            "decision": "AD-15",
+            "migration": "docs/upgrading.md",
+        }
+
+    for name, entry in getattr(ledger, "RETIRED_ATTRIBUTES", {}).items():
+        if entry.retired_in != "0.58.0" or entry.old not in notes:
+            continue
+        owner, _, old = name.rpartition(".")
+        if (owner, old) != (entry.owner, entry.old):
+            continue
+        try:
+            getattr(importlib.import_module(owner), old)
+        except ledger.RetiredAttributeError as exc:
+            if str(exc) == entry.message():
+                result["api"][name] = facts(entry)
+        except Exception:  # noqa: BLE001 - any other failure is not the registered refusal
+            pass
+    for entry in getattr(ledger, "REMOVED_FORMS", {}).values():
+        prefix = f"{entry.owner} {entry.old}"
+        program, *arguments = prefix.split()
+        if entry.retired_in != "0.58.0" or program not in scripts or entry.old not in notes:
+            continue
+        if not re.fullmatch(r"pyfs-[\w-]+(?: [\w-]+)*", entry.new) and prefix not in (
+            "pyfs-workspace geometry",
+            "pyfs-matrix run --sweep-csv",
+        ):
+            continue
+        module, _, function = scripts[program].partition(":")
+        output = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+                code = getattr(importlib.import_module(module), function)([*arguments, "--help"])
+        except Exception:  # noqa: BLE001 - an exception is not the declared CLI refusal
+            continue
+        if code == 2 and any(
+            line in (entry.message(), entry.message() + " Nothing was run.")
+            for line in output.getvalue().splitlines()
+        ):
+            result["cli"][prefix] = facts(entry)
+    return result
 
 
 def collect_scripts(tree: Path) -> dict[str, str]:
@@ -2255,6 +2370,9 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         request.write_text(json.dumps(planted), encoding="utf-8")
         missing_api = run_child(python, "resolve", tree, temp / "release", request)
         cli_release = run_child(python, "cli", tree, temp / "release")
+        retirements = _scoped_retirements(cli_release, base_version)
+        retired_api = {m: retirements["api"][m] for m in missing_api if m in retirements["api"]}
+        missing_api = [m for m in missing_api if m not in retired_api]
         scripts_release = run_child(python, "scripts", tree, temp / "release")
         workspace_release = run_child(
             python, "workspace-scripts", tree, temp / "release", workspace_request
@@ -2298,6 +2416,7 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "modules": len(api_base["exports"]),
         "modules_without_all": len(api_base["offered"]),
         "missing": missing_api,
+        "retired": retired_api,
         "missing_without_all": [m for m in missing_api if m in offered_keys],
         "exempt": {name: API_EXEMPT[name] for name in exempt},
         "unimportable_at_base": api_base["unimportable"],
@@ -2305,13 +2424,22 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
 
     base_spellings, release_spellings = set(cli_base["spellings"]), set(cli_release["spellings"])
     planted_flag = f"{MATRIX_CONSOLE} {PLANTED_FLAG}"
+    expected_controls = CONTROLS
+    cli_retired = retirements["cli"]
     # The control goes through the same comparison the report uses, so a broken
     # comparison cannot leave it true.
-    if planted_flag in cli_refused(base_spellings | {planted_flag}, release_spellings):
+    if planted_flag in cli_refused(base_spellings | {planted_flag}, release_spellings, cli_retired):
         controls.append("cli: a flag no parser has was reported refused")
+    migrated_cli = cli_migrations(base_spellings, release_spellings, cli_retired)
+    if migrated_cli:
+        expected_controls += 1
+        moved = min(migrated_cli) + " " + PLANTED_FLAG
+        if moved in cli_refused(base_spellings | {moved}, release_spellings, cli_retired):
+            controls.append("cli: an unknown flag under a moved command was reported refused")
     cli = {
         "checked": len(base_spellings),
-        "missing": cli_refused(base_spellings, release_spellings),
+        "missing": cli_refused(base_spellings, release_spellings, cli_retired),
+        "migrated": migrated_cli,
         "added_at_release": len(release_spellings - base_spellings),
         "unavailable_at_base": cli_base["unavailable"],
         "unavailable_at_release": cli_release["unavailable"],
@@ -2408,8 +2536,8 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
             failures.append(f"{len(loose)} {kind} differ without a named requirement: {loose[:3]}")
     if post["exit"] != {"base": 0, "release": 0}:
         failures.append(f"post exited {post['exit']}")
-    if len(controls) != CONTROLS:
-        failures.append(f"the planted controls caught {len(controls)} of {CONTROLS}")
+    if len(controls) != expected_controls:
+        failures.append(f"the planted controls caught {len(controls)} of {expected_controls}")
 
     return {
         "script": SCRIPT,
@@ -2425,7 +2553,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "scripts": scripts,
         "post": post,
         "named_differences": NAMED_DIFFERENCES,
-        "controls": {"caught": f"caught {len(controls)} of {CONTROLS}", "detail": controls},
+        "controls": {
+            "caught": f"caught {len(controls)} of {expected_controls}",
+            "detail": controls,
+        },
         "failures": failures,
         "verdict": "PARITY: FAIL" if failures else "PARITY: PASS",
     }

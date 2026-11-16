@@ -15,6 +15,7 @@ import importlib.util
 import json
 from argparse import Namespace
 from pathlib import Path
+from types import SimpleNamespace
 
 from tests.support_helpers import grouped_plan_fixture
 
@@ -226,7 +227,9 @@ def test_p0370_s9_a_refusal_on_one_side_only_is_a_difference():
     assert entry["base"] is None and entry["release"] == "refused"
 
 
-def _verdict(tmp_path, monkeypatch, base_skipped, release_skipped):
+def _verdict(
+    tmp_path, monkeypatch, base_skipped, release_skipped, *, interfaces=None, base_version="0.36.0"
+):
     """Run the real ``parity()`` over controlled collector observations at both trees.
 
     The two sides render the same workspace script and differ only in what the grouped plan left
@@ -237,7 +240,7 @@ def _verdict(tmp_path, monkeypatch, base_skipped, release_skipped):
 
     def git(*args, binary=False):
         if args[0] == "show" and args[1].endswith(":pyproject.toml"):
-            return 'version = "0.36.0"'  # the base version that scopes named entries (P0400)
+            return f'version = "{base_version}"'  # scopes named entries (P0400)
         return Path(parity.__file__).read_bytes() if binary else "a" * 40
 
     def collect(python, mode, tree, work, argument=None):
@@ -253,8 +256,11 @@ def _verdict(tmp_path, monkeypatch, base_skipped, release_skipped):
                 f"{module}.{name}"
                 for module, name in json.loads(argument.read_text())
                 if name == parity.PLANTED_NAME
+                or (interfaces is not None and f"{module}.{name}" in interfaces["missing"])
             ]
         if mode == "cli":
+            if interfaces is not None:
+                return interfaces[work.name]
             return {"spellings": ["pyfs-matrix"], "unavailable": {}}
         if mode == "scripts":
             return {"render/control.txt": "render\n"}
@@ -295,6 +301,142 @@ def _verdict(tmp_path, monkeypatch, base_skipped, release_skipped):
 
 def _sim(reason):
     return [{"sim": "7001", "reason": reason}]
+
+
+def _interfaces():
+    return {
+        "missing": ["pyflightstream.other.public"],
+        "base": {"spellings": ["pyfs-matrix show", "pyfs-matrix show --json"], "unavailable": {}},
+        "release": {
+            "spellings": ["pyfs-workspace show", "pyfs-workspace show --json"],
+            "unavailable": {},
+            "retirements": {
+                "api": {
+                    "pyflightstream.other.public": {
+                        "since": "0.58.0",
+                        "replacement": "current",
+                        "message": "the registered actionable refusal",
+                        "decision": "AD-15",
+                        "migration": "docs/upgrading.md",
+                    }
+                },
+                "cli": {
+                    "pyfs-matrix show": {
+                        "since": "0.58.0",
+                        "replacement": "pyfs-workspace show",
+                        "message": "the registered actionable refusal",
+                        "decision": "AD-15",
+                        "migration": "docs/upgrading.md",
+                    }
+                },
+            },
+        },
+    }
+
+
+def test_p0580_parity_checks_documented_retirements_and_exact_command_homes(tmp_path, monkeypatch):
+    """P0580-PARITY-INTERFACES (AD-15): a verified refusal and exact moved suffix pass."""
+    _, receipt = _verdict(tmp_path, monkeypatch, [], [], interfaces=_interfaces())
+    assert receipt["verdict"] == "PARITY: PASS"
+    assert not receipt["api"]["missing"] and not receipt["cli"]["missing"]
+    assert "pyflightstream.other.public" in receipt["api"]["retired"]
+    assert receipt["cli"]["migrated"]["pyfs-matrix show --json"]["current"] == (
+        "pyfs-workspace show --json"
+    )
+    assert any("moved command" in entry for entry in receipt["controls"]["detail"])
+
+
+def test_p0580_parity_does_not_allow_other_attributes_or_options_of_a_retired_home(
+    tmp_path, monkeypatch
+):
+    """P0580-PARITY-INTERFACES (AD-15): a ledger row never exempts its entire owner."""
+    for kind in ("api", "cli"):
+        data = _interfaces()
+        if kind == "api":
+            data["release"]["retirements"]["api"].clear()
+        else:
+            data["base"]["spellings"].append("pyfs-matrix show --invented")
+        _, receipt = _verdict(tmp_path, monkeypatch, [], [], interfaces=data)
+        assert receipt["verdict"] == "PARITY: FAIL", kind
+        assert receipt[kind]["missing"], kind
+
+
+def test_p0580_parity_collects_observed_refusals_not_just_ledger_rows(monkeypatch):
+    """P0580-PARITY-INTERFACES (AD-15): the actual old API and CLI must refuse by name."""
+    parity = _parity()
+    first = parity.collect_cli(REPO).get("retirements", {})
+    name = "pyflightstream.post.polar.GroupCoefficients"
+    assert name in first.get("api", {})
+    assert "pyfs-matrix show" in first.get("cli", {})
+    # The negative observation is a synthetic import fixture: the ledger claims
+    # retirement while its owner still offers the binding and its CLI exits 0.
+    api = SimpleNamespace(
+        owner="example",
+        old="GroupCoefficients",
+        new="current",
+        retired_in="0.58.0",
+        message=lambda: "the registered actionable refusal",
+    )
+    command = SimpleNamespace(
+        owner="pyfs-matrix",
+        old="show",
+        new="pyfs-workspace show",
+        retired_in="0.58.0",
+        message=lambda: "the registered actionable refusal",
+    )
+    imports = {
+        "pyflightstream._retired_names": SimpleNamespace(
+            RETIRED_ATTRIBUTES={"example.GroupCoefficients": api},
+            REMOVED_FORMS={"pyfs-matrix.show": command},
+            RetiredAttributeError=AttributeError,
+        ),
+        "example": SimpleNamespace(GroupCoefficients=object(), main=lambda argv: 0),
+    }
+    monkeypatch.setattr(parity.importlib, "import_module", imports.__getitem__)
+    second = parity._collect_retirements(REPO, {"pyfs-matrix": "example:main"})
+    assert "example.GroupCoefficients" not in second.get("api", {})
+    assert "pyfs-matrix show" not in second.get("cli", {})
+
+
+def test_p0580_parity_retirement_policy_does_not_cover_a_current_base(tmp_path, monkeypatch):
+    """P0580-PARITY-INTERFACES (AD-15): a migration cannot excuse a later regression."""
+    _, receipt = _verdict(
+        tmp_path, monkeypatch, [], [], interfaces=_interfaces(), base_version="0.58.0"
+    )
+    assert receipt["verdict"] == "PARITY: FAIL"
+    assert receipt["api"]["missing"] == ["pyflightstream.other.public"]
+    assert len(receipt["cli"]["missing"]) == 2
+
+
+def test_p0580_parity_keeps_only_the_exact_retired_option_and_empty_container():
+    """P0580-PARITY-INTERFACES (AD-15, FR-3833): no unknown child or flag is waived."""
+    parity = _parity()
+    records = {
+        "pyfs-workspace geometry": {
+            "replacement": "pyfs-mesh for mesh verbs, pyfs-geom iges-convert and pyfs-fsi beam"
+        },
+        "pyfs-matrix run --sweep-csv": {"replacement": "the group files of each polar"},
+    }
+    known = {
+        "pyfs-workspace geometry",
+        "pyfs-workspace geometry --help",
+        "pyfs-workspace geometry -h",
+        "pyfs-matrix run --sweep-csv",
+    }
+    unknown = {
+        "pyfs-workspace geometry invented",
+        "pyfs-workspace geometry --invented",
+        "pyfs-matrix run --sweep-csv=choice",
+    }
+    release = {
+        p + suffix
+        for p in ("pyfs-mesh", "pyfs-geom", "pyfs-fsi")
+        for suffix in ("", " -h", " --help")
+    }
+    assert parity.cli_refused(known | unknown, release, records) == sorted(unknown)
+    assert "pyfs-workspace geometry -h" in parity.cli_refused(
+        known, release - {"pyfs-fsi -h"}, records
+    )
 
 
 def test_p0370_s9_the_verdict_names_exactly_the_changed_coupled_reason(tmp_path, monkeypatch):

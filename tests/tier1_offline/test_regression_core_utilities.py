@@ -545,8 +545,8 @@ def test_check_parity_cli_control_goes_through_the_report_comparison():
     assert module.cli_refused({"a", planted}, {"a"}) == [planted]
     assert module.cli_refused({"a"}, {"a", planted}) == []
     source = (Path(module.__file__)).read_text(encoding="utf-8")
-    assert "cli_refused(base_spellings | {planted_flag}, release_spellings)" in source
-    assert '"missing": cli_refused(base_spellings, release_spellings)' in source
+    assert "cli_refused(base_spellings | {planted_flag}, release_spellings, cli_retired)" in source
+    assert '"missing": cli_refused(base_spellings, release_spellings, cli_retired)' in source
 
 
 class TestF7MaintainerScripts:
