@@ -14,7 +14,7 @@ when a Python caller reads the TOML file, using the ordinary default filters.
 `PyflightstreamDeprecationWarning` derives from `FutureWarning` and
 `PyflightstreamWarning`; filter that package category explicitly to suppress it.
 `PYTHONWARNINGS` and `--warning-off` retain their chosen behavior. An old form
-already removed in 0.58.0 is still refused by name.
+already removed is still refused by name.
 
 Every postprocessing stage records all its warnings and skipped products in
 `post.log` and `post.log.json`, including category, severity, point, product,
