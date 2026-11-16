@@ -14,10 +14,9 @@ Two setup keys reach the solver here, each through a short hook in
     as measured on 26.124 and 26.125 in the committed fixture
     ``pfs2119_016_delete_surfaces_ids_2026-10-16.md``. Tree position after
     deletion is not an ID. Later selections use the retained IDs.
-    Families are removed in descending ID order. Where the row's reference declares the study's
-    vocabulary (FR-435), a name the study holds and the row's model lacks
-    is skipped and said, and a list every name of which is skipped emits
-    no removal.
+    Families are removed in descending ID order. A name the row's model
+    lacks is skipped and said with or without a study vocabulary, and a
+    list every name of which is skipped emits no removal.
 
 ``slipstream_wake_stabilization``
     A toggle emitted as ``SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION`` for
@@ -35,13 +34,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from weakref import WeakKeyDictionary
 
-from pyflightstream.cases import CampaignConfigError, select_group_members
+from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases._skipped_families import (
     SETUP_ARTIFACT,
+    families_on_this_mesh,
     names_a_row_can_cite,
     selects_nothing,
     skips_a_name_the_model_lacks,
-    study_vocabulary,
 )
 from pyflightstream.script.helpers import WAKE_STABILIZATION_COMMAND
 
@@ -115,7 +114,7 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
     doomed: set[int] = set()
     for token in stated:
-        found = select_group_members([token], ordered, case.aliases)
+        found = families_on_this_mesh(case, [token], ordered, key=DELETE_SURFACES_KEY)
         if not found and skips_a_name_the_model_lacks(
             case, SETUP_ARTIFACT, DELETE_SURFACES_KEY, token, ordered
         ):
@@ -238,7 +237,7 @@ def _every_name_skipped(script: Script, case: SimCase) -> bool:
     emits no ``DELETE_SURFACES``, and that is not a key that reached nothing.
     """
     labels = script.entities.labels("boundaries")
-    if not labels or study_vocabulary(case) is None:
+    if not labels:
         return False
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
     names = names_a_row_can_cite(case)

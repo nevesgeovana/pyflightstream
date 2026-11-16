@@ -3867,22 +3867,12 @@ def test_an_exact_boundary_label_is_not_read_as_its_family(tmp_path):
     )
 
 
-def test_a_row_naming_a_surface_the_geometry_lacks_is_refused_naming_what_it_has(tmp_path):
-    """An unknown name is refused, and the refusal is didactic."""
+def test_p0580_a_row_naming_a_surface_the_geometry_lacks_moves_only_present_families(tmp_path):
+    """P0580: an absent member is left out of the motion selection."""
     sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
     script = Script("26.123")
-    with pytest.raises(CampaignConfigError) as raised:
-        build_script(_rotor_row(sector, "Blade,Nacelle"), script)
-    message = str(raised.value)
-    assert "Nacelle" in message
-    assert "Blade1" in message and "'S'" in message, (
-        "the refusal does not list the labels the geometry actually carries, so it "
-        "tells the user they are wrong without telling them what is right"
-    )
-    assert "no mesh boundary labels are registered yet" not in message, (
-        "the refusal took the undeclared-inventory branch, which means the package "
-        "did not declare the inventory and this test is passing for the wrong reason"
-    )
+    build_script(_rotor_row(sector, "Blade,Nacelle"), script)
+    assert _moving_payload(script.render()) == "1"
 
 
 def test_a_positional_row_still_works_and_says_what_the_positions_are(tmp_path):
@@ -4296,14 +4286,13 @@ def test_vorticity_drag_families_resolve_through_the_inventory(tmp_path):
 
 
 @pytest.mark.usefixtures("warning_refusals_on")
-def test_vorticity_drag_families_the_geometry_lacks_entirely_are_refused(tmp_path):
-    from pyflightstream.cases import CampaignConfigError, SolverSettings
+def test_p0580_vorticity_drag_families_the_geometry_lacks_entirely_emit_no_selection(tmp_path):
+    from pyflightstream.cases import SolverSettings
 
     case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
         update={"solver": SolverSettings(vorticity_drag_families=["P", "N"])}
     )
-    with pytest.raises(CampaignConfigError, match="carries none of them"):
-        rendered(case)
+    assert "SET_VORTICITY_DRAG_BOUNDARIES" not in rendered(case)
 
 
 def test_significant_digits_reach_the_script():
@@ -4826,16 +4815,14 @@ def test_naming_no_family_changes_no_golden(tmp_path):
     ]
 
 
-def test_an_unknown_base_region_family_is_refused_naming_the_inventory(tmp_path):
+def test_p0580_an_absent_base_region_family_is_skipped_but_an_unknown_inventory_refuses(tmp_path):
     sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
     row = _rotor_row(sector, "Blade").model_copy(
         update={"variables": {**_rotor_row(sector, "Blade").variables, "BASE_REGIONS": "Wing"}}
     )
-    with pytest.raises(CampaignConfigError) as caught:
-        build_script(row, Script("26.123"))
-    message = str(caught.value)
-    assert "BASE_REGIONS" in message and "'Wing'" in message
-    assert "the mesh block of sector.fsm" in message and "'Blade1', 'S', 'N'" in message
+    script = Script("26.123")
+    build_script(row, script)
+    assert "DETECT_BASE_REGIONS_BY_SURFACE" not in script.render()
     placeholder = tmp_path / "placeholder.fsm"
     placeholder.write_bytes(b"fake simulation")
     with pytest.raises(CampaignConfigError) as blockless:
@@ -6475,29 +6462,14 @@ def test_axial_separation_families_resolve_through_the_inventory(tmp_path):
 
 
 @pytest.mark.usefixtures("warning_refusals_on")
-def test_axial_separation_families_the_geometry_lacks_entirely_are_refused(tmp_path):
-    """An empty selection would read to the solver as the DEFAULT, which the preset did not ask for.
-
-    The same refusal `vorticity_drag_families` makes, and through the same
-    function: one rule rather than two copies that drift.
-    """
-    from pyflightstream.cases import CampaignConfigError, SolverSettings
+def test_p0580_axial_separation_families_the_geometry_lacks_entirely_emit_no_selection(tmp_path):
+    """P0580: the absent list is omitted, preserving the common vorticity/axial reading."""
+    from pyflightstream.cases import SolverSettings
 
     case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
         update={"solver": SolverSettings(axial_separation_families=["P", "N"])}
     )
-    with pytest.raises(CampaignConfigError, match="carries none of them") as caught:
-        rendered(case, build="26.100")
-    # THE REFUSAL NAMES THE KEY THE USER WROTE, not the neighbouring one. The
-    # resolver is now shared, so a context argument threaded wrongly would put
-    # `vorticity_drag_boundaries` in a message about the axial list and send her
-    # to the wrong line of her own file.
-    # THE PRESET'S OWN SPELLING, and this asserted the HELPER keyword. The
-    # refusal named `axial_separation_boundaries`, which is a `solver_settings()`
-    # Python argument and a key she cannot write in a preset at all -- so it sent
-    # a reader to a line that is not in her file. The QA lens of the closing round
-    # measured the sentence.
-    assert "axial_separation_families" in str(caught.value), caught.value
+    assert "SET_AXIAL_SEPARATION_BOUNDARIES" not in rendered(case, build="26.100")
 
 
 def test_a_preset_that_says_nothing_places_no_boundary_on_the_axial_list(tmp_path):

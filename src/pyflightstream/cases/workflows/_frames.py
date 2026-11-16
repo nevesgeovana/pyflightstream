@@ -46,9 +46,7 @@ from ._motion import (
 from ._names import (
     ORIGINAL_FRAME_SUFFIX,
     _artifact_of,
-    _declared_labels,
     _inventory,
-    _refuse_name_absent_from_inventory,
     _refuse_name_without_inventory,
     _resolve_token,
 )
@@ -532,16 +530,10 @@ def _rotations(
                 continue
             if not labels:
                 _refuse_name_without_inventory(case, ROTATE_VARIABLE, name)
-            found = _resolve_token(case, name, labels)
-            if not found:
-                _refuse_name_absent_from_inventory(case, ROTATE_VARIABLE, name, labels)
+            found = _resolve_token(case, name, labels, key=ROTATE_VARIABLE)
             boundaries.extend(index for index in found if index not in boundaries)
         if not boundaries:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {ROTATE_VARIABLE} turning {cited!r}, "
-                f"which names no boundary; name what to turn, of "
-                f"{_declared_labels(labels)}."
-            )
+            continue
         helpers.rotate_surfaces(
             script, frame=frame, axis=axis, angle_deg=angle, boundaries=sorted(boundaries)
         )
@@ -681,9 +673,9 @@ def _translations(
         cited = _what_the_translation_moves(case, record)
         if not labels:
             _refuse_name_without_inventory(case, TRANSLATE_VARIABLE, cited)
-        boundaries = _resolve_token(case, cited, labels)
+        boundaries = _resolve_token(case, cited, labels, key=TRANSLATE_VARIABLE)
         if not boundaries:
-            _refuse_name_absent_from_inventory(case, TRANSLATE_VARIABLE, cited, labels)
+            continue
         direction = _the_axis_in_reference_axes(case, script, frames, frame, frame_name, axis)
         vector = [0.0, 0.0, 0.0]
         vector[_AXIS_POSITION[axis]] = distance
@@ -1276,9 +1268,7 @@ def _rotor_blade_frames(
     inventory = set(_inventory(script))
     if origin is None:
         origin = _point_from_metres(view, script, rotor.origin, "rotor x_m/y_m/z_m")
-    count = _wheel_blade_count(
-        view, rotor, view.inventory if view.inventory is not None else _inventory(script)
-    )
+    count = _wheel_blade_count(view, rotor, _inventory(script) or None)
     created: dict[str, int] = {}
     for number, family in enumerate(rotor.families_blades, start=1):
         if family not in inventory:

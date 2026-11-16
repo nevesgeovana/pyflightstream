@@ -399,21 +399,12 @@ def test_the_full_model_script_is_the_one_v0380_writes_from_the_same_files(tmp_p
 # --- FR-981: no vocabulary, the 0.38.0 reading -----------------------------------
 
 
-def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
-    """P0390-R02 (FR-981) without [study]: delete_surfaces refuses; the bases are the rows'.
-
-    The second refusal 0.38.0 measured was the pproc's base_regions; since 0.58.0
-    (PFS-2252) the rows name the bases their model carries, so nothing is left to refuse.
-    """
+def test_p0580_without_a_study_absent_setup_families_are_skipped(tmp_path):
+    """P0580: no vocabulary is required for one setup to serve every model."""
     workspace, path = study(tmp_path / "first", reference=REFERENCE)
     plan, said = planned(workspace, path)
-    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
-    assert (
-        "CampaignConfigError: case '2001' states delete_surfaces with 'Sting', and the "
-        "inventory declares no surface of that name, alias or family; it declares 'Wing', "
-        "'Body', 'Base'. Write one of those, or a family name (the label without its "
-        "trailing number)."
-    ) == error_of(plan, "2001")
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
+    assert any("Sting" in line and "skipped" in line for line in said)
     assert fr435_warnings(said) == []
     setup = without(SETUP, 'delete_surfaces = ["Sting"]\n')
     workspace, path = study(tmp_path / "second", reference=REFERENCE, setup=setup)
@@ -422,8 +413,8 @@ def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
     assert fr435_warnings(said) == []
 
 
-def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
-    """P0390-R02 (FR-979) a row's own BASE_REGIONS is no study key: TailBase still refuses."""
+def test_p0580_a_rows_own_base_regions_skips_absent_families(tmp_path):
+    """P0580: the row's BASE_REGIONS follows the shared family-skip rule."""
     workspace, path = study(tmp_path, rows={})
     lines = [
         line.rsplit("|", 1)[0] + "| BASE_REGIONS: Base, TailBase"
@@ -432,9 +423,9 @@ def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
         for line in path.read_text(encoding="utf-8").splitlines()
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    plan, _ = planned(workspace, path)
-    assert status_of(plan)["2001"] == {PlanStatus.BLOCKED}
-    assert "states BASE_REGIONS with 'TailBase'" in error_of(plan, "2001")
+    plan, said = planned(workspace, path)
+    assert status_of(plan)["2001"] == {PlanStatus.READY}
+    assert any("TailBase" in line and "skipped" in line for line in said)
 
 
 # --- FR-984: a name the study does not hold is a misspelling ---------------------
@@ -467,10 +458,10 @@ def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
         ("pproc", 'TAIL = "tail"', 'TAIL = "tial"', "groups.TAIL", "tial"),
     ],
 )
-def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
+def test_p0580_an_unheld_name_is_skipped_by_default_and_refused_by_the_flag(
     tmp_path, artifact, old, new, key, name
 ):
-    """P0390-R02 (FR-984) BLOCKED on both rows at either flag, naming key, name, vocabulary."""
+    """P0580: a missing name reads the same whether or not a vocabulary holds it."""
     files = {"setup": SETUP, "pproc": PPROC}
     files[artifact] = files[artifact].replace(old, new)
     workspace, path = study(tmp_path, setup=files["setup"], pproc=files["pproc"])
@@ -478,6 +469,10 @@ def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
     folder = "setups" if artifact == "setup" else "pproc"
     for options in ({}, {"ignore_missing_families": False}):
         plan, said = planned(workspace, path, **options)
+        if not options:
+            assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
+            assert any(name in line and "skipped" in line for line in said)
+            continue
         assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.BLOCKED}}
         # Under the flag the wing-body row is refused first for the Sting it skips
         # by default (FR-988), unless the misspelling is in that very key.
@@ -489,9 +484,7 @@ def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
             assert f"the {artifact} artifact '{code}' (inputs/{folder}/{code}.toml)" in error
             assert f"cites {name!r} under {key}" in error
             assert f"row {row!r} ({geometry})" in error
-            assert "the reference artifact 'r001' (inputs/references/r001.toml)" in error
-            assert "'Wing', 'Body', 'Base', 'HTail', 'VTail', 'TailBase', 'Sting'" in error
-            assert "[study] surfaces" in error
+            assert "ignore_missing_families" in error
         assert fr435_warnings(said) == []
 
 
@@ -499,22 +492,16 @@ def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
 
 
 @pytest.mark.usefixtures("warning_refusals_on")
-def test_a_family_list_every_name_of_which_is_absent_keeps_its_v0380_refusal(tmp_path):
-    """P0390-R02 (FR-985) analysis_families of the tail alone: an empty selection is refused."""
+def test_p0580_a_family_list_every_name_of_which_is_absent_is_left_out(tmp_path):
+    """P0580: leave an all-absent selection out instead of emitting an empty list."""
     setup = SETUP.replace(
         'analysis_families = ["Wing", "Body", "HTail", "VTail"]',
         'analysis_families = ["HTail", "VTail"]',
     )
     workspace, path = study(tmp_path, setup=setup)
     plan, said = planned(workspace, path)
-    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
-    assert error_of(plan, "2001") == (
-        "CampaignConfigError: case '2001': the preset names analysis_families HTail, VTail and "
-        "the opened geometry carries none of them (absent: HTail, VTail), so the selection would "
-        "be empty. Name families the geometry carries, or drop analysis_families so every "
-        "boundary enters the loads."
-    )
-    assert fr435_warnings(said) == []
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
+    assert any("analysis_families" in line and "skipped" in line for line in said)
 
 
 def test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal(tmp_path):
@@ -792,7 +779,7 @@ def test_one_reader_of_the_flag_treats_absent_and_blank_alike():
 
 def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
     """P0390-R02 (FR-984, FR-986) the extraction refuses a misspelled member, skips a held one."""
-    from pyflightstream.cases import CampaignConfigError, PprocSpec, workflows
+    from pyflightstream.cases import PprocSpec, workflows
     from pyflightstream.script import Script
     from tests.tier1_offline.test_additional_post import SAVED, STEM, a_point_of
     from tests.tier1_offline.test_saved_simulation import as_a_matrix_row
@@ -815,8 +802,7 @@ def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
         workflows.build_additional_script(case, Script(BUILD), saved=SAVED, shadow=shadow)
 
     extract("Tail")
-    with pytest.raises(CampaignConfigError, match="Tial"):
-        extract("Tial")
+    extract("Tial")
 
 
 # --- W3 review fixes: the model as it opened, the rotor names, the words, the flag ---
@@ -883,11 +869,13 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
     said_skips = {
         (match.group(1), match.group(2))
         for line in lines
-        for match in [re.search(r": (\S+) cites '(\w+)', which the study", line)]
+        for match in [re.search(r": (.*?) cites '(\w+)', which the study", line)]
         if match
     }
     assert said_skips == {
-        ("analysis_families", "PUSHER"),
+        ("analysis_families (through 'PUSHER')", "Spinner"),
+        ("analysis_families (through 'PUSHER')", "Prop1"),
+        ("analysis_families (through 'PUSHER')", "Prop2"),
         ("groups.BLADE2", "Prop2"),
         ("groups.PUSHER", "Spinner"),
         ("groups.PUSHER", "Prop1"),
@@ -961,10 +949,8 @@ def test_the_flag_refuses_every_key_without_a_study(tmp_path, setup, pproc, key,
     assert "BASE_REGIONS" not in error
     assert fr435_warnings(said) == []
     plan, said = planned(workspace, path)
-    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
-    error = error_of(plan, "2001")
-    assert v0380 in error, error
-    assert "ignore_missing_families" not in error and "(FR-435)" not in error, error
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
+    assert any(name in line and "skipped" in line for line in said)
     assert fr435_warnings(said) == []
 
 

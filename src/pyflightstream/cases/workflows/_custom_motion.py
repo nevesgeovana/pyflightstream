@@ -25,8 +25,6 @@ from pyflightstream.script import Script
 
 from ._conventions import declared_run_type
 from ._names import (
-    _declared_labels,
-    _refuse_name_absent_from_inventory,
     _refuse_name_without_inventory,
     _resolve_token,
 )
@@ -241,6 +239,8 @@ def emit_custom_motions(case: SimCase, script: Script, stepping: TimeStepping) -
             )
         planned.append((record, payload, _the_boundaries_it_moves(case, record, labels)))
     for record, payload, boundaries in planned:
+        if not boundaries:
+            continue
         name = f"{PurePath(record[MOTION_TABLE_KEY].strip()).stem}{MOTION_TABLE_COPY_SUFFIX}"
         script.park_input_file(name, payload)
         copy = name if script.working_dir is None else str(PurePath(script.working_dir) / name)
@@ -282,12 +282,7 @@ def _the_boundaries_it_moves(
     alias = record[ROTATION_ALIAS_KEY].strip()
     if not labels:
         _refuse_name_without_inventory(case, MOTIONS_VARIABLE, alias)
-    found: Sequence[int] = _resolve_token(case, alias, labels)
-    if not found:
-        _refuse_name_absent_from_inventory(case, MOTIONS_VARIABLE, alias, labels)
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: {alias} names no boundary of {_declared_labels(labels)}."
-        )
+    found: Sequence[int] = _resolve_token(case, alias, labels, key=MOTIONS_VARIABLE)
     return sorted(set(found))
 
 

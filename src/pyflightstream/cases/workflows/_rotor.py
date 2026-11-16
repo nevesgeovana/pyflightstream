@@ -145,7 +145,7 @@ def emit_rotor_motion(
     frame: int | str,
     moving_frames: Sequence[int | str] | str | None = "all",
     speed: RotorSpeed | None = None,
-) -> int:
+) -> int | None:
     """Emit one rotary motion entirely from what the row declares.
 
     Motion, its type, its coordinate system, its rotor axis, its rotor
@@ -201,8 +201,9 @@ def emit_rotor_motion(
 
     Returns
     -------
-    int
-        Identifier of the created motion, for later citations.
+    int or None
+        Identifier of the created motion, for later citations. None when every
+        declared family is absent and the motion is left out.
 
     Raises
     ------
@@ -237,11 +238,12 @@ def emit_rotor_motion(
     if declared is not None:
         boundaries = _moving_boundaries(case, script, declared)
         if not boundaries:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} declares {MOVING_BOUNDARIES_VARIABLE} as "
-                f"{declared!r}, which names no boundary at all. Leave the key out to "
-                "move every boundary, or list the ones that move."
-            )
+            if not declared.replace(",", "").strip():
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: {MOVING_BOUNDARIES_VARIABLE} is an empty selection; "
+                    "leave the key out to move every boundary, or list the families to move."
+                )
+            return None
     # READ AND NOT EMITTED, deliberately: the shedding direction is a
     # component-file field and no command carries it, so this call cannot
     # act on it. It is read HERE because this is the function a rotor row
@@ -336,7 +338,12 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     resolved: list[int | str] = []
     positional: list[str] = []
     for token in tokens:
-        found = _resolve_token(case, token, labels)
+        members = _group_members(case, token)
+        found = (
+            _resolve_token(case, token, labels, key=MOVING_BOUNDARIES_VARIABLE)
+            if members is None
+            else ()
+        )
         if found:
             resolved.extend(found)
             continue
@@ -344,11 +351,11 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
         if isinstance(read, int):
             positional.append(token)
         else:
-            members = _group_members(case, token)
             if members is not None:
                 resolved.extend(_group_indices(case, token, members, labels))
                 continue
             _refuse_name_absent_from_inventory(case, MOVING_BOUNDARIES_VARIABLE, token, labels)
+            continue
         resolved.append(read)
     if positional:
         selected = ", ".join(

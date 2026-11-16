@@ -29,19 +29,15 @@ answers through its family ``Blade`` and is not refused.
 geometry does not carry by that name is missing even where its family answers,
 because the entry declared that blade and the row cuts another or none.
 
-FR-435 WIDENS THE SKIP TO THE SETUP AND THE PPROC KEYS, for a study. A setup,
-a pproc and a reference written once for every model of one aircraft cite
-names one model lacks: the wing-body row of a study whose wing-body-tail
-carries a sting and a tail. Where the row's REFERENCE declares the study's
-vocabulary (``[study] surfaces``, with its aliases and their members,
-:func:`study_vocabulary`), a name a key of FR-979 cites that selects
-nothing on the row's model is skipped when the vocabulary holds it and refused
-as a misspelling when it does not (:func:`judge_a_name_the_model_lacks`). Each
-skip is noted for the build (:func:`collecting_the_study_skips`), so the run
-records it on the point (``skipped_names``), and a plan says it once per
-artifact, key and name, naming every row that lacks it
-(:func:`saying_the_study_skips`, :func:`noting_the_study_skips`). A reference
-declaring no vocabulary uses the ordinary family-selection rules.
+The default skip applies to EVERY family-bearing plan input, so one setup,
+pproc and reference serve a full aircraft and its wing-off model. The row's
+REFERENCE may declare a study vocabulary (``[study] surfaces``); names held
+there retain the build's ``skipped_names`` records and the study warning.
+Other missing names use the same family warning above, including a misspelling.
+Only an invocation asking for the refusal changes that default. Callers leave
+an all-absent entry out instead of emitting an empty selection that the solver
+could read as its default. Inventory integrity and structural consistency are
+separate checks.
 """
 
 from __future__ import annotations
@@ -74,6 +70,7 @@ __all__ = [
     "StudySkip",
     "collecting_the_study_skips",
     "declared_names_the_geometry_lacks",
+    "families_on_this_mesh",
     "held_by_the_study",
     "ignores_missing_families",
     "judge_a_name_the_model_lacks",
@@ -273,22 +270,45 @@ def rotor_blade_families(
     A known inventory filters missing members; the existing plan collector
     names each skipped reference family once, using its existing warning.
     """
-    if inventory is None:
-        inventory = case.inventory
     if inventory is None and case.geometry is not None:
         try:
-            inventory = boundary_names(case.geometry)
+            inventory = boundary_names(case.geometry) or None
         except MeshReadError:
             pass  # The geometry path already reports an unreadable inventory.
     if inventory is None:
+        inventory = case.inventory
+    if inventory is None:
         return list(rotor.families_blades)
-    selected = select_group_members(rotor.families_blades, inventory, case.aliases, strict=False)
-    note_the_families_a_row_lacks(
-        case.sim_id,
-        _reference(case),
-        f"rotor {rotor.alias!r} families_blades",
-        declared_names_the_geometry_lacks(rotor.families_blades, inventory, case.aliases),
+    return families_on_this_mesh(
+        case,
+        rotor.families_blades,
+        inventory,
+        kind=_reference(case),
+        key=f"rotor {rotor.alias!r} families_blades",
     )
+
+
+def families_on_this_mesh(
+    case: SimCase,
+    selection: Sequence[str],
+    inventory: Sequence[str],
+    *,
+    kind: str = "setup",
+    key: str = "families",
+    declared_inventory: Sequence[str] | None = None,
+) -> list[str]:
+    """Select declared families and report missing members through the plan's skip path.
+
+    The same default applies to every family-bearing plan input. A wholly
+    absent declaration returns no families, as a pproc entry does; its caller
+    leaves the entry out. Explicit refusal mode retains the pproc choice.
+    """
+    aliases = names_a_row_can_cite(case)
+    selected = select_group_members(selection, inventory, aliases, strict=False)
+    judged = inventory if declared_inventory is None else declared_inventory
+    for owner, name in declared_names_the_geometry_lacks(selection, judged, aliases):
+        entry = key if owner is None else f"{key} (through {owner!r})"
+        judge_a_name_the_model_lacks(case, kind, entry, name)
     return selected
 
 
@@ -559,6 +579,8 @@ def refuses_a_name_the_model_lacks(case: SimCase) -> bool:
 
 def _artifact(case: SimCase, kind: str) -> tuple[str, str]:
     """Return one of a row's artifacts as (its id, the words a message names it with)."""
+    if kind not in (PPROC_ARTIFACT, SETUP_ARTIFACT):
+        return kind, kind
     if kind == PPROC_ARTIFACT:
         code = str(case.pproc_id or "").strip()
         folder = "pproc"
@@ -584,14 +606,10 @@ def _model(case: SimCase) -> str:
 
 
 def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str) -> bool:
-    """Skip one cited name the row's model lacks, or refuse it (FR-982, FR-984, FR-988).
+    """Skip one cited name the row's model lacks, or honor explicit refusal mode.
 
-    Called for a token of a key of FR-979 that selects nothing on the row's
-    model (:func:`selects_nothing`). In order: a name the row's study does not
-    hold is a misspelling and is refused at either value of
-    ``--ignore-missing-families`` (FR-984); a run that asked for the refusal
-    refuses it, whether or not the reference declares a vocabulary (FR-988); a
-    name the study holds is skipped and noted for the build (FR-982, FR-987, FR-989).
+    Held study names retain their recorded skips. All other absent names use
+    the ordinary family warning; a study is not required for the default skip.
 
     Parameters
     ----------
@@ -607,23 +625,24 @@ def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str)
     Returns
     -------
     bool
-        True when the name is skipped; False when the reference declares no
-        vocabulary and the run did not ask for the refusal, so the caller reads
-        the name using its ordinary selection rule (FR-981).
+        True when the name is skipped.
 
     Raises
     ------
     CampaignConfigError
-        The study does not hold the name, or the run asked for the refusal.
+        The run asked for the refusal.
     """
     vocabulary = study_vocabulary(case)
     code, said = _artifact(case, kind)
-    if vocabulary is not None and not held_by_the_study(token, vocabulary):
-        raise CampaignConfigError(_a_misspelling(case, said, key, token, vocabulary))
     if refuses_a_name_the_model_lacks(case):
         raise CampaignConfigError(_the_refusal_asked_for(case, said, key, token))
-    if vocabulary is None:
-        return False
+    if (
+        kind not in (SETUP_ARTIFACT, PPROC_ARTIFACT)
+        or vocabulary is None
+        or not held_by_the_study(token, vocabulary)
+    ):
+        note_the_families_a_row_lacks(case.sim_id, said, key, [(None, token)])
+        return True
     skip = StudySkip(code, key, token, said, _reference(case))
     collected = _BUILD.get()
     if collected is not None and skip not in collected:
@@ -684,19 +703,6 @@ def skips_a_name_the_model_lacks(
     if not selects_nothing(token, inventory, names_a_row_can_cite(case)):
         return False
     return judge_a_name_the_model_lacks(case, kind, key, token)
-
-
-def _a_misspelling(
-    case: SimCase, said: str, key: str, token: str, vocabulary: Sequence[str]
-) -> str:
-    """Word the refusal of a name neither the model nor the study carries (FR-984)."""
-    return (
-        f"case {case.sim_id!r}: {said} cites {token!r} under {key}, and neither the "
-        f"geometry of {_model(case)} nor the study vocabulary of {_reference(case)} "
-        f"holds it; the vocabulary holds {', '.join(repr(name) for name in vocabulary)}. "
-        "Correct the name, or add it to the reference's [study] surfaces if a model of "
-        "the study carries it (FR-435)."
-    )
 
 
 def _the_refusal_asked_for(case: SimCase, said: str, key: str, token: str) -> str:
@@ -796,7 +802,7 @@ def _the_study_warning(held: Sequence[StudySkip], rows: Sequence[str]) -> str:
         f"{references} holds, and {lacking}. "
         f"{'That row leaves' if len(rows) == 1 else 'Those rows leave'} it out of the key: "
         "a name the study holds and a model lacks is skipped, which is how one file serves "
-        "every model of a study, and a name the study does not hold is refused (FR-435)."
+        "every model of a study (FR-435)."
     )
 
 

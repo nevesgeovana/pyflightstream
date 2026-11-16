@@ -500,7 +500,11 @@ def _plot_each_rotors_own_history(
         own = [
             family
             for chosen in select_families(
-                block.members, inventory, pproc.is_blade, _the_names_a_rotor_answers_to(case)
+                block.members,
+                inventory,
+                pproc.is_blade,
+                _the_names_a_rotor_answers_to(case),
+                strict=False,
             )
             for family in chosen
         ]
@@ -512,7 +516,11 @@ def _plot_each_rotors_own_history(
                 continue
             try:
                 resolved = select_families(
-                    group.families, inventory, pproc.is_blade, _the_names_a_rotor_answers_to(case)
+                    group.families,
+                    inventory,
+                    pproc.is_blade,
+                    _the_names_a_rotor_answers_to(case),
+                    strict=False,
                 )
             except CampaignConfigError:
                 continue
@@ -769,7 +777,9 @@ def _cuts_a_section(case: SimCase, pproc: PprocSpec, inventory: Sequence[str]) -
                 return True
             continue
         try:
-            if select_families(entry.families, inventory, pproc.is_blade, aliases=names):
+            if select_families(
+                entry.families, inventory, pproc.is_blade, aliases=names, strict=False
+            ):
                 return True
         except PyflightstreamError:
             return True
@@ -906,7 +916,9 @@ def _warn_few_stations(
             continue
         count = int(entry.count or sections.count)
         side = count if mirror else count // 2
-        for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
+        for group in select_families(
+            entry.families, inventory, case.pproc.is_blade, aliases, strict=False
+        ):
             name = traced_family(group, inventory)
             if name is not None:
                 per_side[name] = max(per_side.get(name, 0), side)

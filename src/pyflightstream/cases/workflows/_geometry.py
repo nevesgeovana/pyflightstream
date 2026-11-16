@@ -45,6 +45,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._skipped_families import (
     SETUP_ARTIFACT,
+    families_on_this_mesh,
     skips_a_name_the_model_lacks,
 )
 from pyflightstream.cases.ccs_wing import (
@@ -68,7 +69,6 @@ from ._conventions import (
 from ._names import (
     _judge_the_group_members_the_model_lacks,
     _refuse_a_pproc_the_geometry_shares_no_name_with,
-    _refuse_name_absent_from_inventory,
     _refuse_name_without_inventory,
     _resolve_token,
 )
@@ -217,36 +217,50 @@ def _setup_ports(case: SimCase, script: Script) -> None:
     # RPT-081 preserves the negative controls and target-only remesh evidence.
     port_index = 0
     for port in case.solver.ports:
-        name = "inlets" if port.kind == "inlet" else "outlets"
-        command = "CREATE_NEW_INLET" if port.kind == "inlet" else "CREATE_NEW_OUTLET"
         if port.boundary is None or port.velocity is None:
             raise CampaignConfigError("setup ports must bind geometry identities and MATRIX values")
-        port_index += 1
-        profile_name = None
-        if port.profile is not None:
-            profile_name = _park_the_inlet_profile(case, script, port, port_index, name)
         indices = _sidecar_surfaces(case, script, "setup", "[[ports]]", (port.boundary,))
-        script.emit(command, indices[0], port.velocity)
-        if port.remesh is not None:
-            mesh = port.remesh
-            unit_scale = _from_metres(case, script, f"{name} remesh radius")
-            script.emit(
-                "REMESH_INLET" if name == "inlets" else "REMESH_OUTLET",
-                port_index,
-                inner_radius=mesh.inner_radius_m * unit_scale,
-                elements=mesh.radial_faces,
-                growth_scheme="1" if mesh.growth_scheme == "successive" else "2",
-                growth_rate=mesh.growth_rate,
-            )
-        if profile_name is not None:
-            script.emit("SET_INLET_CUSTOM_PROFILE", port_index, profile_name)
+        if not indices:
+            continue
+        port_index += 1
+        _emit_port(case, script, port, port_index, indices[0])
+
+
+def _emit_port(
+    case: SimCase, script: Script, port: PortBoundary, index: int, boundary: int
+) -> None:
+    """Create one selected port, then remesh and attach its staged profile in native order."""
+    name = "inlets" if port.kind == "inlet" else "outlets"
+    command = "CREATE_NEW_INLET" if port.kind == "inlet" else "CREATE_NEW_OUTLET"
+    profile = (
+        _park_the_inlet_profile(case, script, port, index, name)
+        if port.profile is not None
+        else None
+    )
+    script.emit(command, boundary, port.velocity)
+    if port.remesh is not None:
+        mesh = port.remesh
+        unit_scale = _from_metres(case, script, f"{name} remesh radius")
+        script.emit(
+            "REMESH_INLET" if name == "inlets" else "REMESH_OUTLET",
+            index,
+            inner_radius=mesh.inner_radius_m * unit_scale,
+            elements=mesh.radial_faces,
+            growth_scheme="1" if mesh.growth_scheme == "successive" else "2",
+            growth_rate=mesh.growth_rate,
+        )
+    if profile is not None:
+        script.emit("SET_INLET_CUSTOM_PROFILE", index, profile)
 
 
 def _sidecar_surfaces(
     case: SimCase, script: Script, sidecar: str, table: str, names: Sequence[str]
 ) -> list[int]:
-    """Resolve the surfaces a raw mesh's sidecar table names, exactly, to their indices."""
+    """Select a sidecar table's present surfaces through the common family reader."""
     labels = script.entities.labels("boundaries")
+    if labels:
+        selected = families_on_this_mesh(case, names, list(labels), kind=sidecar, key=table)
+        return [labels[name] for name in selected]
     indices: list[int] = []
     for name in names:
         index = labels.get(name)
@@ -283,7 +297,8 @@ def _base_region_operations(
 
     An entry whose ``boundary`` the row's study holds and the model lacks is
     not emitted (FR-982), and a skip that renumbers the base regions an
-    indexed entry counts is refused (FR-983).
+    indexed entry counts is refused (FR-983). No study vocabulary is required
+    for the default family skip.
     """
     actions = _the_operations_the_model_reaches(case, script, skipped_regions)
     for action in _named_base_operations(actions, dict(declared or {})):
@@ -393,9 +408,9 @@ def _the_operations_the_model_reaches(
     lacks and its study holds is left out. FR-983: a skip in ``base_regions``
     (``skipped_regions``), or of a ``create`` entry, renumbers every base
     region after it, so it is refused where an entry addresses a region by an
-    index other than ``all``. With no vocabulary every entry is kept and a
-    name the model lacks is refused where it is resolved, unless
-    the run asked for the refusal (FR-988). A ``boundary`` is classified against
+    index other than ``all``. The default skip applies with or without a
+    vocabulary; explicit refusal mode still refuses (FR-988).
+    A ``boundary`` is classified against
     the model as its geometry opened it, before ``delete_surfaces``.
     """
     operations = list(case.solver.base_region_operations or ())
@@ -481,11 +496,11 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
     for family in families:
         if not labels:
             _refuse_name_without_inventory(case, BASE_REGIONS_VARIABLE, family)
-        found = _resolve_token(case, family, labels)
-        # PFS-2252: only the row names these, and a row's own name the model lacks is refused
-        # (FR-979); the study skip applied to the retired pproc key.
+        found = _resolve_token(case, family, labels, key=BASE_REGIONS_VARIABLE)
+        # The row's names follow the same skip as setup and pproc families.
         if not found:
-            _refuse_name_absent_from_inventory(case, BASE_REGIONS_VARIABLE, family, labels)
+            skipped.append(family)
+            continue
         indices.extend(index for index in found if index not in indices)
     for index in sorted(indices):
         script.emit("DETECT_BASE_REGIONS_BY_SURFACE", boundary_index=index)
@@ -562,7 +577,18 @@ def _declare_boundaries(
         sidecar_name = (
             case.boundaries_file or PurePath(str(case.geometry)).name + ".boundaries.toml"
         )
-        if names and tuple(names) != tuple(case.inventory):
+        selected = (
+            families_on_this_mesh(
+                case,
+                case.inventory,
+                names,
+                kind=f"the boundaries file {sidecar_name!r}",
+                key="boundaries",
+            )
+            if names and tuple(names) != tuple(case.inventory)
+            else list(case.inventory)
+        )
+        if names and tuple(names) != tuple(selected):
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the mesh block of "
                 f"{PurePath(str(case.geometry)).name} lists {', '.join(names)} and the "
@@ -573,7 +599,7 @@ def _declare_boundaries(
                 "restage the file "
                 "the sidecar describes."
             )
-        names = tuple(case.inventory)
+        names = tuple(selected)
     if not names:
         return
     _declare_inventory(case, script, names)

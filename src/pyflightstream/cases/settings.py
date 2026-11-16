@@ -132,9 +132,9 @@ class ReferenceData(BaseModel):
     #: THE STUDY'S SURFACES (FR-980), from the reference artifact's
     #: ``[study] surfaces``: with the reference's aliases they are the names
     #: one setup and one pproc may cite across every model of the study. A
-    #: name they hold and the row's model lacks is skipped and said; a name
-    #: they do not hold is refused as a misspelling. None for a reference
-    #: declaring no ``[study]``, which resolves names against the row geometry.
+    #: name they hold and the row's model lacks is recorded as a study skip.
+    #: Other missing names use the same default family skip, including with
+    #: no ``[study]``. Explicit refusal mode remains available.
     study_surfaces: tuple[str, ...] | None = None
 
     @field_validator("body_axes")

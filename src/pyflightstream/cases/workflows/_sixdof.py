@@ -14,6 +14,7 @@ import math
 from pathlib import Path
 
 from pyflightstream.cases import CampaignConfigError, SimCase
+from pyflightstream.cases._setup_link import selected_boundaries
 from pyflightstream.cases.sixdof import (
     SixDofCustomForce,
     SixDofExternalForce,
@@ -110,7 +111,7 @@ def _sixdof_motion(
     ------
     CampaignConfigError
         A gated command not verified on the build, a frame the run does not create,
-        a family the geometry does not carry, a simulation not in metres, or a
+        explicit missing-family refusal mode, a simulation not in metres, or a
         trajectory asked with no declared output.
     """
     spec = case.sixdof
@@ -126,9 +127,10 @@ def _sixdof_motion(
             f"run creates (created: {', '.join(created) or 'none'}); the body frame at the "
             "pivot is declared in the reference artifact's [[frames]]."
         )
-    boundaries = [
-        script.resolve_boundary(family, context="the SIXDOF families") for family in spec.families
-    ]
+    boundaries = selected_boundaries(case, script, spec.families, key="SIXDOF families")
+    if not boundaries:
+        return
+    assert not isinstance(boundaries, str)
     if spec.export.trajectory and trajectory_file is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the SIXDOF input exports the trajectory and the row's "

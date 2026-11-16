@@ -251,7 +251,7 @@ def _settings(
     reference_scale = (
         native_length if reference is not None and reference.normalization_units == "SI" else 1.0
     )
-    solver = case.solver
+    solver = _setup_link.settings_on_this_mesh(case, script)
     native_mach = _resolved_native_mach(case, script)
     # Pass each bound preset setting to the emitter; None emits nothing.
     # wake_termination_revolutions needs conversion using the case's clock
@@ -284,9 +284,21 @@ def _settings(
     # the per-mechanism lists (PFS-2257), then the emission.
     vorticity = _setup_link.vorticity_indices(case, script)
     axial = _setup_link.axial_separation_indices(case, script)
-    _refuse_per_mechanism_separation(case, script)
+    checked_solver = (
+        solver
+        if axial is not None
+        else solver.model_copy(update={"axial_separation_families": None})
+    )
+    _refuse_per_mechanism_separation(case.model_copy(update={"solver": checked_solver}), script)
     # PFS-2256: the thin boundaries are the geometry's boundaries file's.
     thin = thin_boundaries_of(case.boundaries_file)
+    thin_selection = _setup_link.selected_boundaries(
+        case,
+        script,
+        thin,
+        key="thin_boundaries",
+        kind=f"the boundaries file {case.boundaries_file!r}",
+    )
     helpers.solver_settings(
         script,
         aoa=_angle(case, "alpha"),
@@ -321,7 +333,7 @@ def _settings(
         viscous_coupling=solver.viscous_coupling,
         viscous_excluded=solver.viscous_excluded,
         surface_roughness=solver.surface_roughness,
-        thin_boundaries=None if thin is None else list(thin),
+        thin_boundaries=thin_selection,
         bulk_separation=solver.bulk_separation,
         airfoil_separation=solver.airfoil_separation,
         axial_vortex_separation=solver.axial_vortex_separation,

@@ -10,6 +10,22 @@ A grouped job submitted by an earlier version, on a machine whose profile states
 `[log] export_log = false`, ends without the closing marker line, so its last point has no
 log of its own. `pyfs-workspace search-log-batch` writes the last point's log for such a job.
 
+## Families absent from a row's mesh (0.58)
+
+One reference, setup and pproc can serve a full aircraft and a wing-off model. Every
+family-bearing plan declaration ignores names absent from that row's mesh, using the
+existing pproc/ref selection and warning path. This includes rotor blocks on every row,
+setup analysis and separation selections, thin boundaries, surface actions, motion
+boundaries and pproc family selections. The plan names the ignored families, including
+misspellings. A study vocabulary is optional; `--ignore-missing-families false` still
+asks for refusals.
+
+A declaration with no remaining family emits no entry, so an empty selection cannot
+invoke a solver default or clear a saved selection. An explicitly empty clearing request
+keeps its existing meaning. A pproc whose groups share no name with the geometry still
+refuses, as before. Unreadable or contradictory inventories, ambiguous boundary IDs and
+structural consistency checks retain their own diagnostics. Family lists need no edit.
+
 ## 0.58.0 post tree
 
 The post writes one set of polar files per polar, in the same form for steady, unsteady

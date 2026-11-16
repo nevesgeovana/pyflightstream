@@ -255,19 +255,16 @@ def needs_fresh_probes(case: SimCase) -> bool:
 
 def _normal(case: SimCase) -> bool:
     """Whether any declared entry needs the final probe-points export."""
-    if case.pproc is None:
-        return False
     try:
-        return bool(case.pproc.samples_normal_probes())
+        return bool(case.pproc and case.pproc.samples_normal_probes())
     except CampaignConfigError:
         return False
 
 
 def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> list[str]:
     is_blade = case.pproc.is_blade if case.pproc is not None else (lambda name: False)
-    groups = select_families(
-        spec.families or "all", inventory, is_blade, aliases=_the_names_a_rotor_answers_to(case)
-    )
+    aliases = _the_names_a_rotor_answers_to(case)
+    groups = select_families(spec.families or "all", inventory, is_blade, aliases, strict=False)
     chosen: list[str] = []
     for group in groups:
         for name in group or list(inventory):
@@ -319,7 +316,9 @@ def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
     for entry in case.pproc.sections.distributions:
         if "XZ" not in entry.planes or entry.frame.strip().upper() not in ("MRP", "REFERENCE"):
             continue
-        for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
+        for group in select_families(
+            entry.families, inventory, case.pproc.is_blade, aliases, strict=False
+        ):
             name = traced_family(group, inventory)
             if name is not None:
                 covered.add(name)

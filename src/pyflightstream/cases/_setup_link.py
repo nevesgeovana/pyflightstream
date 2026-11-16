@@ -38,9 +38,9 @@ refused, naming the key, because it has no time step.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 from pyflightstream._errors import (
-    PyflightstreamError,
     PyflightstreamWarning,
     warn,
 )
@@ -48,9 +48,8 @@ from pyflightstream.cases import CampaignConfigError, SimCase, SolverSettings
 from pyflightstream.cases._setup_keys import DEFAULT_MOMENTS_MODEL
 from pyflightstream.cases._skipped_families import (
     SETUP_ARTIFACT,
-    skips_a_name_the_model_lacks,
+    families_on_this_mesh,
 )
-from pyflightstream.cases.selection import select_group_members
 from pyflightstream.cases.setup_surfaces import the_model_inventory
 from pyflightstream.script import Script, helpers
 
@@ -62,6 +61,8 @@ __all__ = [
     "axial_separation_indices",
     "emit_setup_extras",
     "family_indices",
+    "selected_boundaries",
+    "settings_on_this_mesh",
     "loads_selections",
     "moments_model_of",
     "package_actions",
@@ -82,12 +83,10 @@ def family_indices(
 
     PFS-2030.03.03. A family the geometry does not carry is left out, as the
     reference driver filtered the preset's list to the configuration it opened;
-    a list that resolves to nothing is refused, because an empty selection would
-    be read by the solver as the default and the preset asked for something else
-    (FR-985, whatever the study holds). A name that selects nothing on the
-    model is judged by the row's study first (FR-435): skipped and said where the
-    study holds it, refused where it does not, and refused where the run asked
-    for the refusal (``--ignore-missing-families false``, FR-988).
+    a list that resolves to nothing emits no entry, as a pproc selection does.
+    It never emits an empty selection that the solver could read as a default.
+    Missing names use the shared skip reader, with or without a study;
+    ``--ignore-missing-families false`` still asks for the refusal.
 
     ONE RULE FOR EVERY PER-FAMILY LIST. Both `vorticity_drag_families` and
     `axial_separation_families` use this resolver to answer the same question:
@@ -125,58 +124,91 @@ def family_indices(
     # label, an alias, a case-folded family), and the indices are the union. The
     # exact-label lookup alone dropped a family word, an alias or a case variant
     # in silence whenever another name of the list resolved (PFS-2104.028).
-    labels = script.entities.labels("boundaries")
-    ordered = [label for label, _ in sorted(labels.items(), key=lambda item: item[1])]
-    chosen: list[int] = []
-    absent: list[str] = []
-    for name in families:
-        found = (
-            select_group_members([name], ordered, case.aliases, strict=len(families) == 1)
-            if ordered
-            else []
-        )
-        if found:
-            chosen.extend(labels[label] for label in found if labels[label] not in chosen)
-            continue
-        try:
-            index = script.resolve_boundary(name, context=keyword)
-        except PyflightstreamError:
-            absent.append(name)
-            _judge_a_family_the_model_lacks(case, script, name, preset_key)
-            continue
-        if index not in chosen:
-            chosen.append(index)
-    if not chosen:
-        raise CampaignConfigError(
-            # THE PRESET'S OWN SPELLING, not the helper keyword. This named
-            # `keyword` -- which is the `solver_settings()` Python argument and
-            # is what `resolve_boundary` should be told -- so the refusal sent a
-            # user to `axial_separation_boundaries`, a key they cannot write in a
-            # preset at all. For `vorticity` an alias softened it; for the new
-            # twin there was nothing. The resolver's own docstring promised the
-            # opposite: "so a bad label names the key the user wrote".
-            f"case {case.sim_id!r}: the preset names {preset_key} "
-            f"{', '.join(families)} and the opened geometry carries none of them "
-            f"(absent: {', '.join(absent)}), so the selection would be empty. Name "
-            f"families the geometry carries, or drop {preset_key} so {dropped}."
-        )
-    return sorted(chosen)
+    chosen = selected_boundaries(case, script, families, key=preset_key)
+    assert not isinstance(chosen, str)
+    return (
+        sorted(script.resolve_boundary(value, context=keyword) for value in chosen)
+        if chosen
+        else None
+    )
 
 
-def _judge_a_family_the_model_lacks(
-    case: SimCase, script: Script, name: str, preset_key: str
-) -> None:
-    """Skip or refuse one family the opened inventory does not resolve (FR-982, FR-984, FR-988).
+def selected_boundaries(
+    case: SimCase,
+    script: Script,
+    selection: Sequence[int | str] | Literal["all"] | None,
+    *,
+    key: str,
+    kind: str = SETUP_ARTIFACT,
+) -> list[int | str] | Literal["all"] | None:
+    """Resolve a plan selection, leaving an all-absent entry out instead of clearing it.
 
-    Only a name that selects nothing on the model as its geometry opened it
-    (:func:`~pyflightstream.cases.setup_surfaces.the_model_inventory`) is
-    judged; a name a family or an alias of the model still answers, or one the
-    setup's ``delete_surfaces`` removed, is left out as on 0.38.0.
+    An explicit empty list still clears where the input supports clearing.
+    Positions and the all-surfaces form keep their existing meanings. Unknown
+    inventories keep the script layer's refusal; absence is judged only from
+    a known inventory.
     """
-    if script.entities.labels("boundaries"):
-        skips_a_name_the_model_lacks(
-            case, SETUP_ARTIFACT, preset_key, name, the_model_inventory(script)
-        )
+    if selection is None or selection == "all":
+        return selection
+    labels = script.entities.labels("boundaries")
+    if not labels:
+        return list(selection)
+    inventory = sorted(labels, key=labels.__getitem__)
+    chosen: list[int | str] = []
+    selected: Sequence[int | str]
+    for value in selection:
+        if isinstance(value, int):
+            selected = [value]
+        else:
+            selected = families_on_this_mesh(
+                case,
+                [value],
+                inventory,
+                kind=kind,
+                key=key,
+                declared_inventory=the_model_inventory(script),
+            )
+        for item in selected:
+            index = script.resolve_boundary(item, context=key)
+            if index not in chosen:
+                chosen.append(index)
+    return chosen if chosen or not selection else None
+
+
+def settings_on_this_mesh(case: SimCase, script: Script) -> SolverSettings:
+    """Bind each solver boundary list and separation assignment to this row's mesh."""
+    solver = case.solver
+    if not script.entities.labels("boundaries"):
+        return solver
+    update: dict[str, object] = {}
+    for key in (
+        "viscous_excluded",
+        "leading_edge_wake_boundaries",
+        "proximal_boundaries",
+        "valarezo_separation_boundaries",
+        "crossflow_separation_boundaries",
+    ):
+        update[key] = selected_boundaries(case, script, getattr(solver, key), key=key)
+    for key in (
+        "bulk_separation",
+        "airfoil_separation",
+        "axial_vortex_separation",
+        "cylindrical_bulk_separation",
+        "stratford_bulk_separation",
+    ):
+        value = getattr(solver, key)
+        if value is None:
+            continue
+        assignments = [value] if key == "bulk_separation" else value
+        kept = []
+        for position, assignment in enumerate(assignments, 1):
+            selected = selected_boundaries(
+                case, script, assignment.boundaries, key=f"{key}[{position}].boundaries"
+            )
+            if selected is not None:
+                kept.append(assignment.model_copy(update={"boundaries": selected}))
+        update[key] = (kept[0] if kept else None) if key == "bulk_separation" else kept or None
+    return solver.model_copy(update=update)
 
 
 def vorticity_indices(case: SimCase, script: Script) -> list[int] | None:

@@ -317,7 +317,9 @@ def _refuse_what_is_not_the_rotor(
     members = [str(member) for member in rotor.members]
     claimed: dict[frozenset[int], str] = {}
     shared: list[tuple[str, str]] = []
-    owned.update(labels[name] for name in select_group_members(members, ordered, case.aliases))
+    owned.update(
+        labels[name] for name in select_group_members(members, ordered, case.aliases, strict=False)
+    )
     for member in members:
         # A BLADE IS PRESENT BY ITS OWN NAME, OR BY THE ALIAS THE ROW GIVES IT.
         # A blade named with its number must be a label of its own or an alias

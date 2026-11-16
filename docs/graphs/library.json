@@ -2974,11 +2974,6 @@
     },
     {
       "source": "pyflightstream.cases._setup_link",
-      "target": "pyflightstream.cases.selection",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases._setup_link",
       "target": "pyflightstream.cases.setup_surfaces",
       "kind": "module"
     },
@@ -5040,6 +5035,11 @@
     {
       "source": "pyflightstream.cases.workflows._sixdof",
       "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._sixdof",
+      "target": "pyflightstream.cases._setup_link",
       "kind": "module"
     },
     {

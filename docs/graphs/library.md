@@ -3370,7 +3370,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._setup_keys">pyflightstream.cases._setup_keys</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._skipped_families">pyflightstream.cases._skipped_families</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.cases.selection">pyflightstream.cases.selection</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.setup_surfaces">pyflightstream.cases.setup_surfaces</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script.helpers">pyflightstream.script.helpers</a> (module)</li>
@@ -3937,6 +3936,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.cases.workflows._sixdof"><summary><code>pyflightstream.cases.workflows._sixdof</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases._setup_link">pyflightstream.cases._setup_link</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.sixdof">pyflightstream.cases.sixdof</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._gap_evidence">pyflightstream.cases.workflows._gap_evidence</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._rows">pyflightstream.cases.workflows._rows</a> (module)</li>

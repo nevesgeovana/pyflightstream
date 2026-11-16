@@ -1,8 +1,8 @@
 """Boundary and family names: the names a row cites, resolved against the geometry.
 
 A row cites boundaries, families and groups by name; these readers resolve
-the names against the inventory of the opened geometry and refuse a name
-the geometry does not carry, naming what it does carry. The selected
+the names against the inventory of the opened geometry and use the shared
+skip for names the geometry does not carry. The selected
 families of a post-processing entry and the rotors it cites are resolved
 here too.
 """
@@ -37,7 +37,9 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._skipped_families import (
     PPROC_ARTIFACT,
+    families_on_this_mesh,
     ignores_missing_families,
+    judge_a_name_the_model_lacks,
     names_no_boundary_answers,
     skips_a_name_the_model_lacks,
 )
@@ -72,7 +74,9 @@ from ._vocabulary import (
 _GROUP_TOKEN = re.compile(r"^g(\d+)$")
 
 
-def _resolve_token(case: SimCase, token: str, labels: Mapping[str, int]) -> tuple[int, ...]:
+def _resolve_token(
+    case: SimCase, token: str, labels: Mapping[str, int], *, key: str | None = None
+) -> tuple[int, ...]:
     """Resolve one cited boundary token: an exact label, an alias of the setup, or a family.
 
     An ADAPTER over :func:`pyflightstream.cases.select_group_members`,
@@ -80,10 +84,16 @@ def _resolve_token(case: SimCase, token: str, labels: Mapping[str, int]) -> tupl
     inventory in its own order, and the row's aliases. The alias resolves
     between the exact name and the family, and
     a member the file lacks is ignored. Empty when the token names
-    nothing, which the caller refuses for its own key.
+    nothing. Applied declarations name their key to use the shared skip;
+    lookups that only inspect a group leave classification to their caller.
     """
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
-    return tuple(labels[name] for name in select_group_members([token], ordered, case.aliases))
+    selected = (
+        families_on_this_mesh(case, [token], ordered, key=key)
+        if key is not None
+        else select_group_members([token], ordered, case.aliases, strict=False)
+    )
+    return tuple(labels[name] for name in selected)
 
 
 def _group_members(case: SimCase, token: str) -> list[int | str] | None:
@@ -114,24 +124,18 @@ def _group_indices(
     carry is left out, which is the artifact's own rule (one artifact
     serves a wing-body and an isolated rotor), and an alias of the
     setup is its members; a position passes through. A group that
-    resolves to NOTHING is refused naming
-    the group, its members, the file and its inventory, because a motion
-    over no boundary would silently do nothing.
+    resolves to nothing returns no indices, so the caller omits that motion.
     """
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
     indices = [member for member in members if isinstance(member, int)]
-    indices.extend(labels[name] for name in select_group_members(members, ordered, case.aliases))
-    if indices:
-        return sorted(set(indices))
-    declared = _declared_labels(labels)
-    spelled = ", ".join(repr(member) for member in members) or "nothing, meaning every family"
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} states {MOVING_BOUNDARIES_VARIABLE} with {token!r}, group "
-        f"{token[1:]} of {_artifact_of(case)}, whose members are {spelled}, "
-        f"and {_inventory_source(case)} "
-        f"declares none of those names or families; it declares {declared}. Name a group "
-        "written for this geometry, or write the names the file carries."
+    names = [str(member) for member in members if isinstance(member, str)]
+    selected = (
+        families_on_this_mesh(case, names, ordered, kind=PPROC_ARTIFACT, key=f"groups.{token}")
+        if members
+        else ordered
     )
+    indices.extend(labels[name] for name in selected)
+    return sorted(set(indices))
 
 
 def _artifact_of(case: SimCase) -> str:
@@ -211,7 +215,7 @@ def _judge_the_group_members_the_model_lacks(case: SimCase, script: Script) -> N
     text (FR-986). Of the rest, a member the row's study holds is skipped and said
     (FR-982: it is left out of its group at post, and a group none of whose members
     selects anything writes no polar row), one the study
-    does not hold is refused (FR-984), and every one is refused on a run that asked
+    does not hold uses the ordinary family warning, and every one is refused on a run that asked
     for the refusal (FR-988). A position, ``all`` and a member the model answers
     are not judged; with no vocabulary and no refusal asked for, nothing is said.
     A member is judged against the model as its geometry OPENED it
@@ -244,11 +248,11 @@ def _inventory_source(case: SimCase) -> str:
 def _refuse_name_absent_from_inventory(
     case: SimCase, key: str, token: str, labels: Mapping[str, int]
 ) -> None:
-    """Refuse a boundary name the declared inventory lacks, naming the inventory read."""
-    groups = ""
-    if key == MOVING_BOUNDARIES_VARIABLE and case.pproc is not None and case.pproc.groups:
-        numbers = ", ".join(f"g{number}" for number in case.pproc.groups)
-        groups = f", or a group of {_artifact_of(case)} as {numbers}"
+    """Skip an absent family, retaining refusals for invalid group identities.
+
+    The established private name remains for its callers. Explicit refusal
+    mode is read by the shared missing-family judge.
+    """
     if key == MOVING_BOUNDARIES_VARIABLE and _GROUP_TOKEN.match(token):
         # The token is spelled as a GROUP, so the cause is the artifact and
         # not the geometry.
@@ -265,12 +269,7 @@ def _refuse_name_absent_from_inventory(
             f"{', '.join(f'g{n}' for n in case.pproc.groups) or 'no group'}. Write one of "
             f"those, or a boundary name of {_inventory_source(case)}: {_declared_labels(labels)}."
         )
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} states {key} with {token!r}, and {_inventory_source(case)} "
-        f"declares no boundary of that name or family; it declares "
-        f"{_declared_labels(labels)}. Write one of those, or a family name (the label "
-        f"without its trailing number) to select every member the file carries{groups}."
-    )
+    judge_a_name_the_model_lacks(case, "setup", key, token)
 
 
 def _refuse_name_without_inventory(case: SimCase, key: str, token: str) -> None:
@@ -432,7 +431,7 @@ def _selected_families(
     script; the warning explains the absent plot in the products.
     """
     names = _the_names_a_rotor_answers_to(case)
-    expanded = select_families(selection, inventory, is_blade, aliases=names)
+    expanded = select_families(selection, inventory, is_blade, aliases=names, strict=False)
     if not ignores_missing_families(case):
         _refuse_what_the_geometry_does_not_carry(
             case, selection, inventory, names, expanded, what, is_blade

@@ -264,3 +264,121 @@ def test_p0580_pfs2249_bluntness_angle_is_refused_on_a_build_with_no_row(tmp_pat
         render_geometry_script(
             instruction, folder=tmp_path, work=tmp_path / "partial", version=build
         )
+
+
+def test_p0580_one_aircraft_declaration_plans_a_wing_off_mesh_ready(tmp_path):
+    """One set names Wing, Fuselage, Tail and a rotor; the row lacks Wing only."""
+    from pyflightstream.run import PlanStatus
+    from tests.tier1_offline.test_p0390_r02 import REFERENCE, ROTOR, planned, status_of, study
+
+    reference = REFERENCE + ROTOR
+    setup = """iterations = 20
+analysis_families = ["Wing", "Fuselage", "Tail", "PUSHER"]
+vorticity_drag_families = ["Wing", "Fuselage", "PUSHER"]
+viscous_excluded = ["Wing", "Fuselage"]
+proximal_boundaries = ["Wing", "Fuselage"]
+leading_edge_wake_boundaries = ["Wing", "Fuselage"]
+[[airfoil_separation]]
+name = "aircraft"
+boundaries = ["Wing", "Fuselage", "Tail"]
+valarezo_criterion = true
+"""
+    names = ["Fuselage", "Tail", "Spinner", "Prop1", "Prop2"]
+    workspace, matrix = study(
+        tmp_path,
+        reference=reference,
+        setup=setup,
+        pproc='[groups]\nAIRCRAFT = "all"\n',
+        models=(("2001", "wing_off.fsm", names), ("2002", "full.fsm", ["Wing", *names])),
+        rows={},
+    )
+    sidecar = workspace.inputs_dir / "geometries" / "wing_off.fsm.boundaries.toml"
+    import json
+
+    sidecar.write_text(
+        "boundaries = "
+        + json.dumps(["Wing", *names])
+        + '\nthin_boundaries = ["Wing", "Fuselage"]\n',
+        encoding="utf-8",
+    )
+    plan, said = planned(workspace, matrix)
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}, (
+        plan.summary()
+    )
+    skipped = [text for text in said if "'Wing'" in text and "skipped" in text]
+    assert skipped and all("'2001'" in text and "'2002'" not in text for text in skipped), said
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "analysis_families",
+        "vorticity_drag_families",
+        "viscous_excluded",
+        "proximal_boundaries",
+        "leading_edge_wake_boundaries",
+    ],
+)
+def test_p0580_a_setting_naming_only_an_absent_family_emits_no_selection(tmp_path, key):
+    from pyflightstream.cases import SolverSettings
+    from tests.tier1_offline.test_goal031_g08_glossary_claims import _over_wing
+    from tests.tier1_offline.test_workflows import rendered
+
+    case = _over_wing(tmp_path).model_copy(update={"solver": SolverSettings(**{key: ["Tail"]})})
+    text = rendered(case, "26.124")
+    command = {
+        "analysis_families": "SET_SOLVER_ANALYSIS_BOUNDARIES",
+        "vorticity_drag_families": "SET_VORTICITY_DRAG_BOUNDARIES",
+        "viscous_excluded": "VISCOUS_EXCLUDED_BOUNDARIES",
+        "proximal_boundaries": "SOLVER_PROXIMAL_BOUNDARIES",
+        "leading_edge_wake_boundaries": "DETECT_LEADING_EDGES_WAKES_BY_SURFACE",
+    }[key]
+    assert command not in text
+
+
+@pytest.mark.parametrize("present", [False, True])
+def test_p0580_surface_transforms_skip_an_absent_alias_member(tmp_path, present):
+    from pyflightstream.cases import ReferenceData
+    from tests.tier1_offline.test_goal031_g08_glossary_claims import _over_wing
+    from tests.tier1_offline.test_workflows import rendered
+
+    case = _over_wing(tmp_path).model_copy(
+        update={
+            "reference": ReferenceData(area=1.0, length=1.0, moment_point_m=(0, 0, 0)),
+            "aliases": {"model": ["Tail", "Body"] if present else ["Tail"]},
+            "rotations": [{"ALIAS": "model", "ANGLE": "3", "AXIS": "MRP-Y"}],
+            "translations": [{"ALIAS": "model", "DISTANCE": "0.1", "AXIS": "MRP-X"}],
+        }
+    )
+    text = rendered(case, "26.124")
+    assert ("TRANSLATE_SURFACE_IN_FRAME" in text) is present
+    assert ("ROTATE_SURFACE " in text) is present
+
+
+@pytest.mark.parametrize("present", [False, True])
+def test_p0580_rotary_motion_skips_absent_families_without_a_zero_boundary_motion(
+    tmp_path, present
+):
+    from tests.tier1_offline.test_goal031_g08_glossary_claims import _on_wing
+    from tests.tier1_offline.test_workflows import rendered, rotor_case
+
+    case = _on_wing(
+        tmp_path, rotor_case(BLADES=None, MOVING_BOUNDARIES="Tail, Body" if present else "Tail")
+    )
+    text = rendered(case, "26.124")
+    assert ("SET_MOTION_BOUNDARIES" in text) is present
+
+
+def test_p0580_filtering_preserves_the_order_of_mixed_names_and_positions(tmp_path):
+    from pyflightstream.cases import SolverSettings
+    from tests.tier1_offline.test_goal031_g08_glossary_claims import _over_wing
+    from tests.tier1_offline.test_workflows import rendered
+
+    case = _over_wing(tmp_path).model_copy(
+        update={
+            "solver": SolverSettings(viscous_excluded=["Wing", 3, "Tail", "Body"]),
+        }
+    )
+    lines = rendered(case, "26.124").splitlines()
+    at = lines.index("SET_VISCOUS_EXCLUDED_BOUNDARIES 3")
+    assert [int(value) for value in lines[at + 1].replace(",", " ").split()] == [1, 3, 2]

@@ -79,7 +79,9 @@ def test_p0440_delete_surfaces_keeps_the_survivor_ids(tmp_path):
 def test_p0440_command_after_removal_cites_the_original_id(tmp_path):
     """P0440-RB7-35: later selections must preserve the measured survivor ID."""
     geometry = _twin(tmp_path)
-    kept = rotor_case(MOVING_BOUNDARIES="Blade2").model_copy(update={"geometry": geometry})
+    kept = rotor_case(BLADES=None, MOVING_BOUNDARIES="Blade2").model_copy(
+        update={"geometry": geometry}
+    )
     before = rendered(kept, build="26.124").splitlines()
     after = rendered(
         _with(kept, delete_surfaces=["Blade1"]),
@@ -166,14 +168,10 @@ def test_a_family_removes_every_member_from_the_last_so_no_index_shifts_under_it
     assert script.boundary_inventory == ("Body", "Base")
 
 
-def test_a_name_the_geometry_lacks_is_refused_naming_the_key_and_the_inventory(tmp_path):
-    """P0320-G9-DELETE-SURFACES refusal: a name the inventory lacks is refused, never dropped."""
+def test_p0580_a_name_the_geometry_lacks_is_skipped_without_a_removal(tmp_path):
+    """P0580: one setup serves geometries with and without the named surface."""
     case = _with(steady_case(geometry=_twin(tmp_path)), delete_surfaces=["Canopy"])
-    with pytest.raises(CampaignConfigError) as refused:
-        rendered(case, build="26.124")
-    message = str(refused.value)
-    assert "delete_surfaces" in message and "Canopy" in message
-    assert "Body" in message and "Blade2" in message
+    assert "DELETE_SURFACES" not in rendered(case, build="26.124")
 
 
 def test_removing_every_surface_is_refused(tmp_path):
