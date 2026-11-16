@@ -44,6 +44,9 @@ signs in the rotor group's RCOEF replacement.
 The log comparison retains warning multiplicity across the path moves and
 requires the human log to agree with its JSON records. Added empty-group and
 aft-rotor warnings must match their definitions and inventory evidence.
+The manifest comparison preserves earlier source hashes, provenance, run
+lists and windows. Its new schema metadata is checked for the documented
+structure, units and agreement with CSV family and group identities.
 
 The post writes one set of polar files per polar, in the same form for steady, unsteady
 and unsteady-rotor rows. Each product is written to the folder named by its kind, and every

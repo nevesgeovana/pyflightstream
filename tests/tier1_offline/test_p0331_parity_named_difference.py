@@ -173,6 +173,93 @@ def test_p0580_post_parity_requires_inventory_evidence_for_an_empty_group_warnin
     assert named(before, release)[:2] == [None, None]
 
 
+def test_p0580_post_parity_preserves_manifest_provenance_and_closed_schema_keys():
+    """P0580-POST-MANIFEST: FR-3779 adds schema metadata while retaining existing facts."""
+    checker = _load()
+    old = dict(
+        products={"../../sims/point.vtk": {"kind": "instant", "source_sha256": "frozen"}},
+        log="post.log",
+        log_json="post.log.json",
+        skipped={},
+        provenance={"record": "unchanged"},
+        complete=False,
+    )
+    new = {
+        **old,
+        "schema_version": 2,
+        "tree": {
+            "polars": {
+                "holds": "polar files",
+                "kinds": ["FAM-DIM", "FAM-ACOEF", "FAM-RCOEF", "DIM", "ACOEF", "RCOEF"],
+            },
+            "time_history": {"holds": "history", "kinds": ["plots"]},
+            "reductions": {
+                "holds": "reductions",
+                "kinds": ["phase_locked", "per_revolution", "harmonics", "disc_map"],
+            },
+            "probes": {"holds": "probes", "kinds": ["probes", "probes_history"]},
+        },
+        "kinds": {},
+        "run_block": [],
+        "frames": {},
+        "families": [],
+        "groups": [],
+        "polars": {},
+        "migrated": {},
+    }
+    name = "m/products.json"
+
+    def named(
+        candidate,
+        requirements=frozenset({"FR-3779", "FR-3777", "FR-3789", "FR-3787"}),
+        version="0.57.0",
+    ):
+        result = checker.compare_texts(
+            "post",
+            "file",
+            {name: json.dumps(old)},
+            {name: json.dumps(candidate)},
+            requirements,
+            version,
+        )
+        return result["differing"][0].get("requirement")
+
+    assert named(new) == "FR-3779"
+    assert (
+        named(
+            {
+                **new,
+                "products": {
+                    "../../sims/point.vtk": {"kind": "instant", "source_sha256": "changed"}
+                },
+            }
+        )
+        is None
+    )
+    column = dict(
+        name="FX_MRP",
+        unit="N",
+        frame="MRP",
+        quantity="force along x",
+        definition="docs/definitions/airframe-coefficients.md#dim",
+    )
+    kinds = {"FAM-DIM": {"columns": [column]}}
+    assert named({**new, "kinds": kinds}) == "FR-3779"
+    assert named({**new, "kinds": {"FAM-DIM": {"columns": [{**column, "unit": "wrong"}]}}}) is None
+    for key, value in (
+        ("schema_version", 3),
+        ("provenance", {}),
+        ("complete", True),
+        ("unknown", {}),
+        ("log", "other.log"),
+    ):
+        assert named({**new, key: value}) is None, key
+    wrong = {**new, "tree": {**new["tree"], "probes": {"holds": "wrong", "kinds": ["plots"]}}}
+    assert named(wrong) is None
+    assert named(new, requirements=frozenset()) is None
+    assert named(new, version="0.58.0") is None
+
+
 def test_p0580_post_parity_keeps_exact_cells_and_each_reduction_window():
     """P0580-POST-PARITY: FR-3778/3789 name only the defined row block and move."""
     checker = _load()

@@ -46,9 +46,12 @@ from that tree:
    tree's console-script target on a fresh copy at the same path, writes the
    same ``post/`` bytes, ``products.json`` included.
 
-A difference in 3 or 4 passes only when :data:`NAMED_DIFFERENCES` names it with
-a requirement that the release SRS defines, and, where the entry gives a line
-pattern, only when every changed line matches it. Anything else is a failure.
+A difference in 3 or 4 passes only with a requirement that the release SRS
+defines. :data:`NAMED_DIFFERENCES` supplies bounded text checks. The structural
+post comparisons additionally verify the documented CSV, retirement, warning
+and manifest migrations against their companion products and retained facts.
+Each named difference records its requirement and definition. Anything else
+is a failure.
 
 CONTROLS. A comparator that cannot see a difference would report parity for
 everything, so each run plants one difference per comparison into the real
@@ -2597,6 +2600,227 @@ def _post_058_logs(
     }
 
 
+def _post_058_product_path(path: str) -> str:
+    """Map a manifest's old history/reduction product path to its defined home."""
+    path = _post_058_moved_path(path)
+    return re.sub(
+        r"^probes/(P[^/]+_(?:plots|phase_locked(?:_[^/]+)?))\.csv$",
+        lambda m: ("time_history/" if m[1].endswith("_plots") else "reductions/") + m[1] + ".csv",
+        path,
+    )
+
+
+def _post_058_manifest(
+    name: str, base: dict[str, str], release: dict[str, str], defined: set[str]
+) -> dict[str, Any]:
+    """Keep old manifest facts exact while checking the documented schema-2 additions."""
+    if (
+        not name.endswith("/products.json")
+        or not {"FR-3779", "FR-3777", "FR-3789", "FR-3787"} <= defined
+    ):
+        return {}
+    root = name.rsplit("/", 1)[0]
+    try:
+        old, new = json.loads(base[name]), json.loads(release[name])
+        additions = {
+            "schema_version",
+            "tree",
+            "kinds",
+            "run_block",
+            "frames",
+            "families",
+            "groups",
+            "polars",
+            "migrated",
+        }
+        if set(new) != set(old) | additions or new["schema_version"] != 2 or new["migrated"]:
+            return {}
+        if any(new.get(k) != v for k, v in old.items() if k not in {"products", "skipped"}):
+            return {}
+        products = new["products"]
+        mapped = set()
+        for path, entry in old["products"].items():
+            target = _post_058_product_path(path)
+            if target not in products:
+                if not _post_058_retired(f"{root}/{path}", base, release, defined):
+                    return {}
+                continue
+            expected = dict(entry)
+            if "polar" in products[target]:
+                expected["polar"] = entry.get("sim_id")
+            if products[target] != expected:
+                return {}
+            mapped.add(target)
+        for path in set(products) - mapped:
+            if not _post_058_added_product(path, products[path], old["products"], root, release):
+                return {}
+        skipped = {
+            _post_058_product_path(k): _post_058_moved_path(v) for k, v in old["skipped"].items()
+        }
+        if any(new["skipped"].get(k) != v for k, v in skipped.items()):
+            return {}
+        logs = json.loads(release.get(f"{root}/post.log.json", '{"records": []}'))
+        for key in set(new["skipped"]) - set(skipped):
+            candidates = [
+                row
+                for row in logs["records"]
+                if row["product"] == key and row["message"] == new["skipped"][key]
+            ]
+            if len(candidates) != 1 or not _post_058_extra_warning(
+                candidates[0], root, base, release
+            ):
+                return {}
+        if not _post_058_catalogue(new, root, release):
+            return {}
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return {}
+    return {
+        "requirement": "FR-3779",
+        "why": (
+            "Schema-2 catalogue additions with preserved source metadata, run lists, windows and "
+            "provenance; docs/pproc/products-json.md and docs/upgrading.md#0580-post-tree"
+        ),
+    }
+
+
+def _post_058_added_product(
+    path: str, entry: dict[str, Any], old: dict[str, Any], root: str, release: dict[str, str]
+) -> bool:
+    """Match new polar/Cp metadata to its old average/sections record, never a wildcard."""
+    rows = _post_058_rows(release.get(f"{root}/{path}", ""))
+    if not rows:
+        return False
+    if path.startswith("sections/") and path.endswith("_cp.csv"):
+        source = old.get(path.removesuffix("_cp.csv") + "_sections.csv")
+        return source is not None and entry == {**source, "polar": source.get("sim_id")}
+    matched = re.fullmatch(
+        r"polars/(?:FAM-(DIM|ACOEF|RCOEF)-P(\d+)|P(\d+)-(.+)-(DIM|ACOEF|RCOEF))\.csv", path
+    )
+    if not matched:
+        return False
+    family_kind, family_pol, group_pol, group, _ = matched.groups()
+    pol = family_pol or group_pol
+    sources = [
+        value
+        for key, value in old.items()
+        if key.endswith("_uns_avg.csv") and value.get("sim_id") == pol
+    ]
+    if len(sources) != 1:
+        return False
+    expected = {**sources[0], "polar": pol}
+    if not family_kind:
+        actual_groups = {row.get("GROUP") for row in rows}
+        if len(actual_groups) != 1 or group not in actual_groups:
+            return False
+        expected["group"] = group
+        if "rotor" in entry:
+            if entry["rotor"] != group:
+                return False
+            expected["rotor"] = group
+    return entry == expected and all(row.get("POL") == pol for row in rows)
+
+
+def _post_058_catalogue(doc: dict[str, Any], root: str, release: dict[str, str]) -> bool:
+    """Check catalogue structure, column units and identities against its actual CSVs."""
+    folders = {
+        "polars": ["FAM-DIM", "FAM-ACOEF", "FAM-RCOEF", "DIM", "ACOEF", "RCOEF"],
+        "time_history": ["plots"],
+        "probes": ["probes", "probes_history"],
+        "reductions": ["phase_locked", "per_revolution", "harmonics", "disc_map"],
+    }
+    if any(doc["tree"].get(k, {}).get("kinds") != v for k, v in folders.items()):
+        return False
+    if (
+        set(doc["tree"])
+        - set(folders)
+        - {
+            "series",
+            "farfield",
+            "sections",
+            "fields",
+            "surfaces",
+            "streamlines",
+            "settings",
+            "provenance",
+        }
+    ):
+        return False
+    block = doc["run_block"]
+    if any(
+        set(c) != {"name", "unit", "source", "definition"}
+        or not c["unit"]
+        or not c["definition"].startswith("docs/definitions/the-run-block.md#")
+        for c in block
+    ):
+        return False
+    if len({c["name"] for c in block}) != len(block):
+        return False
+    for kind, info in doc["kinds"].items():
+        if kind not in {
+            "FAM-DIM",
+            "FAM-ACOEF",
+            "FAM-RCOEF",
+            "DIM",
+            "ACOEF",
+            "RCOEF",
+            "sections",
+            "cp",
+        }:
+            return False
+        for column in info["columns"]:
+            if not {"name", "unit", "frame", "quantity", "definition"} <= set(column):
+                return False
+            definition_prefixes = (
+                ("docs/definitions/", "docs/pproc/cp.md#")
+                if kind == "cp"
+                else ("docs/definitions/",)
+            )
+            if not column["unit"] or not column["definition"].startswith(definition_prefixes):
+                return False
+            name = column["name"]
+            expected_unit = None
+            if re.fullmatch(r"[FM][XYZ]_MRP", name):
+                expected_unit = "N" if name.startswith("F") else "N m"
+            elif kind.endswith("COEF") and name not in {"T", "Q", "P"}:
+                expected_unit = "-"
+            elif name in {"T", "Q", "P"}:
+                expected_unit = {"T": "N", "Q": "N m", "P": "kW"}[name]
+            if expected_unit is not None and column["unit"] != expected_unit:
+                return False
+    families = {item["FAMILY_ID"]: item["FAMILY"] for item in doc["families"]}
+    if len(families) != len(doc["families"]) or any(
+        not isinstance(k, int) or k < 1 for k in families
+    ):
+        return False
+    groups = doc["groups"]
+    if len({item["GROUP_ID"] for item in groups}) != len(groups):
+        return False
+    for group in groups:
+        if not set(group["members"]) <= set(families):
+            return False
+        if group["GROUP"] == "TOTAL" and (
+            group["GROUP_ID"] != 0 or set(group["members"]) != set(families)
+        ):
+            return False
+    for path, entry in doc["products"].items():
+        if not path.startswith("polars/"):
+            continue
+        rows = _post_058_rows(release.get(f"{root}/{path}", ""))
+        for row in rows:
+            if row.get("POL") != entry.get("polar") or row["POL"] not in doc["polars"]:
+                return False
+            if row.get("RUN_TYPE") != doc["polars"][row["POL"]]["run_type"]:
+                return False
+            if "FAMILY_ID" in row and families.get(int(row["FAMILY_ID"])) != row.get("FAMILY"):
+                return False
+            if "GROUP_ID" in row and not any(
+                str(g["GROUP_ID"]) == row["GROUP_ID"] and g["GROUP"] == row.get("GROUP")
+                for g in groups
+            ):
+                return False
+    return True
+
+
 def _post_058_printed_value(expected: str | None, actual: str, window: bool) -> bool:
     """Compare only added metadata across the existing five-place/six-digit writers."""
     if expected is None or not re.fullmatch(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", actual):
@@ -2644,6 +2868,7 @@ def compare_texts(
             entry.update(_post_058_csv(name, base, release, defined))
             entry.update(_post_058_retired(name, base, release, defined))
             entry.update(_post_058_logs(name, base, release, defined))
+            entry.update(_post_058_manifest(name, base, release, defined))
         differing.append(
             {
                 key: name,
