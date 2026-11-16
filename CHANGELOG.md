@@ -29,6 +29,8 @@ The canonical run block of the current post tables (`post._run_block`): its colu
 
 ### Changed
 
+The parity comparison of a retired rotor table binds its old rotor alias to the replacement GROUP, ROTOR_ID and GROUP_ID, so a changed identity cannot pass as the documented sign migration. migration: none.
+
 Parity checks name the canonical CSV run block and the documented history/reduction moves only when row counts and shared cells stay exact. Added metadata must match the point's family polar block; each reduction keeps its own window. PFS-2232. migration: parity receipts identify the replacement path and the definition of the row window.
 
 Parity names the retirement of the rotor, uns_avg, time_average and per_blade tables only with the corresponding FAM/group replacements and matching dimensional loads or the defined aligned aft-rotor coefficient signs. PFS-2231. migration: the receipt cites the replacement definition instead of treating the missing table as unexplained.

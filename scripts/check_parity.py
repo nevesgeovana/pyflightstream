@@ -2414,6 +2414,10 @@ def _post_058_retired_rotor(
     old: dict[str, str], root: str, alias: str, release: dict[str, str]
 ) -> bool:
     """Check the documented aligned aft-rotor sign migration and unchanged context."""
+    if old.get("ROTOR") != alias or not all(
+        f"{quantity}_{alias}" in old for quantity in ("CT", "CQ", "CP", "ETA")
+    ):
+        return False
     pol = old.get("POL")
     rows = _post_058_rows(release.get(f"{root}/polars/P{pol}-{alias}-RCOEF.csv", ""))
     candidates = [row for row in rows if all(row.get(k) == v for k, v in old.items() if k in row)]
@@ -2421,6 +2425,14 @@ def _post_058_retired_rotor(
         return False
     new = candidates[0]
     ident = new.get("ROTOR_ID", "")
+    if (
+        not ident.isdecimal()
+        or not 0 <= int(ident) < 90
+        or str(int(ident)) != ident
+        or new.get("GROUP") != alias
+        or new.get("GROUP_ID") != str(10 + int(ident))
+    ):
+        return False
     if float(new.get(f"PITCH{ident}", "nan")) != 0 or float(new.get(f"TOE{ident}", "nan")) != 0:
         return False
     warning = f"Rotor {alias} declares its axis aft; 0.58.0 counts thrust positive forward"

@@ -313,6 +313,7 @@ def test_p0580_post_parity_requires_the_defined_aft_rotor_signs():
     row = {
         **block,
         "GROUP": "Rotor",
+        "GROUP_ID": "10",
         "ROTOR_ID": "0",
         "CT": "0.25",
         "CQ": "0.125",
@@ -332,8 +333,11 @@ def test_p0580_post_parity_requires_the_defined_aft_rotor_signs():
         return result["differing"][0].get("requirement")
 
     assert named(release) == "FR-3777"
-    for key in ("CT", "CQ", "CP", "ETA", "PITCH0", "TOE0", "POL"):
+    for key in ("CT", "CQ", "CP", "ETA", "PITCH0", "TOE0", "POL", "GROUP", "GROUP_ID"):
         assert named({**release, target: _post_csv([{**row, key: "123"}])}) is None
+    wrong_old = {name: _post_csv([{**old, "ROTOR": "Other"}])}
+    checked = checker.compare_texts("post", "file", wrong_old, release, {"FR-3777"}, "0.57.0")
+    assert "requirement" not in checked["differing"][0]
     assert named({**release, target: _post_csv([{**row, "PITCH0": "wrong"}])}) is None
     assert named({**release, "m/post.log": "unrelated warning"}) is None
 

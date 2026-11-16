@@ -41,6 +41,8 @@ the point's family polar block, with each reduction's own window.
 For a retired average or blade table it checks the replacement's dimensional
 MRP loads. For an aligned aft rotor it checks the documented coefficient
 signs in the rotor group's RCOEF replacement.
+That replacement must keep the rotor alias and the documented GROUP_ID for
+its ROTOR_ID; renaming a row cannot pass as a coefficient sign migration.
 The log comparison retains warning multiplicity across the path moves and
 requires the human log to agree with its JSON records. Added empty-group and
 aft-rotor warnings must match their definitions and inventory evidence.
