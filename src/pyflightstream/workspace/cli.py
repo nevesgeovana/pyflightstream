@@ -221,10 +221,9 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
     migration = subparsers.add_parser(
         "migrate",
-        help="preview the 0.38.0 record and MESH_ROUTE matrix migration; --apply writes it",
+        help="preview the 0.38.0 record migration; --apply writes it",
         description=(
-            "Previews the changes: record manifests from 0.38.0, and root *.fs matrices of the "
-            "0.56.0 layout, which get the MESH_ROUTE column after GEOMETRY, unstated (NA). "
+            "Previews the changes to record manifests from 0.38.0. "
             "--apply writes an exact .bak beside each file and then the migrated file "
             "(docs/upgrading.md)."
         ),
@@ -617,13 +616,8 @@ def _cmd_migrate(args: argparse.Namespace) -> int:
         print(str(error), file=sys.stderr)
         return 2
     for change in changes:
-        what = (
-            "MESH_ROUTE column added after GEOMETRY, unstated"
-            if change.get("kind") == "matrix"
-            else "schema_version=4, id, artifacts and shared definition ids"
-        )
         print(
-            f"{change['file']}: {what}; "
+            f"{change['file']}: schema_version=4, id, artifacts and shared definition ids; "
             f"{change['before_bytes']} -> {change['after_bytes']} bytes; "
             f"backup {change['backup']}"
         )

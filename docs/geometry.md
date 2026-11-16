@@ -929,7 +929,7 @@ record `prop-slice.json`; an IGES is read with the gmsh kernel. See
 For a mesh file, `GEOMETRY` accepts only a saved simulation (`.fsm`). No flag
 enables an OBJ matrix row. `GEOMETRY` may also name a `.geom.toml`
 configuration, or an IGES file, that the row generates through its
-`MESH_ROUTE` (see [the run matrix](workflow-run-matrix.md#what-a-run-matrix-is)).
+the optional `MESH_ROUTE` variable in `VAR_NAMES_VALUES` (see [the run matrix](workflow-run-matrix.md#what-a-run-matrix-is)).
 Prepare and mark the OBJ once, inspect the saved geometry, and name the FSM in
 the matrix:
 
@@ -976,7 +976,7 @@ A datum parallel to the shaft cannot define the blade plane and must be fixed.
 
 ## Routes of a generated geometry
 
-A matrix row that generates its geometry (`GEOMETRY` naming a `.geom.toml`) states a `MESH_ROUTE`:
+A matrix row that generates its geometry (`GEOMETRY` naming a `.geom.toml`) may state `MESH_ROUTE` in `VAR_NAMES_VALUES`, for example `MESH_ROUTE: native`:
 `native` hands the generated IGES to the solver's CAD importer through an instruction built for
 it (`[cad]` over the IGES, `Model 0` renamed to one word), `quad_dominant` meshes it with
 strategy 1 and `full_grid` with strategy 2 (`docs/geometry-parametrization.md`). The native

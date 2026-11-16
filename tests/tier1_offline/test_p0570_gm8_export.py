@@ -837,30 +837,34 @@ def test_p0570_empty_variant_exports_its_declared_geometry(tmp_path):
     "check_id", ["assembly.face_count", "placement.contact", "assembly.thin_feature"]
 )
 @pytest.mark.parametrize("status", ["failed", "skipped"])
-def test_p0581_export_fixture_does_not_hide_duplicate_load_checks(
-    tmp_path, monkeypatch, check_id, status
-):
+def test_p0581_export_fixture_does_not_hide_duplicate_load_checks(tmp_path, check_id, status):
     """P0581-LOAD-CHECKS: a later check must not overwrite an earlier failed check."""
-    from pyflightstream.workspace import _geom_assembly, _geom_export, _gmsh
-
     checks = [
         {"id": check_id, "status": status, "note": "no active dominance face"},
         {"id": "assembly.face_count", "status": "passed"},
         {"id": "placement.contact", "status": "passed"},
         {"id": "assembly.thin_feature", "status": "skipped", "note": "no active dominance face"},
     ]
-    monkeypatch.setattr(_gmsh, "open_kernel", lambda _: SimpleNamespace(close=lambda: None))
-    monkeypatch.setattr(
-        _geom_assembly,
-        "Assembly",
-        lambda *a, **kw: SimpleNamespace(step=lambda _: {"checks": checks}),
-    )
-    monkeypatch.setattr(_geom_export, "write_assembly", lambda *a: {})
     with pytest.raises(AssertionError):
-        _written_halves(tmp_path)
+        _written_halves(
+            tmp_path,
+            kernel_factory=lambda _: SimpleNamespace(close=lambda: None),
+            assembly_factory=lambda *a, **kw: SimpleNamespace(step=lambda _: {"checks": checks}),
+            writer=lambda *a: {},
+        )
 
 
-def _written_halves(folder, height=1.0):
+def _assert_half_load_checks(checks):
+    """Preserve every load check, including repeated ids."""
+    features = [c for c in checks if c["id"] == "assembly.thin_feature"]
+    assert len(features) == 1
+    feature = features[0]
+    assert feature["status"] == "skipped"
+    assert feature["note"] == "no active dominance face"
+    assert all(c["status"] == "passed" for c in checks if c["id"] != "assembly.thin_feature")
+
+
+def _written_halves(folder, height=1.0, *, kernel_factory=None, assembly_factory=None, writer=None):
     """Two exact half-width trims on one rectangular base."""
     kernel_or_skip()
     from pyflightstream.geometry import resolve_config
@@ -896,18 +900,13 @@ def _written_halves(folder, height=1.0):
             )
         )
     piece = replace(piece, trims=tuple(trims))
-    kernel = open_kernel("area acceptance fixture")
+    kernel = (kernel_factory or open_kernel)("area acceptance fixture")
     try:
-        assembly = Assembly(kernel, {"plate": piece}, [], out=folder)
+        assembly = (assembly_factory or Assembly)(kernel, {"plate": piece}, [], out=folder)
         loaded = assembly.step("S10.D1")
         checks = loaded["checks"]
-        features = [c for c in checks if c["id"] == "assembly.thin_feature"]
-        assert len(features) == 1
-        feature = features[0]
-        assert feature["status"] == "skipped"
-        assert feature["note"] == "no active dominance face"
-        assert all(c["status"] == "passed" for c in checks if c["id"] != "assembly.thin_feature")
-        written = write_assembly(assembly, folder / "combined.igs")
+        _assert_half_load_checks(checks)
+        written = (writer or write_assembly)(assembly, folder / "combined.igs")
     finally:
         kernel.close()
     resolved = resolve_config({"components": {"plate": {"type": "body"}}})

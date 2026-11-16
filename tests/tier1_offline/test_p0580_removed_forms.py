@@ -171,18 +171,6 @@ def test_p0580_pyfs_matrix_geometry_verb_is_refused_naming_its_home(verb, home, 
     assert f"Use pyfs-mesh {home}." in said and "no longer accepted" in said, said
 
 
-def test_p0580_matrix_header_of_0_56_0_is_refused_naming_migrate(tmp_path):
-    from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
-
-    columns = [c for c in MATRIX_COLUMNS if c != "MESH_ROUTE"]
-    path = tmp_path / "old.fs"
-    path.write_text(" | ".join(columns) + "\n" + "-" * 40 + "\n", encoding="utf-8")
-    with pytest.raises(MatrixError, match="MESH_ROUTE") as refused:
-        read_matrix(path)
-    assert "pyfs-workspace migrate --apply" in str(refused.value)
-    assert "no longer accepted" in str(refused.value)
-
-
 @pytest.mark.parametrize(
     ("key", "new"),
     [

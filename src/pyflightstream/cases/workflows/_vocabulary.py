@@ -70,8 +70,7 @@ _LEGACY = "LEGACY"
 GEOMETRY_VARIABLE = "GEOMETRY"
 
 #: The keys a row whose GEOMETRY is a generated configuration (``<name>.geom.toml``) reads
-#: ``MESH_ROUTE`` is a COLUMN of the matrix, folded into the row's
-#: variables as GEOMETRY is; the other four are free-cell keys.
+#: Each is an optional key of the row's VAR_NAMES_VALUES cell.
 MESH_ROUTE_VARIABLE = "MESH_ROUTE"
 GEOM_CONFIGURATION_VARIABLE = "GEOM_CONFIGURATION"
 GEOM_VARIANT_VARIABLE = "GEOM_VARIANT"
@@ -1111,7 +1110,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         MESH_ROUTE_VARIABLE: InputKey(
             "How a row whose geometry is a generated configuration or an IGES file becomes a "
-            "mesh the solver opens; written in the MESH_ROUTE column. Stated on a row with an "
+            "mesh the solver opens; an optional VAR_NAMES_VALUES key. Stated on a row with an "
             "FSM, OBJ or STL it is warned and skipped.",
             "native, full_grid or quad_dominant; NA leaves the row as it is",
         ),

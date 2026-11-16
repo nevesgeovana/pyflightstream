@@ -85,7 +85,6 @@ from pyflightstream.cases._matrix_layouts import _COLUMNS as _COLUMNS
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_9_0 as _LAYOUT_0_9_0
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_11_0 as _LAYOUT_0_11_0
 from pyflightstream.cases._matrix_layouts import _LAYOUT_0_15_0 as _LAYOUT_0_15_0
-from pyflightstream.cases._matrix_layouts import _LAYOUT_0_56_0 as _LAYOUT_0_56_0
 from pyflightstream.cases._matrix_layouts import _LEGACY_COLUMNS_15 as _LEGACY_COLUMNS_15
 from pyflightstream.cases._matrix_layouts import _LEGACY_COLUMNS_16 as _LEGACY_COLUMNS_16
 from pyflightstream.cases._matrix_layouts import _RECIPE_REFERENCE as _RECIPE_REFERENCE
@@ -123,7 +122,6 @@ from pyflightstream.cases._matrix_upgrade import _peel_terminator as _peel_termi
 from pyflightstream.cases._matrix_upgrade import _refuse_an_earlier_layout
 from pyflightstream.cases._matrix_upgrade import _retag_cell as _retag_cell
 from pyflightstream.cases._matrix_upgrade import rewrite_codes as rewrite_codes
-from pyflightstream.cases._matrix_upgrade import upgrade_layout_bytes as upgrade_layout_bytes
 from pyflightstream.cases._sweep_names import _HELD_POINT_KEYS as _HELD_POINT_KEYS
 from pyflightstream.cases._sweep_names import ATTITUDE_KEYS as ATTITUDE_KEYS
 from pyflightstream.cases._sweep_names import FLIGHT_CONDITION_KEYS as FLIGHT_CONDITION_KEYS
@@ -1474,7 +1472,7 @@ def renumber_pols(
         if not header_seen:
             header_seen = True
             layout = _header_names(parts)
-            if layout not in (_COLUMNS, _LAYOUT_0_56_0):
+            if layout != _COLUMNS:
                 raise MatrixError(
                     f"{source} is not a run matrix at the verified layout, so its POL "
                     "cells cannot be found; upgrade it first."

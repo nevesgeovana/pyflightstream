@@ -11,8 +11,6 @@ from typing import Any
 from pydantic import ValidationError
 
 import pyflightstream._textio as _textio
-from pyflightstream.cases.matrix import upgrade_layout_bytes
-from pyflightstream.workspace._layout import matrix_files
 from pyflightstream.workspace.manifest import (
     MANIFEST_LOCK_POLL_S,
     MANIFEST_LOCK_RENEW_S,
@@ -65,9 +63,7 @@ def migrate_workspace(root: str | Path, *, apply: bool = False) -> list[dict[str
     -----
     Archives, products and solver state remain evidence. Every candidate is
     validated before the first backup or replacement. A repeated apply skips
-    already migrated files. The run matrices of the workspace (``matrix_files``) written at the
-    older layout, without the column, get the MESH_ROUTE column, unstated, with an exact ``.bak``
-    beside each. Migration instructions are in docs/upgrading.md.
+    already migrated files. Migration instructions are in docs/upgrading.md.
     """
     root = Path(root).resolve()
     if not root.is_dir():
@@ -86,13 +82,9 @@ def migrate_workspace(root: str | Path, *, apply: bool = False) -> list[dict[str
                 )
             )
         prepared = [_prepare_file(path) for path in candidates]
-        matrices = _prepare_matrices(root)
-        changes = [
-            *[_change_description(item, apply) for item in prepared],
-            *[{**_change_description(item, apply), "kind": "matrix"} for item in matrices],
-        ]
+        changes = [_change_description(item, apply) for item in prepared]
         if apply:
-            _write_prepared([*prepared, *matrices])
+            _write_prepared(prepared)
     return changes
 
 
@@ -208,31 +200,3 @@ def _change_description(item: tuple, apply: bool) -> dict[str, Any]:
         "backup": backup.name,
         "applied": apply,
     }
-
-
-def _prepare_matrices(root: Path) -> list[tuple]:
-    """Prepare each root matrix's MESH_ROUTE column without changing any file.
-
-    A matrix already at the current layout, and any other ``.fs`` file, is not a candidate.
-    Every rewrite is prepared before the first backup or replacement, and a backup that
-    already exists with other bytes is refused, as for a manifest.
-    """
-    prepared = []
-    for path in matrix_files(root):
-        if path.is_symlink():
-            raise WorkspaceError(f"migration refuses linked file {path}")
-        before = path.read_bytes()
-        after, changed = upgrade_layout_bytes(before)
-        if not changed:
-            continue
-        backup = path.with_suffix(path.suffix + ".bak")
-        if backup.is_symlink():
-            raise WorkspaceError(
-                f"{backup}: a linked backup is not a copy; remove it before migrating"
-            )
-        if backup.exists() and backup.read_bytes() != before:
-            raise WorkspaceError(
-                f"{backup}: a different backup already exists; preserve it before migrating again"
-            )
-        prepared.append((path, backup, before, after))
-    return prepared

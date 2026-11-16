@@ -2,6 +2,15 @@
 
 ## 0.58.1
 
+`MESH_ROUTE` is an optional `VAR_NAMES_VALUES` variable, for example
+`MESH_ROUTE: native`, `MESH_ROUTE: full_grid` or `MESH_ROUTE: quad_dominant`.
+The matrix header has no `MESH_ROUTE` column. An absent variable states no route.
+The column insertion step of `pyfs-workspace migrate` and the
+`matrix.layout-0.56.0` retirement are removed; the nineteen-column header reads
+without a layout warning. The former column is an unknown column under the ordinary reader.
+The insertion helpers `cases.matrix.upgrade_layout_bytes` and
+`cases._matrix_upgrade.upgrade_matrix_layout` are removed with that step.
+
 Accepted deprecated inputs show their replacements once with default warning
 filters, including during a quiet post: change `[products] superfile_format`
 to `polar_format` and `trim_moment = "CMB25"` to `"CmB"`. Other retained
@@ -275,7 +284,6 @@ name, naming its new command. Replace the program and keep the rest of the line.
 | `pyfs-matrix refine`, `audit-mesh`, `inventory`, `degenerate` | `pyfs-mesh refine`, `audit`, `inventory`, `degenerate`, with the same arguments |
 | `pyfs-matrix visual-inspect` | `pyfs-matrix plot-sweeps`, with the same arguments; the figure is still written to `post/visual-inspect/<name>.pdf`, and `pyfs-mesh visual-inspect` is unchanged |
 | `pyflightstream.post.inflow_tools.StationHarmonics` | `InflowStationHarmonics` |
-| a run matrix with the header of 0.56.0 (no `MESH_ROUTE` column) | run `pyfs-workspace migrate --apply`, which inserts the column after `GEOMETRY` and changes nothing else |
 | `[hub_rings] width` | `[hub_rings] band_width` |
 | `pyfs-mesh refine --chordwise`, `--spanwise`, `--keep-first-row`, `--out-dir` | `--normal`, `--parallel`, nothing (a row kept at an interface is its own family, selected by `--families`), `--out` |
 | `pyfs-mesh audit --csv` | `--out` |
@@ -362,16 +370,7 @@ The verdict uses unrounded saved midpoints; observation reports retain their exi
 An empty or wrong-edge result is False; missing or incomparable saves and already-marked
 baselines are None. Additional marked edges do not invalidate a target match.
 
-## Run-matrix header gains MESH_ROUTE (0.57)
-
-The run matrix has a new column, `MESH_ROUTE`, right after `GEOMETRY`. A matrix written at the
-0.56.0 layout, without it, still reads: it warns (`PyflightstreamDeprecationWarning`, removal in
-0.60.0) and every row reads as if it stated `NA`, so the script of each row is the one it emitted
-before. `pyfs-workspace migrate` shows which `*.fs` files of the workspace root carry the old
-header, and `pyfs-workspace migrate --apply` rewrites each one with an exact `.bak` beside it:
-only the header and one `NA` cell per row are added, and no other byte changes. A matrix
-you keep elsewhere is migrated by running the command on its workspace or by adding the
-column by hand.
+## Generated-geometry records (0.57)
 
 A row whose geometry cannot be generated is recorded with the status `GEOMETRY_FAILED`, and
 a reader older than 0.57.0 refuses a `runs.json` that holds it. Read such a record with

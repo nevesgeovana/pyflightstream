@@ -7,17 +7,14 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pyflightstream._textio as _textio
-from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.cases._matrix_layouts import (
     _COLUMNS,
     _LAYOUT_0_9_0,
     _LAYOUT_0_11_0,
     _LAYOUT_0_15_0,
-    _LAYOUT_0_56_0,
     _LEGACY_COLUMNS_15,
     _LEGACY_COLUMNS_16,
     CODE_COLUMNS,
-    UNSTATED_CELL,
     MatrixError,
 )
 
@@ -35,9 +32,7 @@ def _header_names(parts: list[bytes]) -> tuple[str, ...]:
 
 
 def _refuse_an_earlier_layout(header: tuple[str, ...], path: object) -> None:
-    """Refuse layouts older than the supported migration baseline, and the 0.56.0 one."""
-    if header == _LAYOUT_0_56_0:
-        raise MatrixError(f"{path}: {REMOVED_FORMS['matrix.layout-0.56.0'].message()}")
+    """Refuse layouts older than the supported migration baseline."""
     if header in (
         _LEGACY_COLUMNS_15,
         _LEGACY_COLUMNS_16,
@@ -192,7 +187,7 @@ def rewrite_codes(
         if not header_seen:
             header_seen = True
             names = tuple(cell.strip().decode("utf-8", "replace") for cell in parts)
-            if names not in (_COLUMNS, _LAYOUT_0_56_0):
+            if names != _COLUMNS:
                 raise MatrixError(
                     f"{source} is not a run matrix at the verified layout: its header "
                     f"names {', '.join(names)} and the layout this rewrite reads names "
@@ -220,82 +215,3 @@ def rewrite_codes(
     if in_place:
         _textio.write_bytes(path, rewritten)
     return rewritten, counts
-
-
-#: The cell width of the column 0.57.0 added: the heading's own, so the rewritten file lines up.
-_ROUTE_WIDTH = len("MESH_ROUTE")
-
-
-def upgrade_layout_bytes(data: bytes) -> tuple[bytes, int]:
-    """Rewrite every 0.56.0 matrix header in ``data`` to the current layout, byte for byte.
-
-    The column MESH_ROUTE is inserted after GEOMETRY in the header and, unstated, in every
-    row and rule line that follows it, so each other cell, separator, comment and line ending
-    survives as written. A text that holds several tables (a documentation page) is
-    rewritten table by table, and a table already at the current layout is left alone.
-
-    Parameters
-    ----------
-    data : bytes
-        The file, or the page, as bytes.
-
-    Returns
-    -------
-    tuple of bytes and int
-        The rewritten bytes, and how many lines changed (a header counts as one).
-    """
-    at = _LAYOUT_0_56_0.index("GEOMETRY") + 1
-    rebuilt: list[bytes] = []
-    changed = 0
-    inside = False
-    compact = False
-    for line in data.splitlines(keepends=True):
-        body, terminator = _peel_terminator(line)
-        if b"|" not in body:
-            rebuilt.append(line)
-            continue
-        parts = body.split(b"|")
-        names = _header_names(parts)
-        if names == _COLUMNS:
-            inside = False
-        elif names == _LAYOUT_0_56_0:
-            inside = True
-            # A header written without padding (the examples') gets a column without it.
-            compact = parts[at - 1] == parts[at - 1].strip()
-            parts.insert(at, b"MESH_ROUTE" if compact else b" MESH_ROUTE ")
-            changed += 1
-            line = b"|".join(parts) + terminator
-        elif inside and len(parts) == len(_LAYOUT_0_56_0):
-            if set(body.strip()) <= set(b"-:+| \t"):
-                parts.insert(at, b"-" * (_ROUTE_WIDTH + (0 if compact else 2)))
-            elif compact:
-                parts.insert(at, UNSTATED_CELL.encode("utf-8"))
-            else:
-                parts.insert(at, _pad_like(UNSTATED_CELL, _ROUTE_WIDTH))
-            changed += 1
-            line = b"|".join(parts) + terminator
-        rebuilt.append(line)
-    return b"".join(rebuilt), changed
-
-
-def upgrade_matrix_layout(path: str | Path, *, in_place: bool = False) -> tuple[bytes, int]:
-    """Rewrite one file from the 0.56.0 matrix layout to the current one.
-
-    Parameters
-    ----------
-    path : str or Path
-        The matrix. Read as bytes, so no cell, comment or line ending is altered.
-    in_place : bool
-        Write the result back over ``path``. False previews.
-
-    Returns
-    -------
-    tuple of bytes and int
-        The rewritten file and the number of lines changed; zero means the file was not at
-        the 0.56.0 layout and is returned as it was.
-    """
-    original = Path(path).read_bytes()
-    rewritten, changed = upgrade_layout_bytes(original)
-    if in_place and changed:
-        _textio.write_bytes(path, rewritten)
-    return rewritten, changed

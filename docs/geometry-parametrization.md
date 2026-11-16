@@ -257,7 +257,7 @@ Python: `mesh_configuration`.
 
 ## Mesh as one structured grid (strategy 2)
 
-A matrix row with `MESH_ROUTE` `full_grid` meshes its generated configuration by strategy 2
+A matrix row with `MESH_ROUTE: full_grid` in `VAR_NAMES_VALUES` meshes its generated configuration by strategy 2
 from controls with `strategy = 2`. Every face of the fragmented configuration becomes a block:
 its four sharpest corners make four sides, and a face trimmed by a junction keeps the junction
 curve as one side even when the curve is cut in several pieces, which builds the collar around a
@@ -318,7 +318,7 @@ They refuse `cs` and `csf` before meshing because these routes do not yet apply 
 
 ## From a matrix row, through the solver's CAD import (`native`)
 
-A row with `GEOMETRY` naming a `.geom.toml` and `MESH_ROUTE` `native` generates the configuration
+A row with `GEOMETRY` naming a `.geom.toml` and `MESH_ROUTE: native` in `VAR_NAMES_VALUES` generates the configuration
 to the IGES and its conversion check (`--until S12.C`; the library's own gridding of the reader,
 S12.G, is not asked, because the solver meshes the IGES itself) and writes a geometry
 instruction beside it: a `[cad]` source over the IGES in `FILE` units. `pyfs-matrix run` builds

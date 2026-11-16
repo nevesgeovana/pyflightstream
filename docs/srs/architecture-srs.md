@@ -513,4 +513,4 @@ line over it and runs as `python -m pyflightstream.run.geom_cli`; `run.mesh_cli`
 `pyfs-mesh` command line of the mesh operations and the workspace geometry build, the mesh
 half of the same split as `cfd-mesh` and `cfd-geom`. `workspace.scale` and
 `workspace.prop_slice` are independent mesh and propeller utilities that take files in and write
-files out, and the run matrix reaches generated geometry through the `MESH_ROUTE` column.
+files out, and the run matrix reaches generated geometry through the optional `MESH_ROUTE` variable in `VAR_NAMES_VALUES`.

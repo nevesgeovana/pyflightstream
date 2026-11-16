@@ -9,8 +9,9 @@ parameters. The result lives in one folder of ``inputs/geometries/``, named by t
 written by atomic rename, so equal parameters reuse it and two rows cannot collide; the row then
 opens the ``.fsm`` that the existing geometry stage builds from the instruction written there.
 
-The route of the row (``MESH_ROUTE``) chooses what the instruction is: ``native`` hands the
-generated IGES to the solver's CAD importer (``[cad]``), ``quad_dominant`` meshes it with
+The optional variable of the row (``MESH_ROUTE`` in ``VAR_NAMES_VALUES``) chooses the
+instruction: ``native`` hands the generated IGES to the solver's CAD importer (``[cad]``),
+``quad_dominant`` meshes it with
 strategy 1 of PFS-2214 and hands that mesh over (``[mesh]``), and ``full_grid`` meshes it with
 strategy 2 (:func:`mesh_with_strategy_2`) and hands that mesh over the same way.
 

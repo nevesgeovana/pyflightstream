@@ -17,6 +17,8 @@ from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from tests.support_helpers import grouped_plan_fixture
 
 REPO = Path(__file__).resolve().parents[2]
@@ -73,6 +75,64 @@ def _differences(before: dict, after: dict) -> list[dict]:
         {"base": "base", "release": "release"},
     )
     return scripts["differing"]
+
+
+@pytest.mark.parametrize("change", ["extra-column", "migration-still-present", "route-key-lost"])
+def test_p0581_matrix_migration_accepts_only_the_documented_input_change(change):
+    from pyflightstream.cases.matrix import MATRIX_COLUMNS
+
+    parity = _parity()
+    current = {
+        "columns": list(MATRIX_COLUMNS),
+        "route_variable": True,
+        "layout_retired": False,
+        "matrix_migration": False,
+    }
+    old_columns = list(MATRIX_COLUMNS)
+    old_columns.insert(old_columns.index("GEOMETRY") + 1, "MESH_ROUTE")
+    before = {**current, "columns": old_columns, "layout_retired": True, "matrix_migration": True}
+    assert parity.matrix_input_migrations(before, current, "0.58.0")["accepted"]
+    assert not parity.matrix_input_migrations(before, current, "0.58.1")["accepted"]
+    changed = {**current, "columns": [*current["columns"]]}
+    if change == "extra-column":
+        changed["columns"].append("EXTRA")
+    elif change == "migration-still-present":
+        changed["matrix_migration"] = True
+    else:
+        changed["route_variable"] = False
+    assert not parity.matrix_input_migrations(before, changed, "0.58.0")["accepted"]
+
+
+@pytest.mark.parametrize(
+    "route", ["NA", "native", "MESH_ROUTE", "---"], ids=lambda r: f"P0581-parity-{r}"
+)
+def test_p0581_parity_copy_removes_only_an_unstated_route_column(tmp_path, route):
+    parity = _parity()
+    path = tmp_path / "matrix.fs"
+    original = (
+        "POL | GEOMETRY | MESH_ROUTE | VAR_NAMES_VALUES\r\n"
+        f"1 | wing.fsm | {route} | DELTA_THETA: 5\r\n"
+    ).encode()
+    path.write_bytes(original)
+    columns = ["POL", "GEOMETRY", "VAR_NAMES_VALUES"]
+    if route != "NA":
+        with pytest.raises(ValueError, match="states a route"):
+            parity.align_matrix_inputs(tmp_path, columns)
+        assert path.read_bytes() == original
+    else:
+        assert parity.align_matrix_inputs(tmp_path, columns) == ["matrix.fs"]
+        assert path.read_bytes() == (
+            b"POL | GEOMETRY | VAR_NAMES_VALUES\r\n1 | wing.fsm | DELTA_THETA: 5\r\n"
+        )
+
+
+def test_p0581_input_migration_arm_leaves_older_baselines_to_the_existing_comparisons():
+    parity = _parity()
+    before = parity._matrix_inputs("0.32.0")
+    assert before["observed"] is False
+    assert set(before) == {"columns", "observed"}
+    result = parity.matrix_input_migrations(before, {"columns": []}, "0.32.0")
+    assert result["accepted"] is True and "four original comparisons" in result["scope"]
 
 
 def _tier1_imports(source: str) -> list[str]:
@@ -266,9 +326,15 @@ def _verdict(
                 or (interfaces is not None and f"{module}.{name}" in interfaces["missing"])
             ]
         if mode == "cli":
+            matrix_inputs = {
+                "columns": ["POL"],
+                "route_variable": True,
+                "layout_retired": False,
+                "matrix_migration": False,
+            }
             if interfaces is not None:
-                return interfaces[work.name]
-            return {"spellings": ["pyfs-matrix"], "unavailable": {}}
+                return {**interfaces[work.name], "matrix_inputs": matrix_inputs}
+            return {"spellings": ["pyfs-matrix"], "unavailable": {}, "matrix_inputs": matrix_inputs}
         if mode == "scripts":
             if renders is not None:
                 (work / "script-inventories.json").write_text(
@@ -297,7 +363,7 @@ def _verdict(
             "workspace_rendered": [{"matrix": "m.fs", "mode": "--per-point"}],
         }
 
-    def post(python, tree, source, ws, keep):
+    def post(python, tree, source, ws, keep, columns):
         keep.mkdir()
         (keep / "control.txt").write_bytes(b"post\n")
         return {"exit": 0, "stderr_tail": ""}

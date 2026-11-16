@@ -1,10 +1,10 @@
-"""0.57.0 PFS-2214 (G10): matrix reach, the MESH_ROUTE column and the geometry row.
+"""0.57.0 PFS-2214 (G10): matrix reach, the optional MESH_ROUTE variable and the geometry row.
 
 Written from the requirement (C2: a row and the API give one identity; C3: a failed row does not
-stop the others; C4: a route column, each value reaching its own code path, a mesh row warned and
-skipped, a row with no route emitting the script it emitted before; layout: an old header is
-refused naming the current one and migrates, no byte lost) and the design's section D.4 and
-D.5. The generator runs for real on a one-component body up to the pure stages; the kernel
+stop the others; C4: a route variable, each value reaching its own code path, a mesh row warned and
+skipped, a row with no route emitting the script it emitted before; the current header has
+no route column) and the design's section D.4 and D.5. The generator runs for real on a
+one-component body up to the pure stages; the kernel
 stages and the strategy meshers are replaced where a test is about the route, not the geometry.
 """
 
@@ -19,6 +19,9 @@ from types import SimpleNamespace
 import pytest
 
 from pyflightstream._errors import NotApplicableWarning, PyflightstreamDeprecationWarning
+from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, read_matrix
+from pyflightstream.workspace import _geometry_row
+from pyflightstream.workspace.matrix import resolve_matrix
 from tests.support_helpers import make_library, stage_geometry
 
 BODY_TOML = '[components.FUS]\ntype = "body"\nlength_mm = 2000.0\n'
@@ -49,7 +52,6 @@ def _cells(pol="7001", geometry="wing.fsm", route=None, free="", build="26.120")
         "FLIGHT_CONDITION": "MACH:0.1, REmi:1.0, ALPHA:sweep",
         "SWEEP_VALUES": "0.0",
         "GEOMETRY": geometry,
-        "MESH_ROUTE": route or "NA",
         "REF": "r003",
         "SET": "s002",
         "PPROC": "p001",
@@ -59,16 +61,18 @@ def _cells(pol="7001", geometry="wing.fsm", route=None, free="", build="26.120")
         "WALLTIME": "-",
         "FS_BUILD": build,
         "WORKFLOW": "steady",
-        "VAR_NAMES_VALUES": free,
+        "VAR_NAMES_VALUES": " / ".join(
+            filter(None, (free, f"MESH_ROUTE: {route}" if route and route != "NA" else ""))
+        ),
     }
     return cells
 
 
-def _matrix(tmp_path, rows, *, old=False, name="matrix.fs"):
-    """Write a matrix of ``rows`` at the current layout, or at the frozen one."""
+def _matrix(tmp_path, rows, *, name="matrix.fs"):
+    """Write a matrix of ``rows`` at the current layout."""
     from pyflightstream.cases.matrix import MATRIX_COLUMNS
 
-    columns = [c for c in MATRIX_COLUMNS if not (old and c == "MESH_ROUTE")]
+    columns = MATRIX_COLUMNS
     lines = [" | ".join(columns), "-" * 40]
     lines += [" | ".join(row[c] for c in columns) for row in rows]
     path = tmp_path / name
@@ -93,27 +97,10 @@ def _resolve(path, workspace):
 # --- the layout ----------------------------------------------------------------------------
 
 
-def test_the_current_layout_adds_mesh_route_right_after_geometry():
+def test_the_current_layout_has_no_mesh_route_column():
     from pyflightstream.cases.matrix import MATRIX_COLUMNS
 
-    assert MATRIX_COLUMNS.index("MESH_ROUTE") == MATRIX_COLUMNS.index("GEOMETRY") + 1
-    assert [c for c in MATRIX_COLUMNS if c != "MESH_ROUTE"] == OLD_HEADER
-
-
-def test_the_frozen_layout_is_the_header_of_0_56_0():
-    from pyflightstream.cases.matrix import RECOGNIZED_MATRIX_LAYOUTS
-
-    assert tuple(OLD_HEADER) in RECOGNIZED_MATRIX_LAYOUTS
-
-
-def test_an_old_header_is_refused_naming_the_current_one(tmp_path):
-    from pyflightstream.cases.matrix import MatrixError, read_matrix
-
-    path = _matrix(tmp_path, [_cells()], old=True)
-    with pytest.raises(MatrixError, match="MESH_ROUTE") as refused:
-        read_matrix(path)
-    assert "pyfs-workspace migrate --apply" in str(refused.value)
-    assert "no longer accepted" in str(refused.value)
+    assert list(MATRIX_COLUMNS) == OLD_HEADER
 
 
 def test_the_current_header_reads_with_no_layout_warning(tmp_path):
@@ -124,64 +111,6 @@ def test_the_current_header_reads_with_no_layout_warning(tmp_path):
         warnings.simplefilter("error", PyflightstreamDeprecationWarning)
         (row,) = read_matrix(path)
     assert row.variables["MESH_ROUTE"] == "native"
-
-
-def test_old_header_migrates_with_no_byte_lost(tmp_path):
-    from pyflightstream.cases.matrix import MATRIX_COLUMNS, read_matrix
-    from pyflightstream.workspace.migrate import migrate_workspace
-
-    workspace = make_library(tmp_path)
-    path = _matrix(workspace.root, [_cells(), _cells(pol="7002")], old=True)
-    original = path.read_bytes()
-    preview = migrate_workspace(workspace.root)
-    assert [c["file"] for c in preview if c.get("kind") == "matrix"] == ["matrix.fs"]
-    assert path.read_bytes() == original  # a preview writes nothing
-    applied = migrate_workspace(workspace.root, apply=True)
-    assert any(c.get("kind") == "matrix" and c["applied"] for c in applied)
-    assert (workspace.root / "matrix.fs.bak").read_bytes() == original
-    migrated = path.read_bytes()
-    header, *_ = migrated.decode().splitlines()
-    assert tuple(c.strip() for c in header.split("|")) == MATRIX_COLUMNS
-    # dropping the inserted cell of each line gives the original back
-    index = MATRIX_COLUMNS.index("MESH_ROUTE")
-    for before, after in zip(
-        original.decode().splitlines(keepends=True),
-        migrated.decode().splitlines(keepends=True),
-        strict=True,
-    ):
-        if "|" in after:
-            parts = after.split("|")
-            del parts[index]
-            after = "|".join(parts)
-        assert after == before
-    assert [r.pol for r in read_matrix(path)] == ["7001", "7002"]
-    assert not any(c.get("kind") == "matrix" for c in migrate_workspace(workspace.root, apply=True))
-
-
-def test_r27_matrix_backup_conflict_prevents_manifest_migration(tmp_path):
-    from pyflightstream.workspace.manifest import WorkspaceError
-    from pyflightstream.workspace.migrate import migrate_workspace
-
-    workspace = make_library(tmp_path)
-    matrix = _matrix(workspace.root, [_cells()], old=True)
-    original = matrix.read_bytes()
-    manifest = workspace.root / "runs.json"
-    manifest.write_bytes(b"[]\r\n")
-    backup = matrix.with_suffix(".fs.bak")
-    backup.write_bytes(b"a different preserved matrix")
-    with pytest.raises(WorkspaceError, match="different backup"):
-        migrate_workspace(workspace.root, apply=True)
-    assert manifest.read_bytes() == b"[]\r\n"
-    assert not manifest.with_suffix(".json.bak").exists()
-    assert matrix.read_bytes() == original
-    assert backup.read_bytes() == b"a different preserved matrix"
-
-    backup.write_bytes(original)
-    changes = migrate_workspace(workspace.root, apply=True)
-    assert {row["file"] for row in changes} == {"runs.json", "matrix.fs"}
-    assert manifest.with_suffix(".json.bak").read_bytes() == b"[]\r\n"
-    assert matrix.with_suffix(".fs.bak").read_bytes() == original
-    assert b"MESH_ROUTE" in matrix.read_bytes()
 
 
 def test_every_tracked_matrix_file_is_at_the_current_layout():
@@ -245,18 +174,6 @@ def test_mesh_entries_on_an_fsm_row_are_warned_and_skipped(tmp_path, library):
     assert "MESH_ROUTE" in said and "GEOM_VARIANT" in said and "MESH_CONTROLS" in said
     assert [case.sim_id for case in resolved.campaign.sims] == ["7001"]
     assert not resolved.geometry_failures
-
-
-def test_a_row_with_no_route_binds_the_case_it_bound_before(tmp_path, library):
-    from pyflightstream.cases.matrix import upgrade_layout_bytes
-
-    new = _resolve(_matrix(tmp_path, [_cells()], name="new.fs"), library)
-    frozen = _matrix(tmp_path, [_cells()], old=True, name="old.fs")
-    frozen.write_bytes(upgrade_layout_bytes(frozen.read_bytes())[0])
-    old = _resolve(frozen, library)
-    (a,), (b,) = new.campaign.sims, old.campaign.sims
-    assert a.model_dump(mode="json") == b.model_dump(mode="json")
-    assert a.variables == b.variables
 
 
 def _request(library, *, free=None, route=None):
@@ -547,14 +464,15 @@ def test_configuration_entries_on_an_iges_row_are_warned_and_skipped(library):
     assert request.kind == "iges" and not request.overrides and request.configuration is None
 
 
-def test_migrate_help_names_the_mesh_route_column_and_apply(capsys):
+def test_migrate_help_names_record_migration_and_apply(capsys):
     """API-006: pyfs-workspace migrate --help says what it migrates and what --apply does."""
     from pyflightstream.workspace.cli import main
 
     with pytest.raises(SystemExit):
         main(["migrate", "--help"])
     text = " ".join(capsys.readouterr().out.split())
-    assert "MESH_ROUTE" in text
+    assert "record manifests from 0.38.0" in text
+    assert "MESH_ROUTE" not in text
     assert "--apply write the .bak backups" in text
 
 
@@ -1074,3 +992,113 @@ def test_r27_013_published_row_records_name_the_published_folder(library):
         assert ".part" not in log
         assert json.dumps(str(published)) in log
         assert f"configuration file: {request.source}" in log
+
+
+_P0581_HEADER = (
+    "POL HIDDEN RUN AIRCRAFT CONFIGURATION DESCRIPTION FLIGHT_CONDITION SWEEP_VALUES "
+    "GEOMETRY REF SET PPROC SYMMETRY SYMMETRY_LOADS NCPUS WALLTIME FS_BUILD WORKFLOW "
+    "VAR_NAMES_VALUES"
+).split()
+
+
+def _p0581_matrix(tmp_path, rows):
+    path = tmp_path / "route.fs"
+    lines = [" | ".join(_P0581_HEADER)]
+    for pol, geometry, free in rows:
+        lines.append(
+            f"{pol} | 0 | 1 | Wing | NA | route | MACH:0.1, REmi:1, ALPHA:sweep | 0 | "
+            f"{geometry} | r003 | s002 | p001 | NONE | NA | NA | NA | 26.120 | steady | {free}"
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _p0581_read(path):
+    try:
+        return read_matrix(path)
+    except MatrixError as error:
+        pytest.fail(f"the current matrix must read without a route column: {error}")
+
+
+@pytest.mark.parametrize(
+    "route", ["native", "full_grid", "quad_dominant"], ids=lambda r: f"P0581-{r}"
+)
+def test_p0581_var_names_routes_each_row(tmp_path, route):
+    source = tmp_path / "demo.geom.toml"
+    source.write_text('[components.FUS]\ntype = "body"\nlength_mm = 2000.0\n', encoding="utf-8")
+    path = _p0581_matrix(tmp_path, [("7001", source.name, f"MESH_ROUTE: {route}")])
+    (row,) = _p0581_read(path)
+    assert row.variables["MESH_ROUTE"] == route
+    request = _geometry_row.plan_row_geometry(
+        row.variables, row.pol, lambda name: tmp_path / name, fs_build="26.120"
+    )
+    assert request is not None and request.route == route
+    assert "MESH_ROUTE" not in MATRIX_COLUMNS
+
+
+def test_p0581_no_route_plans_without_stating_one(tmp_path):
+    import sys
+
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run import PlanStatus
+    from pyflightstream.run.matrix import plan_matrix
+    from tests.support_helpers import saved_mesh_fixture
+
+    path = _p0581_matrix(tmp_path, [("7001", "wing.fsm", "")])
+    (row,) = _p0581_read(path)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    saved_mesh_fixture(stage_geometry(workspace, "wing.fsm"), ["Wing"])
+    assert "MESH_ROUTE" not in row.variables
+    resolved = resolve_matrix(path, workspace, name="route", fs_version="26.120", recipes={})
+    assert [case.sim_id for case in resolved.campaign.sims] == ["7001"]
+    assert "MESH_ROUTE" not in resolved.campaign.sims[0].variables
+    assert not resolved.geometry_failures
+    plan = plan_matrix(
+        path,
+        workspace,
+        name="route",
+        default_fs_version="26.120",
+        fs_exe=sys.executable,
+        recipes={},
+        recipe_registry=workflow_registry(),
+        write_plan=False,
+    )
+    assert plan.points and all(point.status is PlanStatus.READY for point in plan.points), (
+        plan.summary()
+    )
+
+
+@pytest.mark.parametrize("suffix", ["fsm", "obj", "stl"], ids=lambda s: f"P0581-{s}")
+def test_p0581_mesh_file_warns_and_skips_route(tmp_path, suffix):
+    path = _p0581_matrix(tmp_path, [("7001", f"wing.{suffix}", "MESH_ROUTE: full_grid")])
+    (row,) = _p0581_read(path)
+    with pytest.warns(NotApplicableWarning, match="MESH_ROUTE"):
+        request = _geometry_row.plan_row_geometry(
+            row.variables, row.pol, lambda name: tmp_path / name, fs_build="26.120"
+        )
+    assert request is None
+
+
+def test_p0581_route_declarations_are_per_row(tmp_path):
+    path = _p0581_matrix(
+        tmp_path, [("7001", "demo.geom.toml", "MESH_ROUTE: native"), ("7002", "wing.fsm", "")]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        first, second = _p0581_read(path)
+    assert first.variables["MESH_ROUTE"] == "native"
+    assert "MESH_ROUTE" not in second.variables
+
+
+def test_p0581_former_column_gets_the_ordinary_unknown_column_message(tmp_path):
+    path = _p0581_matrix(tmp_path, [("7001", "wing.fsm", "")])
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("GEOMETRY | REF", "GEOMETRY | MESH_ROUTE | REF").replace(
+            "wing.fsm | r003", "wing.fsm | NA | r003"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(MatrixError, match="'MESH_ROUTE' is not a known column") as refused:
+        read_matrix(path)
+    assert "no longer accepted" not in str(refused.value)

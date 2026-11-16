@@ -784,7 +784,7 @@ class TestGeometryComplete:
             "wing_Base+000.fsm",
             "wing_Base+100.fsm",
         ]
-        assert all(c[3] == "DemoWing" and c[13] == "NONE" for c in cells)
+        assert all(c[3] == "DemoWing" and c[12] == "NONE" for c in cells)
         assert matrix.read_bytes() == before
 
     @staticmethod

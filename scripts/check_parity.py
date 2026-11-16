@@ -130,6 +130,19 @@ API_EXEMPT = {
     "pyflightstream.run.cli.write_table": "FR-3564 (0.55.0): the CLI calls write_sweep_table",
 }
 
+#: FR-93, owner correction in 0.58.1: these exact input changes are intentional.
+#: This records the column and migrate-step removal without exempting script or product bytes.
+MATRIX_INPUT_MIGRATION = {
+    "since": "0.58.1",
+    "requirement": "FR-93",
+    "decision": "AD-15",
+    "migration": "docs/upgrading.md",
+    "column_removed": "MESH_ROUTE",
+    "retirement_removed": "matrix.layout-0.56.0",
+    "step_removed": "pyfs-workspace migrate: insert MESH_ROUTE after GEOMETRY",
+    "replacement": "optional MESH_ROUTE in VAR_NAMES_VALUES",
+}
+
 #: The message of a per-revolution drift warning, old or new wording: the column
 #: drifts by a percentage of itself or, for a force or moment column, of the
 #: scale of its group, between two revolutions, over the limit.
@@ -1248,7 +1261,100 @@ def collect_cli(tree: Path) -> dict[str, Any]:
         "spellings": sorted(spellings),
         "unavailable": unavailable,
         "retirements": _collect_retirements(tree, scripts),
+        "matrix_inputs": _matrix_inputs(project["project"]["version"]),
     }
+
+
+def _matrix_inputs(version: str = "0.58.0") -> dict[str, Any]:
+    """Observe the layout and, from 0.58.0, the actual insertion-migration preview."""
+    from pyflightstream.cases.matrix import MATRIX_COLUMNS
+
+    if release_version(version) < release_version("0.58.0"):
+        return {"columns": list(MATRIX_COLUMNS), "observed": False}
+
+    from pyflightstream._retired_names import REMOVED_FORMS
+    from pyflightstream.cases.workflows import ROW_KEY_MEANINGS
+    from pyflightstream.workspace.migrate import migrate_workspace
+
+    columns = [c for c in MATRIX_COLUMNS if c != "MESH_ROUTE"]
+    with tempfile.TemporaryDirectory(prefix="matrix-migration-") as temporary:
+        root = Path(temporary)
+        (root / "matrix.fs").write_text("|".join(columns) + "\n", encoding="utf-8")
+        changes = migrate_workspace(root)
+    return {
+        "columns": list(MATRIX_COLUMNS),
+        "observed": True,
+        "route_variable": "MESH_ROUTE" in ROW_KEY_MEANINGS,
+        "layout_retired": "matrix.layout-0.56.0" in REMOVED_FORMS,
+        "matrix_migration": any(c.get("kind") == "matrix" for c in changes),
+    }
+
+
+def matrix_input_migrations(base: dict, release: dict, base_version: str) -> dict:
+    """Accept equal inputs or exactly the documented 0.58.1 column removal."""
+    if base.get("observed") is False:
+        return {
+            "base": base,
+            "release": release,
+            "accepted": True,
+            "scope": (
+                "input-migration observations start at 0.58.0; earlier bases retain "
+                "the four original comparisons"
+            ),
+        }
+    if base == release:
+        return {"base": base, "release": release, "accepted": True}
+    expected = {
+        **base,
+        "columns": [c for c in base.get("columns", []) if c != "MESH_ROUTE"],
+        "layout_retired": False,
+        "matrix_migration": False,
+    }
+    accepted = (
+        in_scope(MATRIX_INPUT_MIGRATION, base_version)
+        and base.get("columns", []).count("MESH_ROUTE") == 1
+        and base.get("route_variable") is True
+        and base.get("layout_retired") is True
+        and base.get("matrix_migration") is True
+        and release == expected
+    )
+    return {
+        "base": base,
+        "release": release,
+        "accepted": accepted,
+        "migration": MATRIX_INPUT_MIGRATION if accepted else None,
+    }
+
+
+def align_matrix_inputs(root: Path, columns: list[str]) -> list[str]:
+    """Remove only unstated route cells from disposable parity workspace copies."""
+    if "MESH_ROUTE" in columns:
+        return []
+    old = list(columns)
+    old.insert(old.index("GEOMETRY") + 1, "MESH_ROUTE")
+    changed = []
+    matrices = sorted({*root.glob("*.fs"), *(root / "inputs" / "matrices").rglob("*.fs")})
+    for path in matrices:
+        lines = path.read_bytes().splitlines(keepends=True)
+        at = old.index("MESH_ROUTE")
+        rewritten = []
+        recognized = False
+        for line in lines:
+            cells = line.split(b"|")
+            is_header = [c.strip().decode("utf-8") for c in cells] == old
+            if is_header:
+                recognized = True
+            if recognized and len(cells) == len(old):
+                value = cells[at].strip()
+                is_rule = set(line.strip()) <= set(b"-:+| \t")
+                if not is_header and not is_rule and value not in (b"", b"-", b"NA"):
+                    raise ValueError(f"parity matrix {path.name} states a route in its old column")
+                del cells[at]
+            rewritten.append(b"|".join(cells))
+        if recognized:
+            path.write_bytes(b"".join(rewritten))
+            changed.append(path.relative_to(root).as_posix())
+    return changed
 
 
 def _collect_retirements(tree: Path, scripts: dict[str, str]) -> dict[str, Any]:
@@ -1460,13 +1566,14 @@ def _workspace_refusal(error: Exception, matrix: Path, ws: Path) -> dict[str, An
 def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
     """Collect per-point and grouped scripts from fresh copies at one fixed path."""
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.matrix import MatrixError
+    from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError
 
     matrices = sorted({*source.glob("*.fs"), *(source / "inputs" / "matrices").rglob("*.fs")})
     scripts: dict[str, str] = {}
     skipped = []
     refused = []
     rendered = []
+    migrated: set[str] = set()
     attempted: set[str] = set()
     for matrix in matrices:
         relative = matrix.relative_to(source)
@@ -1476,6 +1583,7 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
             if ws.exists():
                 shutil.rmtree(ws)
             shutil.copytree(source, ws)
+            migrated.update(align_matrix_inputs(ws, list(MATRIX_COLUMNS)))
             try:
                 result = _workspace_render(ws / relative, ws, flags)
             except (MatrixError, CampaignConfigError) as error:
@@ -1502,6 +1610,7 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
         "grouped_attempted": sorted(attempted),
         "workspace_refused": refused,
         "workspace_rendered": rendered,
+        "matrix_inputs_migrated": sorted(migrated),
     }
 
 
@@ -1595,11 +1704,14 @@ def run_child(python: str, mode: str, tree: Path, work: Path, argument: Path | N
     return json.loads(out.read_text(encoding="utf-8"))
 
 
-def run_post(python: str, tree: Path, source: Path, ws: Path, keep: Path) -> dict[str, Any]:
+def run_post(
+    python: str, tree: Path, source: Path, ws: Path, keep: Path, columns: list[str]
+) -> dict[str, Any]:
     """Post a fresh copy of ``source`` at ``ws`` with the tree's pyfs-matrix; keep post/."""
     if ws.exists():
         shutil.rmtree(ws)
     shutil.copytree(source, ws, ignore=lambda d, names: ["post"] if Path(d) == source else [])
+    migrated = align_matrix_inputs(ws, columns)
     project = tomllib.loads((tree / "pyproject.toml").read_text(encoding="utf-8"))
     module_name, _, attr = project["project"]["scripts"][MATRIX_CONSOLE].partition(":")
     code = f"import sys; from {module_name} import {attr} as m; sys.exit(m(sys.argv[1:]))"
@@ -1616,6 +1728,7 @@ def run_post(python: str, tree: Path, source: Path, ws: Path, keep: Path) -> dic
     return {
         "exit": done.returncode,
         "stderr_tail": done.stderr.decode("utf-8", "replace")[-800:],
+        "matrix_inputs_migrated": migrated,
     }
 
 
@@ -3109,7 +3222,14 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         overlap = set(scripts_base) & set(workspace_base["scripts"])
         assert not overlap, f"base workspace script names overlap render keys: {sorted(overlap)}"
         scripts_base.update(workspace_base["scripts"])
-        post_run_base = run_post(python, tree, args.workspace, ws, temp / "post-base")
+        post_run_base = run_post(
+            python,
+            tree,
+            args.workspace,
+            ws,
+            temp / "post-base",
+            cli_base["matrix_inputs"]["columns"],
+        )
 
         export(release_sha, tree)
         (temp / "release").mkdir()
@@ -3141,7 +3261,14 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         overlap = set(scripts_release) & set(workspace_release["scripts"])
         assert not overlap, f"release workspace script names overlap render keys: {sorted(overlap)}"
         scripts_release.update(workspace_release["scripts"])
-        post_run_release = run_post(python, tree, args.workspace, ws, temp / "post-release")
+        post_run_release = run_post(
+            python,
+            tree,
+            args.workspace,
+            ws,
+            temp / "post-release",
+            cli_release["matrix_inputs"]["columns"],
+        )
         defined = srs_ids(tree)
 
         post_base_raw = read_tree(temp / "post-base")
@@ -3324,6 +3451,21 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         failures.append(
             f"console scripts do not build at the release: {cli_release['unavailable']}"
         )
+    matrix_inputs = matrix_input_migrations(
+        cli_base["matrix_inputs"], cli_release["matrix_inputs"], base_version
+    )
+    matrix_inputs["workspace_matrices"] = {
+        "base": workspace_base.get("matrix_inputs_migrated", []),
+        "release": workspace_release.get("matrix_inputs_migrated", []),
+    }
+    matrix_inputs["post_matrices"] = {
+        "base": post_run_base.get("matrix_inputs_migrated", []),
+        "release": post_run_release.get("matrix_inputs_migrated", []),
+    }
+    if not matrix_inputs["accepted"]:
+        failures.append("matrix inputs differ beyond the documented FR-93 migration")
+    if matrix_inputs.get("migration") and MATRIX_INPUT_MIGRATION["requirement"] not in defined:
+        failures.append("the matrix input migration requires FR-93 in the release SRS")
     for kind, block, key in (("scripts", scripts, "name"), ("post", post, "file")):
         if not block["checked"]:
             failures.append(f"no {kind} were compared")
@@ -3349,6 +3491,7 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "scripts": scripts,
         "post": post,
         "named_differences": NAMED_DIFFERENCES,
+        "matrix_inputs": matrix_inputs,
         "controls": {
             "caught": f"caught {len(controls)} of {expected_controls}",
             "detail": controls,

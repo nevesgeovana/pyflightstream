@@ -10,30 +10,6 @@ from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import InputKey
 from pyflightstream.cases.workflows import ROW_KEY_MEANINGS, WALLTIME_UNITS_GLOSS, WALLTIME_VARIABLE
 
-#: The layout of 0.56.0, frozen: the current one without MESH_ROUTE. The matrix
-#: reader refuses it, naming the current layout; ``pyfs-workspace migrate`` rewrites it.
-_LAYOUT_0_56_0 = (
-    "POL",
-    "HIDDEN",
-    "RUN",
-    "AIRCRAFT",
-    "CONFIGURATION",
-    "DESCRIPTION",
-    "FLIGHT_CONDITION",
-    "SWEEP_VALUES",
-    "GEOMETRY",
-    "REF",
-    "SET",
-    "PPROC",
-    "SYMMETRY",
-    "SYMMETRY_LOADS",
-    "NCPUS",
-    "WALLTIME",
-    "FS_BUILD",
-    "WORKFLOW",
-    "VAR_NAMES_VALUES",
-)
-
 #: The current layout, in file order. WORKFLOW is second from last and
 #: VAR_NAMES_VALUES is last because its free-form content has no fixed width.
 #: Keys every row answers have columns; keys conditional on the run type or
@@ -49,7 +25,6 @@ _COLUMNS = (
     "FLIGHT_CONDITION",
     "SWEEP_VALUES",
     "GEOMETRY",
-    "MESH_ROUTE",
     "REF",
     "SET",
     "PPROC",
@@ -91,11 +66,6 @@ COLUMN_MEANINGS: Mapping[str, InputKey] = {
         "The geometry the row opens, a file of inputs/geometries/.",
         "a file name with its extension",
         "OPEN, IMPORT",
-    ),
-    "MESH_ROUTE": InputKey(
-        "How a row whose GEOMETRY is a generated configuration (a .geom.toml) or an IGES "
-        "file becomes a mesh the solver opens; NA leaves a row with a mesh file as it is.",
-        "NA, native, full_grid or quad_dominant",
     ),
     "REF": InputKey(
         "The reference artifact the row's lengths, frames, rotors and discs come from.",
@@ -203,14 +173,13 @@ UNSTATED_CELLS: tuple[str, ...] = ("", "-", NOT_APPLICABLE)
 COLUMNS_THAT_MAY_BE_UNSTATED = (
     "CONFIGURATION",
     "GEOMETRY",
-    "MESH_ROUTE",
     "SYMMETRY",
     "SYMMETRY_LOADS",
     "NCPUS",
     "WALLTIME",
 )
 
-#: The values a MESH_ROUTE cell takes besides the unstated token.
+#: The values of the optional MESH_ROUTE variable.
 MESH_ROUTES = ("native", "full_grid", "quad_dominant")
 
 #: The legacy layout carrying SWEEP_TYPE, recognized and refused with the
@@ -317,7 +286,6 @@ MATRIX_COLUMNS = _COLUMNS
 #: migration and byte-preserving workbook synchronization use the frozen tuples.
 RECOGNIZED_MATRIX_LAYOUTS = (
     _COLUMNS,
-    _LAYOUT_0_56_0,
     _LAYOUT_0_9_0,
     _LAYOUT_0_11_0,
     _LAYOUT_0_15_0,
@@ -396,7 +364,6 @@ def _fold_columns_into_variables(
     """
     for column in (
         "GEOMETRY",
-        "MESH_ROUTE",
         "SYMMETRY",
         "SYMMETRY_LOADS",
         "NCPUS",

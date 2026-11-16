@@ -864,17 +864,6 @@ REMOVED_FORMS: dict[str, RetiredName] = {
         retired_in="0.58.0",
         why="Every subcommand names its campaign with --workspace, so archive does too.",
     ),
-    "matrix.layout-0.56.0": RetiredName(
-        owner="a run matrix",
-        old="the header of v0.56.0 (no MESH_ROUTE column)",
-        new=(
-            "the current header, which adds MESH_ROUTE after GEOMETRY; "
-            "pyfs-workspace migrate --apply rewrites the file's header"
-        ),
-        retired_in="0.58.0",
-        why="A file at that header no longer reads, so no route is assumed for its rows.",
-        instead="Use",
-    ),
     "hub_rings.width": RetiredName(
         owner="the [hub_rings] table",
         old="width",

@@ -1149,8 +1149,9 @@ def build_native_geometries(
 ) -> list[str]:
     """Build, with the solver, the native geometry the matrix of a run still lacks.
 
-    Every row of ``MESH_ROUTE`` ``native`` whose ``.fsm`` is not built yet is built; a build that
-    fails warns and leaves that row to be recorded as ``GEOMETRY_FAILED`` by the binding.
+    Every row with the optional variable ``MESH_ROUTE: native`` whose ``.fsm`` is not built
+    yet is built; a build that fails warns and leaves that row to be recorded as
+    ``GEOMETRY_FAILED`` by the binding.
 
     The build runs through ``executor`` when the caller supplied one, never through a local
     executor made here. A build reads its outputs back as soon as the solver returns, so the

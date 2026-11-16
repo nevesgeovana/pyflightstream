@@ -151,7 +151,16 @@ def _parity_receipt(
                 if name == parity.PLANTED_NAME
             ]
         if mode == "cli":
-            return {"spellings": ["pyfs-matrix"], "unavailable": {}}
+            return {
+                "spellings": ["pyfs-matrix"],
+                "unavailable": {},
+                "matrix_inputs": {
+                    "columns": ["POL"],
+                    "route_variable": True,
+                    "layout_retired": False,
+                    "matrix_migration": False,
+                },
+            }
         if mode == "scripts":
             return {"render/control.txt": "render\n"} if golden else {}
         assert mode == "workspace-scripts"
@@ -177,7 +186,7 @@ def _parity_receipt(
             ],
         }
 
-    def post(python, tree, source, ws, keep):
+    def post(python, tree, source, ws, keep, columns):
         keep.mkdir()
         (keep / "control.txt").write_bytes(b"post\n")
         return {"exit": 0, "stderr_tail": ""}

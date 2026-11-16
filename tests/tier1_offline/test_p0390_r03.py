@@ -638,29 +638,6 @@ def without_flag_kind_columns(text: str) -> str:
     )
 
 
-def without_mesh_route_column(text: str) -> str:
-    """Return a post table without its ``MESH_ROUTE`` column, which 0.57.0 adds on purpose.
-
-    The 0.57.0 matrix layout gains the column (PFS-2214 G10.1); a post table repeats the
-    matrix columns, so it carries one more than the 0.38.0 capture. The column is taken
-    out only where the header names it and every row states it as not applicable, so a
-    table that gives it a value (a route the 0.38.0 run could not have) is still refused.
-    """
-    lines = text.split("\n")
-    header = lines[0].split(",")
-    if "MESH_ROUTE" not in header:
-        return text
-    at = header.index("MESH_ROUTE")
-    rows = [line.split(",") for line in lines[1:] if line]
-    assert all(len(r) == len(header) and r[at] == "NA" for r in rows), (
-        "MESH_ROUTE is stated in a table 0.38.0 could not have written it in"
-    )
-    return "\n".join(
-        ",".join(cell for i, cell in enumerate(line.split(",")) if i != at) if line else line
-        for line in lines
-    )
-
-
 def without_run_block_columns(text: str) -> str:
     """Return a settings table without the canonical run block that 0.58.0 opens it with.
 
@@ -1289,12 +1266,6 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     head = b"(refuse instead of warn)\n"
     assert captured[log_name].count(head) == 1
     assert captured[log_name].endswith(head)
-    # PFS-2237 (0.58.0): the scenario's matrix (``_p0390_r03_scenario.py``) is written at the
-    # current layout, with the MESH_ROUTE column after GEOMETRY and every row stating it
-    # unstated. The comparison still holds byte for byte: the header of v0.56.0 is no longer
-    # read, so the scenario cannot keep it, and an unstated route changes no output of
-    # plan, run, post or collect (the post tables' MESH_ROUTE column is taken out above, as
-    # for every post table since 0.57.0). Nothing of the 0.38.0 capture was edited for it.
     captured[log_name] = (
         captured[log_name].replace(head, head + b"sims=7002\n") + captured[log_name]
     )
@@ -1381,8 +1352,6 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
                 # The post-1 review (087ffceb) added one ``f<id>_kind`` column per flag; the
                 # captured table has none, so those columns are taken out of the new one.
                 text = without_flag_kind_columns(text)
-            if name.startswith("tree/post/"):
-                text = without_mesh_route_column(text)
             assert settings_spelling_admitted(text, captured[name].decode("utf-8")), name
             continue
         assert text.encode("utf-8") == captured[name], (
