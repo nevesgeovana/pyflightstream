@@ -251,6 +251,17 @@ _FF_POLAR_LOG = (
 #: additional SRS requirement that must exist for that composite difference.
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
+        "kind": "scripts",
+        "pattern": "*",
+        "family_plots": "true",
+        "requirement": "FR-3831",
+        "since": "0.58.0",
+        "why": (
+            "exact missing six-component MRP family histories, with the opened boundary "
+            "order equal at both versions and every pre-existing script byte preserved"
+        ),
+    },
+    {
         "kind": "post",
         "pattern": "*/farfield/*_trefftz_instant.csv",
         "release_0551": "unavailable_b",
@@ -1319,6 +1330,30 @@ def collect_scripts(tree: Path) -> dict[str, str]:
     return renders
 
 
+def _script_inventories(tree: Path, renders: dict[str, str]) -> dict[str, list[str]]:
+    """Read the actual FSM opened by a portable tier-3 render, inside this exported tree."""
+    try:
+        from pyflightstream._fsm import MeshReadError, boundary_names
+    except ImportError:
+        return {}
+    home = (tree / "tests/tier3_licensed").resolve()
+    inventories = {}
+    for name, text in renders.items():
+        opened = re.search(r'(?m)^OPEN\n"?<tier3>/([^\n"]+)"?$', text)
+        if opened is None:
+            continue
+        geometry = (home / opened[1]).resolve()
+        if not geometry.is_relative_to(home) or not geometry.is_file():
+            continue
+        try:
+            families = boundary_names(geometry)
+        except MeshReadError:
+            continue
+        if families and len(set(families)) == len(families):
+            inventories[name] = list(families)
+    return inventories
+
+
 def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any]:
     """Use the CLI's dispatchers to plan and write without submitting."""
     from pyflightstream.cases.workflows import workflow_registry
@@ -1483,6 +1518,9 @@ def child(mode: str, tree: Path, out: Path, argument: Path | None) -> int:
         result = collect_workspace_scripts(Path(request["source"]), Path(request["ws"]))
     elif mode == "scripts":
         result = collect_scripts(tree)
+        out.with_name("script-inventories.json").write_text(
+            json.dumps(_script_inventories(tree, result), ensure_ascii=False), encoding="utf-8"
+        )
     else:
         raise SystemExit(f"unknown collector {mode!r}")
     out.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
@@ -1761,6 +1799,57 @@ def _toggle_correction(old: str, new: str) -> bool:
             for before, after in zip(removed, added, strict=True)
         )
     )
+
+
+def _family_plot_additions(old: str, new: str, inventory: list[str] | None) -> bool:
+    """FR-3831: add exactly the missing per-boundary components, retaining every old byte."""
+    if not inventory or len(set(inventory)) != len(inventory):
+        return False
+    if not re.search(r"(?m)^SET_SOLVER_UNSTEADY$", old):
+        return False
+    frames = re.findall(r"(?m)^EDIT_COORDINATE_SYSTEM\nFRAME ([1-9]\d*)\nNAME MRP\n", old)
+    if len(frames) != 1:
+        return False
+    components = {
+        f"{kind}{axis}": f"{word}_{axis}"
+        for kind, word in (("F", "FORCE"), ("M", "MOMENT"))
+        for axis in "XYZ"
+    }
+    previous = {
+        (family, short)
+        for short, family in re.findall(
+            r"(?m)^UNSTEADY_SOLVER_NEW_FORCE_PLOT\nFRAME [^\n]+\nUNITS [^\n]+\n"
+            r"PARAMETER [^\n]+\nNAME ([FM][XYZ])_MRP_([^\n]+)\n",
+            old,
+        )
+    }
+    expected = {(family, short) for family in inventory for short in components} - previous
+    pattern = (
+        r"\nUNSTEADY_SOLVER_NEW_FORCE_PLOT\nFRAME ([1-9]\d*)\nUNITS NEWTONS\n"
+        r"PARAMETER ((?:FORCE|MOMENT)_[XYZ])\nNAME ([FM][XYZ])_MRP_([^\n]+)\n"
+        r"BOUNDARIES 1\n([1-9]\d*)\n"
+    )
+    added = set()
+    kept = []
+    offset = 0
+    for match in re.finditer(pattern, new):
+        frame, parameter, short, family, boundary = match.groups()
+        key = (family, short)
+        if key in previous:
+            continue
+        if (
+            key not in expected
+            or key in added
+            or frame != frames[0]
+            or parameter != components[short]
+            or int(boundary) != inventory.index(family) + 1
+        ):
+            return False
+        added.add(key)
+        kept.append(new[offset : match.start()])
+        offset = match.end()
+    kept.append(new[offset:])
+    return bool(expected) and added == expected and "".join(kept) == old
 
 
 def _within_printed_rounding(old: str, new: str, *, coarser: bool) -> bool:
@@ -2047,6 +2136,8 @@ def name_difference(
     new: str | None,
     defined: set[str],
     base_version: str | None = None,
+    *,
+    inventory: list[str] | None = None,
 ) -> dict[str, Any]:
     """Describe one difference and attach the requirement that states it, if any.
 
@@ -2068,6 +2159,8 @@ def name_difference(
         if named.get("release_0551") and not _release_0551_difference(
             named["release_0551"], name, old or "", new
         ):
+            continue
+        if named.get("family_plots") and not _family_plot_additions(old or "", new, inventory):
             continue
         if any(
             requirement not in defined
@@ -2135,6 +2228,8 @@ def compare_texts(
     release: dict[str, str],
     defined: set[str],
     base_version: str | None = None,
+    *,
+    inventories: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Compare every base item with its release counterpart, naming each difference."""
     differing = []
@@ -2147,7 +2242,18 @@ def compare_texts(
         if new == old:
             continue
         differing.append(
-            {key: name, **name_difference(kind, name, old, new, defined, base_version)}
+            {
+                key: name,
+                **name_difference(
+                    kind,
+                    name,
+                    old,
+                    new,
+                    defined,
+                    base_version,
+                    inventory=(inventories or {}).get(name),
+                ),
+            }
         )
     added = [
         {key: name, **name_difference(kind, name, None, release[name], defined, base_version)}
@@ -2346,6 +2452,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         api_base = run_child(python, "api", tree, temp / "base")
         cli_base = run_child(python, "cli", tree, temp / "base")
         scripts_base = run_child(python, "scripts", tree, temp / "base")
+        inventory_file = temp / "base/script-inventories.json"
+        inventories_base = (
+            json.loads(inventory_file.read_text("utf-8")) if inventory_file.exists() else {}
+        )
         workspace_base = run_child(
             python, "workspace-scripts", tree, temp / "base", workspace_request
         )
@@ -2374,6 +2484,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         retired_api = {m: retirements["api"][m] for m in missing_api if m in retirements["api"]}
         missing_api = [m for m in missing_api if m not in retired_api]
         scripts_release = run_child(python, "scripts", tree, temp / "release")
+        inventory_file = temp / "release/script-inventories.json"
+        inventories_release = (
+            json.loads(inventory_file.read_text("utf-8")) if inventory_file.exists() else {}
+        )
         workspace_release = run_child(
             python, "workspace-scripts", tree, temp / "release", workspace_request
         )
@@ -2445,7 +2559,21 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "unavailable_at_release": cli_release["unavailable"],
     }
 
-    scripts = compare_texts("scripts", "name", scripts_base, scripts_release, defined, base_version)
+    common_inventories = {
+        name: families
+        for name, families in inventories_base.items()
+        if families and families == inventories_release.get(name)
+    }
+    scripts = compare_texts(
+        "scripts",
+        "name",
+        scripts_base,
+        scripts_release,
+        defined,
+        base_version,
+        inventories=common_inventories,
+    )
+    scripts["opened_inventories"] = {"base": inventories_base, "release": inventories_release}
     workspace_names = set(workspace_base["scripts"]) | set(workspace_release["scripts"])
     scripts["workspace_compared"] = len(workspace_names.intersection(scripts["compared"]))
     _compare_workspace_refusals(
@@ -2506,6 +2634,27 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         victim = text_control("scripts", "name", scripts_base, "PARITY CONTROL\n", defined)
         if victim:
             controls.append(f"scripts: a changed line of {victim} was reported unnamed")
+    family_changes = [d["name"] for d in scripts["differing"] if d.get("requirement") == "FR-3831"]
+    if family_changes:
+        expected_controls += 1
+        victim = min(family_changes)
+        planted_script, count = re.subn(
+            r"(?m)(NAME [FM][XYZ]_MRP_[^\n]+\nBOUNDARIES 1\n)[1-9]\d*",
+            r"\g<1>999999",
+            scripts_release[victim],
+            count=1,
+        )
+        probe = compare_texts(
+            "scripts",
+            "name",
+            {victim: scripts_base[victim]},
+            {victim: planted_script},
+            defined,
+            base_version,
+            inventories=common_inventories,
+        )["differing"]
+        if count and len(probe) == 1 and "requirement" not in probe[0]:
+            controls.append("scripts: a wrong boundary index in a family plot was reported unnamed")
     if post_base:
         victim = text_control("post", "file", post_base, "\x00", defined)
         if victim:

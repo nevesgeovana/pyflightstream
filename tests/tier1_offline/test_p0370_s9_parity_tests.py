@@ -228,7 +228,14 @@ def test_p0370_s9_a_refusal_on_one_side_only_is_a_difference():
 
 
 def _verdict(
-    tmp_path, monkeypatch, base_skipped, release_skipped, *, interfaces=None, base_version="0.36.0"
+    tmp_path,
+    monkeypatch,
+    base_skipped,
+    release_skipped,
+    *,
+    interfaces=None,
+    base_version="0.36.0",
+    renders=None,
 ):
     """Run the real ``parity()`` over controlled collector observations at both trees.
 
@@ -263,6 +270,20 @@ def _verdict(
                 return interfaces[work.name]
             return {"spellings": ["pyfs-matrix"], "unavailable": {}}
         if mode == "scripts":
+            if renders is not None:
+                (work / "script-inventories.json").write_text(
+                    json.dumps(
+                        {
+                            "render/control.txt": renders.get(
+                                "release_inventory", renders["inventory"]
+                            )
+                            if work.name == "release"
+                            else renders["inventory"]
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return {"render/control.txt": renders[work.name]}
             return {"render/control.txt": "render\n"}
         assert mode == "workspace-scripts"
         skipped = base_skipped if work.name == "base" else release_skipped
@@ -285,7 +306,11 @@ def _verdict(
     monkeypatch.setattr(parity, "export", lambda sha, tree: tree.mkdir(exist_ok=True))
     monkeypatch.setattr(parity, "run_child", collect)
     monkeypatch.setattr(parity, "run_post", post)
-    monkeypatch.setattr(parity, "srs_ids", lambda tree: {"FR-421"})
+    monkeypatch.setattr(
+        parity,
+        "srs_ids",
+        lambda tree: {"FR-421"} if renders is None else renders.get("defined", {"FR-3831"}),
+    )
     return parity, parity.parity(
         Namespace(
             base="base",
@@ -437,6 +462,94 @@ def test_p0580_parity_keeps_only_the_exact_retired_option_and_empty_container():
     assert "pyfs-workspace geometry -h" in parity.cli_refused(
         known, release - {"pyfs-fsi -h"}, records
     )
+
+
+def _family_plot(short, family, boundary, frame=17):
+    parameter = ("FORCE_" if short[0] == "F" else "MOMENT_") + short[1]
+    return (
+        "\nUNSTEADY_SOLVER_NEW_FORCE_PLOT\n"
+        f"FRAME {frame}\nUNITS NEWTONS\nPARAMETER {parameter}\n"
+        f"NAME {short}_MRP_{family}\nBOUNDARIES 1\n{boundary}\n"
+    )
+
+
+def _family_renders():
+    before = (
+        "OPEN\nfixture.fsm\n\nCREATE_NEW_COORDINATE_SYSTEM\n"
+        "EDIT_COORDINATE_SYSTEM\nFRAME 17\nNAME MRP\nORIGIN_X 0\n"
+        "\nSET_SOLVER_UNSTEADY\nSTART_SOLVER\n"
+    )
+    plots = "".join(
+        _family_plot(short, family, boundary)
+        for boundary, family in enumerate(("Wing", "Tail"), 1)
+        for short in ("FX", "FY", "FZ", "MX", "MY", "MZ")
+    )
+    return {"base": before, "release": before + plots, "inventory": ["Wing", "Tail"]}
+
+
+def test_p0580_parity_names_only_complete_family_plots_of_the_opened_inventory(
+    tmp_path, monkeypatch
+):
+    """P0580-PARITY-FAMILY-PLOTS (FR-3831): exact components, boundary order and MRP frame."""
+    data = _family_renders()
+    _, receipt = _verdict(tmp_path, monkeypatch, [], [], renders=data, base_version="0.57.0")
+    assert receipt["verdict"] == "PARITY: PASS"
+    (change,) = receipt["scripts"]["differing"]
+    assert change["requirement"] == "FR-3831"
+    assert any("family plot" in entry for entry in receipt["controls"]["detail"])
+    # A name already plotted by pproc keeps its previous bytes and is not added twice.
+    existing = _family_plot("FX", "Wing", 1).replace("NEWTONS", "COEFFICIENTS")
+    data["base"] += existing
+    data["release"] = data["release"].replace(_family_plot("FX", "Wing", 1), "") + existing
+    _, partial = _verdict(tmp_path, monkeypatch, [], [], renders=data, base_version="0.57.0")
+    assert partial["verdict"] == "PARITY: PASS"
+
+
+def test_p0580_parity_refuses_incomplete_or_unrelated_family_plot_changes(tmp_path, monkeypatch):
+    """P0580-PARITY-FAMILY-PLOTS (FR-3831): no changed old line, invented family or wrong id."""
+    data = _family_renders()
+    correct = data["release"]
+    for wrong in (
+        correct.replace("BOUNDARIES 1\n1\n", "BOUNDARIES 1\n2\n"),
+        correct.replace("MRP_Wing", "MRP_Invented"),
+        correct.replace("FRAME 17\nUNITS", "FRAME 2\nUNITS"),
+        correct.replace("PARAMETER FORCE_X", "PARAMETER MOMENT_X"),
+        correct.replace("UNITS NEWTONS", "UNITS COEFFICIENTS"),
+        correct.replace(_family_plot("MZ", "Tail", 2), ""),
+        correct + _family_plot("FX", "Tail", 2),
+        correct.replace("ORIGIN_X 0", "ORIGIN_X 1"),
+        correct + "\n",
+    ):
+        _, receipt = _verdict(
+            tmp_path, monkeypatch, [], [], renders={**data, "release": wrong}, base_version="0.57.0"
+        )
+        assert receipt["verdict"] == "PARITY: FAIL"
+        assert "requirement" not in receipt["scripts"]["differing"][0]
+    for overrides in (
+        {"defined": set()},
+        {"inventory": ["Tail", "Wing"]},
+        {"release_inventory": ["Tail", "Wing"]},
+    ):
+        _, receipt = _verdict(
+            tmp_path, monkeypatch, [], [], renders={**data, **overrides}, base_version="0.57.0"
+        )
+        assert receipt["verdict"] == "PARITY: FAIL"
+    _, receipt = _verdict(tmp_path, monkeypatch, [], [], renders=data, base_version="0.58.0")
+    assert receipt["verdict"] == "PARITY: FAIL"
+
+
+def test_p0580_parity_family_inventory_is_read_from_the_opened_fsm_inside_the_tree():
+    """P0580-PARITY-FAMILY-PLOTS (FR-3831): missing and escaped paths supply no allowance."""
+    parity = _parity()
+    inventories = parity._script_inventories(
+        REPO,
+        {
+            "valid": "OPEN\n<tier3>/inputs/geometries/10_WING.fsm\n",
+            "escaped": "OPEN\n<tier3>/../../../pyproject.toml\n",
+            "missing": "OPEN\n<tier3>/inputs/geometries/not-present.fsm\n",
+        },
+    )
+    assert inventories == {"valid": ["Wing"]}
 
 
 def test_p0370_s9_the_verdict_names_exactly_the_changed_coupled_reason(tmp_path, monkeypatch):
