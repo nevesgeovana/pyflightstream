@@ -27,6 +27,8 @@ The canonical run block every csv of the post will open with (`post._run_block`)
 
 ### Changed
 
+Parity checks name the canonical CSV run block and the documented history/reduction moves only when row counts and shared cells stay exact. Added metadata must match the point's family polar block; each reduction keeps its own window. PFS-2232. migration: parity receipts identify the replacement path and the definition of the row window.
+
 Reduction rows with their own averaging windows now report `WINDOW_REVS` for that row's average and omit `WINDOW_PASSAGES`. Fixed-azimuth rows keep separate `FIRST_STEP` and `LAST_STEP` columns for the steps that row actually averaged, including interpolation support. Point-level window fields retain their definitions. PFS-2232. migration: read the reduction block through `WINDOW_REVS`; use the point block when a point's blade-passage count is needed.
 
 Every family-bearing plan declaration uses the existing pproc/ref skip rule on every row: setup selections, separation assignments, thin boundaries, geometry actions and motion boundaries omit names the mesh lacks, and the plan names the skipped families with the existing warning. A wholly absent entry is left out rather than emitted as an empty selection; the existing refusal for a pproc whose groups share no name with the geometry remains. `--ignore-missing-families false` still asks for refusals. migration: one declaration set can serve a full aircraft and a wing-off mesh without editing its family lists; docs/upgrading.md#families-absent-from-a-rows-mesh-058.

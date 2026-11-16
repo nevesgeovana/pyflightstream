@@ -35,6 +35,10 @@ structural consistency checks retain their own diagnostics. Family lists need no
 
 ## 0.58.0 post tree
 
+The parity receipt names the replacement path for a moved history or reduction
+CSV. It compares shared measurements exactly and checks added context against
+the point's family polar block, with each reduction's own window.
+
 The post writes one set of polar files per polar, in the same form for steady, unsteady
 and unsteady-rotor rows. Each product is written to the folder named by its kind, and every
 csv opens with the same run block. A file of the 0.57.0 layout already in `post/<matrix>/`

@@ -2221,6 +2221,141 @@ def name_difference(
     return entry
 
 
+def _post_058_rows(text: str) -> list[dict[str, str]]:
+    """Read a rectangular LF CSV, rejecting duplicate columns and malformed records."""
+    if not text.endswith("\n") or "\x00" in text or "\r" in text:
+        return []
+    reader = csv.DictReader(io.StringIO(text))
+    fields = reader.fieldnames or []
+    if not fields or len(set(fields)) != len(fields):
+        return []
+    rows = list(reader)
+    return rows if all(set(row) == set(fields) and None not in row.values() for row in rows) else []
+
+
+def _post_058_csv(
+    name: str, base: dict[str, str], release: dict[str, str], defined: set[str]
+) -> dict[str, Any]:
+    """Name canonical-block additions only with exact old cells and companion context."""
+    matched = re.fullmatch(r"(.+)/(probes|sections|settings)/([^/]+)\.csv", name)
+    if not matched or "FR-3778" not in defined:
+        return {}
+    root, folder, stem = matched.groups()
+    target, move = name, None
+    if folder == "probes" and stem.endswith("_plots"):
+        target, move = f"{root}/time_history/{stem}.csv", "FR-3787"
+    elif folder == "probes" and "_phase_locked" in stem:
+        target, move = f"{root}/reductions/{stem}.csv", "FR-3789"
+    elif not (
+        folder == "settings"
+        or stem.endswith(
+            ("_probes", "_probes_history", "_cp_blades", "_sections", "_sloads_blades")
+        )
+    ):
+        return {}
+    if (move and (move not in defined or name in release)) or target not in release:
+        return {}
+    old, new = _post_058_rows(base[name]), _post_058_rows(release[target])
+    if not old or len(old) != len(new):
+        return {}
+    for before, after in zip(old, new, strict=True):
+        if not _post_058_row(before, after, root, stem, release):
+            return {}
+    return {
+        "requirement": "FR-3778",
+        "why": (
+            "Canonical run block and exact shared cells; row windows follow "
+            "docs/post-processing-definitions.md#the-window-of-a-reduction-row"
+        ),
+        "replacement": target,
+        "also_requires": move,
+    }
+
+
+def _post_058_row(
+    before: dict[str, str],
+    after: dict[str, str],
+    root: str,
+    stem: str,
+    release: dict[str, str],
+) -> bool:
+    """Preserve measurements and check the block against its polar's point/family keys."""
+    companions = _post_058_rows(release.get(f"{root}/polars/FAM-DIM-P{before.get('POL')}.csv", ""))
+    point = next(
+        (
+            row
+            for row in companions
+            if stem.startswith(row.get("POINT", "") + "_")
+            or (
+                "RUN_ID" in before
+                and row.get("POINT")
+                == f"P{before.get('POL')}-{before['RUN_ID'].rsplit('/', 1)[-1]}"
+            )
+        ),
+        None,
+    )
+    if point is None:
+        return False
+    fixed = (
+        "POL POINT_ID POINT RUN_TYPE ALPHA BETA MACH RE VINF VREF "
+        "J J_CLOCK RPM_CLOCK THRUST ALT RHO TEMP MU SREF CREF BREF XMOM YMOM ZMOM "
+        "FIRST_STEP LAST_STEP STEPS WINDOW_REVS WINDOW_PASSAGES"
+    ).split()
+    rotors = [
+        key for key in point if re.fullmatch(r"(?:RPM|J|MTIP|MHEL|D|ADISC|PITCH|TOE)\d+", key)
+    ]
+    block = set(fixed + rotors)
+    reduction = "REDUCTION" in before
+    if reduction:
+        block.remove("WINDOW_PASSAGES")
+    removed = {"ROTOR"} if stem.endswith("_sections") else set()
+    added = {"FAMILY_ID", "ROTOR_ID"} if removed else ({"ROTOR_ID"} if reduction else set())
+    if set(after) != (set(before) - removed) | block | added:
+        return False
+    if any(after[key] != value for key, value in before.items() if key not in removed):
+        return False
+    for key in block - set(before):
+        expected = point.get(key)
+        if reduction and key == "WINDOW_REVS":
+            try:
+                expected = before.get("REVOLUTIONS") or str(
+                    Decimal(point[key]) * Decimal(before["STEPS"]) / Decimal(point["STEPS"])
+                )
+            except (KeyError, InvalidOperation, ZeroDivisionError):
+                return False
+        if after[key] != expected and not _post_058_printed_value(
+            expected, after[key], reduction and key == "WINDOW_REVS"
+        ):
+            return False
+    if reduction and after.get("ROTOR_ID") != point.get("ROTOR_ID", "NA"):
+        return False
+    if removed:
+        family = next((row for row in companions if row.get("FAMILY") == before.get("FAMILY")), {})
+        rotor_rows = _post_058_rows(
+            release.get(f"{root}/polars/FAM-RCOEF-P{before.get('POL')}.csv", "")
+        )
+        rotor = next((row for row in rotor_rows if row.get("FAMILY") == before.get("FAMILY")), {})
+        if after["FAMILY_ID"] != family.get("FAMILY_ID") or after["ROTOR_ID"] != rotor.get(
+            "ROTOR_ID"
+        ):
+            return False
+    return True
+
+
+def _post_058_printed_value(expected: str | None, actual: str, window: bool) -> bool:
+    """Compare only added metadata across the existing five-place/six-digit writers."""
+    if expected is None or not re.fullmatch(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", actual):
+        return False
+    try:
+        if window:
+            return actual in (format(float(expected), ".5f"), format(float(expected), ".6g"))
+        if re.fullmatch(r"-?\d+\.\d{5}", expected):
+            return format(float(actual), ".5f") == expected
+        return format(float(actual), ".6g") == expected
+    except (ValueError, OverflowError):
+        return False
+
+
 def compare_texts(
     kind: str,
     key: str,
@@ -2241,18 +2376,21 @@ def compare_texts(
             cr_removed.append({key: name, "requirement": LF_REQUIREMENT})
         if new == old:
             continue
+        entry = name_difference(
+            kind,
+            name,
+            old,
+            new,
+            defined,
+            base_version,
+            inventory=(inventories or {}).get(name),
+        )
+        if kind == "post" and (base_version is None or release_version(base_version) < (0, 58, 0)):
+            entry.update(_post_058_csv(name, base, release, defined))
         differing.append(
             {
                 key: name,
-                **name_difference(
-                    kind,
-                    name,
-                    old,
-                    new,
-                    defined,
-                    base_version,
-                    inventory=(inventories or {}).get(name),
-                ),
+                **entry,
             }
         )
     added = [

@@ -11,7 +11,9 @@ pair only where each single entry would name its own part.
 
 from __future__ import annotations
 
+import csv
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -41,6 +43,84 @@ def _load():
 
 def _name(old: str, new: str, defined: set[str]) -> dict:
     return _load().name_difference("scripts", "row.txt", old, new, defined)
+
+
+def _post_csv(rows):
+    stream = io.StringIO(newline="")
+    writer = csv.DictWriter(stream, fieldnames=list(rows[0]), lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return stream.getvalue()
+
+
+def _post_058_tables():
+    # Independent example of the documented block, with twelve steps per turn.
+    block = dict(POL="7", POINT_ID="1", POINT="P7-case", RUN_TYPE="unsteady_rotor")
+    block.update(dict.fromkeys("ALPHA BETA MACH RE VINF VREF".split(), "0"))
+    block.update(dict.fromkeys("RPM0 J0 MTIP0 MHEL0 J J_CLOCK RPM_CLOCK THRUST".split(), "NA"))
+    block.update(dict.fromkeys("ALT RHO TEMP MU SREF CREF BREF XMOM YMOM ZMOM".split(), "0"))
+    block.update(dict.fromkeys("D0 ADISC0 PITCH0 TOE0".split(), "0"))
+    block.update(
+        FIRST_STEP="1", LAST_STEP="6", STEPS="6", WINDOW_REVS="0.50000", WINDOW_PASSAGES="0.50000"
+    )
+    companion = _post_csv([{**block, "FAMILY": "Blade", "FAMILY_ID": "1"}])
+    old = [
+        {
+            "POL": "7",
+            "FIRST_STEP": str(first),
+            "LAST_STEP": str(first + 1),
+            "STEPS": "2",
+            "REDUCTION": "phase_locked",
+            "FX": str(first),
+        }
+        for first in (1, 3, 5)
+    ]
+    new = [
+        {
+            **{k: v for k, v in block.items() if k != "WINDOW_PASSAGES"},
+            **row,
+            "WINDOW_REVS": "0.166667",
+            "ROTOR_ID": "NA",
+        }
+        for row in old
+    ]
+    return block, old, new, companion
+
+
+def test_p0580_post_parity_keeps_exact_cells_and_each_reduction_window():
+    """P0580-POST-PARITY: FR-3778/3789 name only the defined row block and move."""
+    checker = _load()
+    _, old, new, companion = _post_058_tables()
+    name = "m/probes/P7-case_phase_locked.csv"
+    target = "m/reductions/P7-case_phase_locked.csv"
+    release = {target: _post_csv(new), "m/polars/FAM-DIM-P7.csv": companion}
+    defined = {"FR-3778", "FR-3789"}
+
+    def named(candidate, requirements=defined, version="0.57.0"):
+        result = checker.compare_texts(
+            "post", "file", {name: _post_csv(old)}, candidate, requirements, version
+        )
+        return result["differing"][0].get("requirement")
+
+    assert named(release) == "FR-3778"
+    for field, value in (
+        ("FX", "999"),
+        ("FIRST_STEP", "2"),
+        ("WINDOW_REVS", "0.50000"),
+        ("POINT", "other"),
+        ("RUN_TYPE", "steady"),
+    ):
+        wrong = [dict(row) for row in new]
+        wrong[0][field] = value
+        assert named({**release, target: _post_csv(wrong)}) is None, field
+    assert (
+        named({**release, target: _post_csv([{**row, "WINDOW_PASSAGES": "0.5"} for row in new])})
+        is None
+    )
+    assert named({**release, target: _post_csv(new[:-1])}) is None
+    assert named({target: _post_csv(new)}) is None
+    assert named(release, defined - {"FR-3789"}) is None
+    assert named(release, version="0.58.0") is None
 
 
 def test_p0551_gate_unavailable_b_rows_keep_every_other_cell():
