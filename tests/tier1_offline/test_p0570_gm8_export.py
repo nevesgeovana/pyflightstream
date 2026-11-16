@@ -6,6 +6,7 @@ Its distance must stay below 1e-9 of the model size near a parameter bound.
 
 import json
 from dataclasses import replace
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -832,6 +833,33 @@ def test_p0570_empty_variant_exports_its_declared_geometry(tmp_path):
     )
 
 
+@pytest.mark.parametrize(
+    "check_id", ["assembly.face_count", "placement.contact", "assembly.thin_feature"]
+)
+@pytest.mark.parametrize("status", ["failed", "skipped"])
+def test_p0581_export_fixture_does_not_hide_duplicate_load_checks(
+    tmp_path, monkeypatch, check_id, status
+):
+    """P0581-LOAD-CHECKS: a later check must not overwrite an earlier failed check."""
+    from pyflightstream.workspace import _geom_assembly, _geom_export, _gmsh
+
+    checks = [
+        {"id": check_id, "status": status, "note": "no active dominance face"},
+        {"id": "assembly.face_count", "status": "passed"},
+        {"id": "placement.contact", "status": "passed"},
+        {"id": "assembly.thin_feature", "status": "skipped", "note": "no active dominance face"},
+    ]
+    monkeypatch.setattr(_gmsh, "open_kernel", lambda _: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(
+        _geom_assembly,
+        "Assembly",
+        lambda *a, **kw: SimpleNamespace(step=lambda _: {"checks": checks}),
+    )
+    monkeypatch.setattr(_geom_export, "write_assembly", lambda *a: {})
+    with pytest.raises(AssertionError):
+        _written_halves(tmp_path)
+
+
 def _written_halves(folder, height=1.0):
     """Two exact half-width trims on one rectangular base."""
     kernel_or_skip()
@@ -872,11 +900,13 @@ def _written_halves(folder, height=1.0):
     try:
         assembly = Assembly(kernel, {"plate": piece}, [], out=folder)
         loaded = assembly.step("S10.D1")
-        checks = {c["id"]: c for c in loaded["checks"]}
-        feature = checks.pop("assembly.thin_feature")
+        checks = loaded["checks"]
+        features = [c for c in checks if c["id"] == "assembly.thin_feature"]
+        assert len(features) == 1
+        feature = features[0]
         assert feature["status"] == "skipped"
         assert feature["note"] == "no active dominance face"
-        assert all(c["status"] == "passed" for c in checks.values())
+        assert all(c["status"] == "passed" for c in checks if c["id"] != "assembly.thin_feature")
         written = write_assembly(assembly, folder / "combined.igs")
     finally:
         kernel.close()
