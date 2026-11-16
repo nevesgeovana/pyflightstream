@@ -153,7 +153,7 @@ def tree_section() -> dict[str, dict[str, Any]]:
     Examples
     --------
     >>> sorted(tree_section())[:3]
-    ['fields', 'polars', 'probes']
+    ['farfield', 'fields', 'polars']
     """
     return {
         folder: {"holds": value["holds"], "kinds": list(value["kinds"])}
