@@ -11,6 +11,8 @@ FlightStream versions.
 
 ### Fixed
 
+Expanding-frame post-processing items selecting only families absent from a row are warned and skipped, including `Blade2` in `LOCAL_AXIS` on a Blade1-only sector; other items still run. migration: shared pproc files need no sector-specific selection edit.
+
 MESH_ROUTE moves from a matrix column to an optional VAR_NAMES variable; the column is gone.
 
 An `ADVANCE_RATIO:sweep` states each point's rotor speed during matrix planning, including farfield output discovery; swept RPM and flow conditions use the same concrete point view. migration: J sweeps need no RPM workaround.

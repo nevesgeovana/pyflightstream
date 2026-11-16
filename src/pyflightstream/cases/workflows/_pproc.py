@@ -76,6 +76,7 @@ from ._names import (
     _inventory,
     _rotors_the_entry_cites,
     _selected_families,
+    _skip_families_the_mesh_lacks,
 )
 from ._rows import (
     _required_int,
@@ -180,7 +181,9 @@ def pproc_emissions(
             )
         ]
     rotors = _rotors_the_entry_cites(case, families)
-    if not rotors and not case.rotors:
+    if not rotors and (
+        _skip_families_the_mesh_lacks(case, families, inventory, what) or not case.rotors
+    ):
         # A REFERENCE THAT DECLARES NO ROTOR AT ALL is a CONFIGURATION with
         # no rotor, not a misspelling, and the entry is skipped the way an
         # entry whose families the mesh lacks is skipped. This is what lets
@@ -188,9 +191,7 @@ def pproc_emissions(
         # which is the artifact's whole economy: p001 carries the rotor
         # plots and the wing rows citing it simply do not emit them.
         #
-        # The refusal below still fires where the reference DOES declare
-        # rotors and the entry reaches none of them, which is the case that
-        # cannot come right on another mesh.
+        # References declaring rotors also skip known families absent on this row.
         return []
     if not rotors:
         declared = ", ".join(sorted(case.rotors)) or "none"
@@ -202,10 +203,8 @@ def pproc_emissions(
             f"{families!r} reach no rotor of the reference. On a frame that expands "
             f"per rotor the families name a ROTOR, an alias whose families one rotor "
             f"owns, or 'all'; the rotors this reference declares are {declared} and "
-            f"the aliases are {aliases}. A misspelling reads exactly the same way from "
-            "here. That is a writing error rather than a configuration difference: "
-            "unlike an entry whose families this geometry simply lacks, it cannot come "
-            "right on another mesh."
+            f"the aliases are {aliases}. The selection names an undeclared family or "
+            "a family present on this row that belongs to no rotor. Correct the selector."
         )
     carried = {name.casefold() for name in inventory}
     emissions: list[tuple[str, list[str], str]] = []
@@ -254,9 +253,8 @@ def pproc_emissions(
     # A ROW THAT DOES NOT TURN THE ROTOR PLACES NONE OF ITS FRAMES, and one
     # artifact serves a steady row and a rotor row: that is the whole point
     # of the skip rule, and FR-65 draws the line where it draws every other
-    # one. An entry whose families reach no rotor OF THE REFERENCE is a
-    # writing error and is refused above, because it cannot come right on
-    # another row; an entry whose frames this RUN did not create can, and is
+    # one. An undeclared selector or present nonrotor family is refused
+    # above; an entry whose frames this RUN did not create is
     # left out, exactly as an entry whose families the geometry lacks is.
     kept = [emission for emission in emissions if emission[0] in placed]
     dropped = [emission[0] for emission in emissions if emission[0] not in placed]

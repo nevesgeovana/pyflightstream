@@ -37,11 +37,13 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._skipped_families import (
     PPROC_ARTIFACT,
+    declared_names_the_geometry_lacks,
     families_on_this_mesh,
     ignores_missing_families,
     judge_a_name_the_model_lacks,
     names_no_boundary_answers,
     skips_a_name_the_model_lacks,
+    study_vocabulary,
 )
 from pyflightstream.cases.setup_surfaces import the_model_inventory
 from pyflightstream.script import (
@@ -466,6 +468,41 @@ def _the_reference_vocabulary(case: SimCase) -> list[str]:
         for block in case.rotors.values()
         for family in (*block.families_general, *block.families_blades)
     ]
+
+
+def _undeclared_families(
+    case: SimCase, selection: str | Sequence[str], inventory: Sequence[str]
+) -> list[tuple[str | None, str]]:
+    """Name selectors absent from both the row's model and reference declarations.
+
+    Numbered siblings use the shared family reading: Blade2 belongs to a
+    declared Blade family even when this reference meshes Blade1 alone.
+    """
+    names = _the_names_a_rotor_answers_to(case)
+    vocabulary = [
+        *inventory,
+        *_the_reference_vocabulary(case),
+        *(study_vocabulary(case) or ()),
+        *(str(member) for members in names.values() for member in members),
+    ]
+    return names_no_boundary_answers(selection, vocabulary, names, bool)
+
+
+def _skip_families_the_mesh_lacks(
+    case: SimCase, selection: str | Sequence[str], inventory: Sequence[str], what: str
+) -> bool:
+    """Skip an entirely absent declared selection through the ordinary family path."""
+    names = _the_names_a_rotor_answers_to(case)
+    lacked = declared_names_the_geometry_lacks(selection, inventory, names)
+    if (
+        not lacked
+        or lacked != declared_names_the_geometry_lacks(selection, [], names)
+        or _undeclared_families(case, selection, inventory)
+    ):
+        return False
+    for _owner, name in lacked:
+        judge_a_name_the_model_lacks(case, _artifact_of(case), what, name)
+    return True
 
 
 def _rotors_the_entry_cites(

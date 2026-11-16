@@ -2,6 +2,11 @@
 
 ## 0.58.1
 
+An expanding-frame post-processing item selecting only families absent from a row
+is warned and skipped on that row. For example, `families = ["Blade2"]` in
+`LOCAL_AXIS` emits no section on a Blade1-only sector, while its Blade1 items
+still emit. A selector naming an undeclared family still refuses by name.
+
 A rotary row stating `ADVANCE_RATIO:sweep` in `FLIGHT_CONDITION` and its J values
 in `SWEEP_VALUES` now plans with farfield revolution windows. Each point derives
 its own speed from `n = V / (J D)`; no `RPM` workaround is needed. Output discovery

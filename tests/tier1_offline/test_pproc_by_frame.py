@@ -21,6 +21,7 @@ against, which is why the entries below are quoted rather than invented.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import pytest
@@ -35,7 +36,40 @@ from pyflightstream.cases import (
     SweepAxis,
     select_families,
 )
+from pyflightstream.cases._skipped_families import noting_the_families_rows_lack
 from pyflightstream.cases.workflows import pproc_emissions
+
+
+@pytest.mark.parametrize("frame", ["LOCAL_AXIS", "SMRP", "RMRP"], ids=lambda v: f"P0581-SKIP-{v}")
+def test_p0581_skip_absent_numbered_family_before_rotor_expansion(frame):
+    """Expand Blade2, then Blade1, on a Blade1-only row; only Blade1 emits."""
+    case = expanding_case(rotors={"ROTOR": rotor("ROTOR", [], ["Blade1"], 2.0)}, aliases={})
+    frames = {"ROTOR_RMRP1": 1, "ROTOR_SMRP": 2, "ROTOR_RMRP": 3}
+    error = None
+    skipped = kept = None
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            with noting_the_families_rows_lack():
+                skipped = pproc_emissions(
+                    case, frame, ["Blade2"], ["Blade1"], bool, "section distribution 1", frames
+                )
+                kept = pproc_emissions(
+                    case, frame, ["Blade1"], ["Blade1"], bool, "section distribution 2", frames
+                )
+        except CampaignConfigError as exc:
+            error = str(exc)
+    assert error is None, error
+    assert skipped == []
+    assert kept and kept[0][1] == ["Blade1"]
+    said = [str(item.message) for item in caught]
+    assert len(said) == 1 and "Blade2" in said[0] and "skipped" in said[0]
+
+
+def test_p0581_skip_unknown_expanding_family_still_refuses_by_name():
+    """P0581-SKIP: a misspelling is no numbered sibling of a declared family."""
+    with pytest.raises(CampaignConfigError, match="Blaed2"):
+        emissions("LOCAL_AXIS", ["Blaed2"])
 
 
 def rotor(alias, general, blades, diameter):
