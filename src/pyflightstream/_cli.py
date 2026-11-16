@@ -232,10 +232,9 @@ def _visible_warnings(show: Callable[..., None]) -> Callable[..., None]:
 def _deprecations_shown() -> Iterator[None]:
     """Show a deprecation of the package once during one command.
 
-    A person at the command line who states a deprecated key or flag must see
-    the rename, once, under the interpreter's default filters, which hide a
-    DeprecationWarning raised in library code. A warning option or
-    PYTHONWARNINGS the person chose is theirs and is left untouched.
+    The package's input deprecations are visible to TOML and command-line
+    callers by default. A warning option or PYTHONWARNINGS the person chose
+    is theirs and is left untouched.
 
     Yields
     ------

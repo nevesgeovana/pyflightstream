@@ -1,5 +1,16 @@
 # Upgrading
 
+## 0.58.1
+
+Accepted deprecated inputs show their replacements once with default warning
+filters, including during a quiet post: change `[products] superfile_format`
+to `polar_format` and `trim_moment = "CMB25"` to `"CmB"`. Other retained
+`CR<f>25`, `CM<f>25` and `CN<f>25` moment names map to `Cl<f>`, `Cm<f>` and
+`Cn<f>`. The FSI `--dir` flag names `--out`. Removed 0.58.0 forms remain
+refusals. Filter `PyflightstreamDeprecationWarning` explicitly when needed;
+it is now a `FutureWarning`, visible to TOML readers as well as CLI users.
+Post logs still retain every warning when console warnings are disabled.
+
 ## 0.58.0
 
 Reduction rows with their own windows omit `WINDOW_PASSAGES`; `WINDOW_REVS`

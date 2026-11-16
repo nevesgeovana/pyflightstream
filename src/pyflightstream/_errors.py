@@ -327,20 +327,15 @@ class PyflightstreamWarning(UserWarning):
     """
 
 
-class PyflightstreamDeprecationWarning(PyflightstreamWarning, DeprecationWarning):
+class PyflightstreamDeprecationWarning(PyflightstreamWarning, FutureWarning):
     """A part of this package's own interface is going away.
 
-    Both bases are load-bearing and neither is decoration. Through
-    :class:`PyflightstreamWarning`, one ``-W error`` filter promotes it
-    with the rest of this package's warnings, which a plain
-    ``DeprecationWarning`` could not be without promoting every
-    dependency's deprecations too. Through ``DeprecationWarning``, the
-    interpreter's own default of hiding deprecations outside
-    ``__main__`` still applies to a Python caller, so an ordinary user of a
-    released version is not shouted at by a rename that does not affect them
-    yet. A command-line entry point is the exception: it shows this category
-    once under the default filters, so a person who states a deprecated key or
-    flag sees the new name (a warning option the user chose is left alone).
+    Through :class:`PyflightstreamWarning`, one warning filter selects it
+    with the rest of this package's warnings. Through :class:`FutureWarning`,
+    a person reading a TOML file or using the command line sees the rename
+    under the interpreter's default filters, once per message and location.
+    A caller can filter this category explicitly; dependency deprecations
+    retain their own categories and filters.
 
     Use it where this package deprecates one of its OWN arguments,
     names or behaviours. An upstream deprecation this package merely
@@ -354,7 +349,7 @@ class PyflightstreamDeprecationWarning(PyflightstreamWarning, DeprecationWarning
     ... )
     >>> issubclass(PyflightstreamDeprecationWarning, PyflightstreamWarning)
     True
-    >>> issubclass(PyflightstreamDeprecationWarning, DeprecationWarning)
+    >>> issubclass(PyflightstreamDeprecationWarning, FutureWarning)
     True
     """
 

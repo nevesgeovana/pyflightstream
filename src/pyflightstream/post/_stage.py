@@ -44,6 +44,7 @@ from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import text_sha256
 from pyflightstream._errors import (
     ProductExistsError,
+    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
     warn,
@@ -852,11 +853,17 @@ def append_log_block(
 
 
 def _replay_held_warnings(held: Sequence[warnings.WarningMessage]) -> None:
-    """Give the warnings held for the log to the caller's filters, unless a CLI reports them."""
-    if post_warning_policy() is None:
-        for warning in held:
+    """Replay input deprecations even under the CLI's quiet post policy, once per site."""
+    registry: dict = {}
+    for warning in held:
+        deprecation = issubclass(warning.category, PyflightstreamDeprecationWarning)
+        if post_warning_policy() is None or deprecation:
             warnings.warn_explicit(
-                warning.message, warning.category, warning.filename, warning.lineno
+                warning.message,
+                warning.category,
+                warning.filename,
+                warning.lineno,
+                registry=registry if deprecation else None,
             )
 
 
@@ -869,6 +876,7 @@ def _hand_back_warnings(
     else:
         from pyflightstream.post.diagnostics import report_post_warnings
 
+        _replay_held_warnings(caught)
         report_post_warnings(records, log_json)
 
 

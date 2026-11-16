@@ -7,6 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.58.1] - 2026-11-16
+
+### Fixed
+
+Accepted deprecated TOML keys and CLI flags name their replacement once under default warning filters, including `superfile_format` and the former `trim_moment` spellings during a quiet post. The warnings remain in post logs, and explicit warning filters and `--warning-off` still apply. `PyflightstreamDeprecationWarning` now derives from `FutureWarning` so TOML readers see it outside the CLI too. Forms removed in 0.58.0 retain their named refusals. PFS-2229. migration: filter the package's deprecation category explicitly to suppress these messages.
+
 ## [0.58.0] - 2026-11-16
 
 ### Added

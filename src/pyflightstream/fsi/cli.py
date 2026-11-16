@@ -411,11 +411,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     if getattr(args, "legacy_dir", None) is not None:
-        from pyflightstream._errors import PyflightstreamWarning, warn
+        from pyflightstream._errors import PyflightstreamDeprecationWarning, warn
 
         warn(
             "--dir is deprecated since 0.40.0; use --out for the identical result.",
-            PyflightstreamWarning,
+            PyflightstreamDeprecationWarning,
             stacklevel=2,
         )
         args.dir = args.legacy_dir

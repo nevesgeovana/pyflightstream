@@ -256,11 +256,11 @@ def test_each_example_runs(name, tmp_path):
     below uses, so a category the package starts raising joins it without
     an edit.
 
-    And ``PyflightstreamDeprecationWarning`` is a ``DeprecationWarning``
-    as well as a ``UserWarning``. The interpreter's default filters are
+    Before 0.58.1, ``PyflightstreamDeprecationWarning`` was a
+    ``DeprecationWarning`` as well as a ``UserWarning``. The default filters were
     consulted in order and ``ignore::DeprecationWarning`` stands ahead of
     anything that would print a ``UserWarning``, so one raised inside the
-    package (rather than in ``__main__``) is SUPPRESSED and reaches no
+    package (rather than in ``__main__``) was SUPPRESSED and reached no
     channel at all. ``PYTHONWARNINGS`` is set in the child for exactly
     that: it names a standard-library category, so unlike ``-W`` above it
     parses at interpreter start. It also unsuppresses a dependency's
@@ -1203,8 +1203,8 @@ def test_the_stderr_scan_sees_every_category_and_not_only_the_hierarchy_root(tmp
     ``test_each_example_runs`` used to look for one substring, the name of
     the hierarchy root, and the package raises two categories whose names
     do not contain it. It also ran with the interpreter's default filters,
-    under which a ``PyflightstreamDeprecationWarning`` raised anywhere but
-    ``__main__`` is suppressed by ``ignore::DeprecationWarning`` before any
+    under which the pre-0.58.1 ``PyflightstreamDeprecationWarning`` raised outside
+    ``__main__`` was suppressed by ``ignore::DeprecationWarning`` before any
     ``UserWarning`` rule is reached, so it arrived on no channel at all.
 
     Both are driven here, on every category the package actually raises,
@@ -1350,7 +1350,12 @@ def test_the_walks_can_see_what_they_are_looking_for():
     assert issubclass(
         _resolve_category("_errors.py", PyflightstreamWarning.__name__), PyflightstreamWarning
     )
-    assert _resolve_category("fsi/cli.py", "PyflightstreamWarning") is PyflightstreamWarning
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+
+    assert (
+        _resolve_category("fsi/cli.py", "PyflightstreamDeprecationWarning")
+        is PyflightstreamDeprecationWarning
+    )
 
 
 def test_the_category_walk_reaches_every_file_the_ratchet_names():

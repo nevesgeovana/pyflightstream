@@ -41,6 +41,7 @@ from pydantic_core import PydanticCustomError
 from pyflightstream._errors import (
     InputArtifactError,
     InputValueError,
+    PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
     suggest_name,
     warn,
@@ -1752,7 +1753,7 @@ class ProductsSpec(_SuggestsKeys):
             warn(
                 "superfile_format is now polar_format and applies to the FAM and group files. "
                 "See docs/upgrading.md#0580-post-tree.",
-                PyflightstreamWarning,
+                PyflightstreamDeprecationWarning,
                 stacklevel=2,
             )
         moment = data.get("trim_moment")
@@ -1762,7 +1763,7 @@ class ProductsSpec(_SuggestsKeys):
             warn(
                 f"trim_moment {moment} is now spelled {renamed}. "
                 "See docs/upgrading.md#0580-post-tree.",
-                PyflightstreamWarning,
+                PyflightstreamDeprecationWarning,
                 stacklevel=2,
             )
         return data

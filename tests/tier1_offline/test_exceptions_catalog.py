@@ -256,8 +256,8 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # same promise as every error above: UserWarning stays in the MRO
         # of both, so an existing -W error::UserWarning or
         # pytest.warns(UserWarning) selects exactly what it selected. The
-        # deprecation one keeps DeprecationWarning as well, which is what
-        # makes a caller filtering deprecations still see it.
+        # deprecation category is a FutureWarning so input-file users see it
+        # under default filters, including outside a command-line entry point.
         "PyflightstreamWarning": UserWarning,
         "DemotedRefusalWarning": UserWarning,
         "DuplicateValueWarning": UserWarning,
@@ -265,7 +265,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "NotApplicableWarning": UserWarning,
         "RetiredKeyWarning": UserWarning,
         "UnknownKeyWarning": UserWarning,
-        "PyflightstreamDeprecationWarning": DeprecationWarning,
+        "PyflightstreamDeprecationWarning": FutureWarning,
         "VersionMismatchWarning": UserWarning,
         "WorkspaceError": RuntimeError,
         # 0.30.0: a storage command's refusal is a WorkspaceError, so a

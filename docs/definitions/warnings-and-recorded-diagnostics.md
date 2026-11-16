@@ -1,9 +1,20 @@
 ## Warnings and recorded diagnostics
 
-Postprocessing warnings are quiet in command-line runs by default. This applies
-to every warning category; errors, progress and the final command status remain
+Postprocessing warnings are quiet in command-line runs by default, except for
+accepted deprecated input keys, which name their replacements once. Errors,
+progress and the final command status remain
 visible. Pass `--pproc-warnings` to `pyfs-matrix run`, `post` or `collect` to
 show concise category counts and the detailed log location on stderr.
+
+For example, a pproc with `[products] superfile_format = "legacy_polar"` names
+`polar_format` when `pyfs-matrix post --workspace study` reads it. Rename the
+key to `polar_format`; the output format stays the same. The older
+`trim_moment = "CMB25"` similarly names `CmB`. These input warnings also appear
+when a Python caller reads the TOML file, using the ordinary default filters.
+`PyflightstreamDeprecationWarning` derives from `FutureWarning` and
+`PyflightstreamWarning`; filter that package category explicitly to suppress it.
+`PYTHONWARNINGS` and `--warning-off` retain their chosen behavior. An old form
+already removed in 0.58.0 is still refused by name.
 
 Every postprocessing stage records all its warnings and skipped products in
 `post.log` and `post.log.json`, including category, severity, point, product,
