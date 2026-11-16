@@ -52,6 +52,7 @@ from pyflightstream.cases import (
     SimCase,
 )
 from pyflightstream.cases._skipped_families import names_a_row_can_cite
+from pyflightstream.cases._skipped_families import rotor_blade_families as _rotor_blade_families
 from pyflightstream.cases.windows import ExportThresholdRecord, StoppedStepRecord
 from pyflightstream.script import (
     Script,
@@ -1086,8 +1087,8 @@ def _sector_copies(case: SimCase) -> int | None:
     """Return ``PERIODIC_COPIES`` of a ``SYMMETRY: PERIODIC`` row, else None.
 
     The copies are the number of sector copies round the wheel, so a periodic
-    row's rotor block lists only the meshed blade families and its wheel has
-    those families times this many blades (FR-68).
+    row's wheel has the mesh-present blade families times this many blades
+    (FR-68); absent members of the rotor block are ignored.
     """
     periodic = str(_variable(case, SYMMETRY_VARIABLE) or "").strip().upper() == "PERIODIC"
     if not periodic or _variable(case, PERIODIC_COPIES_VARIABLE) is None:
@@ -1097,8 +1098,10 @@ def _sector_copies(case: SimCase) -> int | None:
     )
 
 
-def _wheel_blade_count(case: SimCase, rotor: RotorBlock) -> int:
-    """Return the blades of a rotor's whole wheel: its block's families, times a sector's copies.
+def _wheel_blade_count(
+    case: SimCase, rotor: RotorBlock, inventory: Sequence[str] | None = None
+) -> int:
+    """Return the mesh-present blades times a periodic sector's copies.
 
     ONE COUNT FOR EVERY READER OF THE WHEEL (FR-68): the whole-passage check,
     every passage cut and the blade frames' spacing read it, so a sector
@@ -1106,22 +1109,8 @@ def _wheel_blade_count(case: SimCase, rotor: RotorBlock) -> int:
     quarter turn after the first and cuts quarter-turn passages.
     """
     copies = _sector_copies(case)
-    return rotor.blade_count * (copies if copies is not None else 1)
-
-
-def sector_block_refusal(case: SimCase, rotor: RotorBlock, missing: Sequence[str]) -> str:
-    """Return the refusal of a sector whose rotor block lists blades the mesh lacks (FR-68).
-
-    On a ``SYMMETRY: PERIODIC`` row the block lists only the meshed blade
-    families and the wheel is those times ``PERIODIC_COPIES``, so a block
-    listing the whole wheel would count it that many times over.
-    """
-    return (
-        f"case {case.sim_id!r} solves a periodic sector ({SYMMETRY_VARIABLE} PERIODIC) and rotor "
-        f"{rotor.alias} lists the blade families {', '.join(missing)}, which the mesh does not "
-        f"contain. On a sector the rotor block lists only the meshed blade families and the "
-        f"wheel has those times {PERIODIC_COPIES_VARIABLE} blades; remove "
-        f"{', '.join(missing)} from families_blades."
+    return len(_rotor_blade_families(case, rotor, inventory)) * (
+        copies if copies is not None else 1
     )
 
 

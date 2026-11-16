@@ -217,8 +217,11 @@ def test_p0580_l4_a_sector_places_its_second_blade_frame_by_the_wheels_count():
     assert turns == [0.0, 90.0]
 
 
-def test_p0580_l4_a_sector_block_listing_the_whole_wheel_is_refused_at_plan(tmp_path):
-    """FR-68: a 1-of-3 sector whose block lists Blade1..Blade3 names the families the mesh lacks."""
+def test_p0580_l4_a_sector_block_listing_the_whole_wheel_skips_absent_families_at_plan(tmp_path):
+    """FR-68: one meshed blade of a three-copy sector is three blades, not nine."""
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
     from tests.tier1_offline.test_goal024_point_name import _plan
     from tests.tier1_offline.test_p0551_blade_order import fixture
 
@@ -228,10 +231,15 @@ def test_p0580_l4_a_sector_block_listing_the_whole_wheel_is_refused_at_plan(tmp_
     reference.write_text(
         meshed.replace('["Blade1"]', '["Blade1", "Blade2", "Blade3"]'), encoding="utf-8"
     )
-    refused = _plan(workspace, matrix)
-    errors = [point.error or "" for point in refused.points]
-    assert errors and all("Blade2, Blade3, which the mesh does not contain" in e for e in errors)
-    assert all("lists only the meshed blade families" in e for e in errors)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", PyflightstreamWarning)
+        accepted = _plan(workspace, matrix)
+    assert all(p.status.value == "READY" for p in accepted.points), accepted.summary()
+    skipped = [str(w.message) for w in caught if "families_blades" in str(w.message)]
+    assert len(skipped) == 2
+    assert any("Blade2" in text for text in skipped)
+    assert any("Blade3" in text for text in skipped)
+    assert all("a family the geometry does not carry is skipped" in text for text in skipped)
     reference.write_text(meshed, encoding="utf-8")
     accepted = _plan(workspace, matrix)
     assert all(p.status.value == "READY" for p in accepted.points), accepted.summary()
@@ -266,8 +274,54 @@ def test_p0580_l4_a_qsteady_sector_records_the_wheels_blades(tmp_path):
     assert record["families_blades"] == ["Blade1"]
 
 
-def test_p0580_l4_a_qsteady_sector_block_listing_the_whole_wheel_is_refused(tmp_path):
+def test_p0580_l4_a_qsteady_sector_block_ignores_absent_blades_and_records_three(tmp_path):
+    import json
+
     from tests.tier1_offline.test_goal035_qsteady_rotor import _lines
 
-    with pytest.raises(CampaignConfigError, match="Blade2, Blade3, which the mesh does not"):
-        _lines(_qsteady_sector(tmp_path, ["Blade1", "Blade2", "Blade3"]))
+    _text, script = _lines(_qsteady_sector(tmp_path, ["Blade1", "Blade2", "Blade3"]))
+    (record,) = [
+        json.loads(text)
+        for name, text in script.pending_input_files.items()
+        if name.endswith("_qsteady.json")
+    ]
+    assert record["blades"] == 3
+    assert record["families_blades"] == ["Blade1"]
+
+
+def test_p0580_l4_the_gate_and_cut_count_only_the_blades_the_bound_mesh_carries():
+    from pyflightstream.cases.workflows._reductions import reduction_windows
+    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
+
+    full = FIXTURE_ROTOR.model_copy(update={"families_blades": [f"Blade{i}" for i in range(1, 7)]})
+    case = _sector_case(LAST_REVS_AVG="0.166667").model_copy(
+        update={"rotors": {full.alias: full}, "inventory": ("Blade1",)}
+    )
+    require_whole_passages(case)
+    plan = reduction_windows(case)
+    assert plan is not None and plan["blades"] == 6
+    assert plan["blade_families"] == ["Blade1"]
+    assert plan["phase_locked"]["period_steps"] == pytest.approx(500 / 6)
+
+
+def test_p0580_l4_named_motion_views_use_each_rotors_present_families():
+    from pyflightstream.cases.workflows._reductions import reduction_windows
+
+    case = transition_case().model_copy(
+        update={
+            "inventory": ("LIFT_L1_B1", "PUSHER_B1"),
+            "variables": {
+                **transition_case().variables,
+                "SYMMETRY": "PERIODIC",
+                "PERIODIC_COPIES": "3",
+                "LAST_REVS_AVG": "1",
+            },
+        }
+    )
+    require_whole_passages(case)
+    plan = reduction_windows(case)
+    assert plan is not None
+    for alias, family in (("LIFT_L1", "LIFT_L1_B1"), ("PUSHER", "PUSHER_B1")):
+        rotor = plan["rotors"][alias]
+        assert rotor["blades"] == 3
+        assert rotor["blade_families"] == [family]

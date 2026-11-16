@@ -3734,7 +3734,8 @@ def test_a_rotor_origin_that_is_not_three_numbers_is_refused(origin, expected):
 
 def _rotor_row(geometry: Path, cell: str, sim_id: str = "8001") -> SimCase:
     """A rotor case in the shape a matrix row converts to."""
-    return rotor_case(MOVING_BOUNDARIES=cell).model_copy(
+    # These selection fixtures vary the mesh; its present families own the count.
+    return rotor_case(MOVING_BOUNDARIES=cell, BLADES=None).model_copy(
         update={"sim_id": sim_id, "geometry": str(geometry)}
     )
 
@@ -4653,7 +4654,7 @@ def test_pproc_exports_deselect_a_kind():
 def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path):
     """PFS-2029.11.03, the frames: BladeAxis1 at the propeller frame, on the rotor axis."""
     sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
-    case = _with_pproc(rotor_case(), sector)
+    case = _with_pproc(rotor_case(BLADES=None), sector)
     lines = rendered(case).splitlines()
     assert "NAME BladeAxis1" in lines
     at = lines.index("NAME BladeAxis1")

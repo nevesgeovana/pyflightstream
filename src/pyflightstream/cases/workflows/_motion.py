@@ -39,6 +39,7 @@ from ._rows import (
     _the_rotor_a_flat_row_turns,
     _variable,
     _velocity,
+    _wheel_blade_count,
     advancing_tip_mach_number,
     free_stream_direction,
     rotor_mach_numbers,
@@ -431,7 +432,7 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # Both input spellings retain the named shaft axis in the hub frame.
         variables[ROTOR_AXIS_VARIABLE] = _rotor_frame_axis(rotor)
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
-        variables[BLADES_VARIABLE] = str(rotor.blade_count)
+        variables[BLADES_VARIABLE] = str(_wheel_blade_count(case, rotor))
         # The reference owns the rotor's hand for every speed form. The row
         # states a magnitude; the reference states axis, origin, blade count and
         # hand. A row-level hand is refused only when it disagrees with the block.
@@ -484,9 +485,9 @@ def _refuse_two_rotor_identities(case: SimCase, record: Mapping[str, str]) -> No
 
 #: The four keys an alias replaces (FR-61). A record stating the alias and
 #: any of these states one rotor twice, and is refused naming both.
-#: ``BLADES`` is here too: the blade count is the length of the block's
-#: ``families_blades``, and a row stating its own is the same second
-#: answer.
+#: ``BLADES`` is here too: the count comes from the block's mesh-present
+#: blade families and the sector's copies; stating it again in the motion
+#: would be a second answer.
 _RETIRED_MOTION_KEYS = (
     "MOVING_BOUNDARIES",
     "ROTOR_AXIS",

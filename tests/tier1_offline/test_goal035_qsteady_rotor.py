@@ -437,8 +437,16 @@ def test_a_geometry_holding_more_than_the_rotor_is_refused(tmp_path):
     wing = ("Blade1", "Blade2", "Blade3", "Wing")
     with pytest.raises(CampaignConfigError, match="Wing, which rotor PROP does not own"):
         _lines(_with_obj(_case(), obj, wing))
-    with pytest.raises(CampaignConfigError, match="carries no Blade3"):
-        _lines(_with_obj(_case(), obj, ("Blade1", "Blade2")))
+    # The owner permits a shared block to list families absent from this mesh.
+    lines, script = _lines(_with_obj(_case(PASSAGE_POSITIONS="2"), obj, ("Blade1", "Blade2")))
+    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 X 90.0 2 DISABLE"
+    (record,) = [
+        json.loads(text)
+        for name, text in script.pending_input_files.items()
+        if name.endswith("_qsteady.json")
+    ]
+    assert record["blades"] == 2
+    assert record["families_blades"] == ["Blade1", "Blade2"]
     lines, _ = _lines(_with_obj(_case(PASSAGE_POSITIONS="2"), obj, ("Blade1", "Blade2", "Blade3")))
     assert _rotations(lines)[0] == "ROTATE_SURFACE 2 X 60.0 3 DISABLE"
 

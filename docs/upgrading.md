@@ -147,11 +147,12 @@ The plan refuses an `unsteady_rotor` row whose `LAST_REVS_AVG` or `LAST_ITERS_AV
 whole number of blade passages, at least one, of every rotor the row turns. The refusal names
 the nearest valid window; write it. A window that already spans whole passages needs no edit.
 
-On a `SYMMETRY: PERIODIC` row the rotor block's `families_blades` lists only the meshed blade
-families, and the wheel has those families times `PERIODIC_COPIES` blades. A sector block that
-listed every blade of the wheel beside its copies now counts the wheel that many times over:
-keep only the families the mesh carries (a sector meshing one blade of a four-blade wheel writes
-`families_blades = ["Blade1"]` and `PERIODIC_COPIES: 4`).
+Rotor-block families absent from the mesh are ignored, by the same selection and plan-warning
+rule as pproc families. One reference can list `families_blades = ["Blade1", "Blade2", "Blade3",
+"Blade4"]` for both a wheel and a sector carrying only `Blade1`. On a `SYMMETRY: PERIODIC` row
+the wheel count is the mesh-present blade families times `PERIODIC_COPIES`: that one-blade
+sector with `PERIODIC_COPIES: 4` has four blades, not sixteen. No reference edit is needed.
+The whole-passage gate, passage cuts, frames and qsteady records use that same count.
 
 ## The geometry commands move to pyfs-mesh, pyfs-geom and pyfs-fsi (0.58)
 

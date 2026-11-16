@@ -56,7 +56,7 @@ from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from pyflightstream._errors import PyflightstreamWarning, warn
-from pyflightstream._fsm import family_of, names_of
+from pyflightstream._fsm import MeshReadError, boundary_names, family_of, names_of
 from pyflightstream.cases import (
     CampaignConfigError,
     alias_members_missing,
@@ -65,7 +65,7 @@ from pyflightstream.cases import (
 )
 
 if TYPE_CHECKING:
-    from pyflightstream.cases import SimCase
+    from pyflightstream.cases import RotorBlock, SimCase
 
 __all__ = [
     "PPROC_ARTIFACT",
@@ -86,6 +86,7 @@ __all__ = [
     "noting_the_study_skips",
     "noting_the_unplaced_rotor_frames",
     "refuses_a_name_the_model_lacks",
+    "rotor_blade_families",
     "saying_the_families_each_row_skips",
     "saying_the_study_skips",
     "selects_nothing",
@@ -261,6 +262,34 @@ def note_the_families_a_row_lacks(
             entries.append(entry)
         if row not in rows:
             rows.append(row)
+
+
+def rotor_blade_families(
+    case: SimCase, rotor: RotorBlock, inventory: Sequence[str] | None = None
+) -> list[str]:
+    """Resolve a rotor's blades on this mesh using the pproc family-skip rule.
+
+    Unknown geometry retains the declaration, as the geometry reader does.
+    A known inventory filters missing members; the existing plan collector
+    names each skipped reference family once, using its existing warning.
+    """
+    if inventory is None:
+        inventory = case.inventory
+    if inventory is None and case.geometry is not None:
+        try:
+            inventory = boundary_names(case.geometry)
+        except MeshReadError:
+            pass  # The geometry path already reports an unreadable inventory.
+    if inventory is None:
+        return list(rotor.families_blades)
+    selected = select_group_members(rotor.families_blades, inventory, case.aliases, strict=False)
+    note_the_families_a_row_lacks(
+        case.sim_id,
+        _reference(case),
+        f"rotor {rotor.alias!r} families_blades",
+        declared_names_the_geometry_lacks(rotor.families_blades, inventory, case.aliases),
+    )
+    return selected
 
 
 @contextmanager

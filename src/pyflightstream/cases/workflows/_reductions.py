@@ -33,6 +33,7 @@ from ._rows import (
     _require_the_averaging_window,
     _required_float,
     _required_int,
+    _rotor_blade_families,
     _sector_copies,
     _the_rotor_a_flat_row_turns,
     _variable,
@@ -430,13 +431,14 @@ def _the_count_the_block_declares(case: SimCase, block: RotorBlock, stated: int 
     times the copies is that count, and the row is valid as it was before
     the block became the count. Any other disagreement is refused, naming both.
 
-    ON A ``SYMMETRY: PERIODIC`` ROW THE BLOCK'S FAMILIES ARE THE MESHED SECTOR
-    and the wheel has the families times ``PERIODIC_COPIES`` blades (FR-68).
+    ON A ``SYMMETRY: PERIODIC`` ROW THE MESH-PRESENT FAMILIES ARE THE SECTOR
+    and the wheel has those families times ``PERIODIC_COPIES`` blades (FR-68).
     That count is returned when the row states no ``BLADES``, or states the
     meshed families' count (which is what a motion view fills in), or the
     wheel's own; the whole-passage gate and every passage cut read it here.
     """
-    declared = len(block.families_blades)
+    families = _rotor_blade_families(case, block)
+    declared = len(families)
     sector = _sector_copies(case)
     if sector is not None and stated in (None, declared, declared * sector):
         return declared * sector
@@ -451,8 +453,8 @@ def _the_count_the_block_declares(case: SimCase, block: RotorBlock, stated: int 
         return stated
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {BLADES_VARIABLE}: {stated} and its reference "
-        f"declares rotor {block.alias!r} with {declared} blade(s) "
-        f"({', '.join(block.families_blades)}). The block is the count (FR-68), times "
+        f"declares rotor {block.alias!r} with {declared} blade(s) in the mesh "
+        f"({', '.join(families)}). The present families are the count (FR-68), times "
         f"{PERIODIC_COPIES_VARIABLE} on a {SYMMETRY_VARIABLE} PERIODIC row; "
         f"remove {BLADES_VARIABLE} from the row, or correct the block."
     )
@@ -463,8 +465,8 @@ def _blade_count(case: SimCase) -> int | None:
 
     THE BLOCK FIRST (FR-68). A row whose reference declares its one rotor has
     said how many blades it has, in the file where the study's vocabulary
-    lives. On a ``SYMMETRY: PERIODIC`` row the block lists the MESHED blade
-    families and ``PERIODIC_COPIES`` the sector copies round the wheel: a
+    lives. Only families present in the mesh count. On a ``SYMMETRY: PERIODIC``
+    row ``PERIODIC_COPIES`` states the sector copies round the wheel: a
     4-blade rotor meshed as a 2-blade half lists two families and states two
     copies, and its wheel has four blades. A row ``BLADES`` that disagrees with
     both the meshed and the wheel's count is refused, naming both.
@@ -698,7 +700,7 @@ def _the_passages_of_one_rotor(
     model's count with the flat path, frames and sector copies.
     """
     # Read the blade count through the motion view: _motion_view sets BLADES
-    # from rotor.blade_count, sharing the model's rule with the flat path.
+    # from the mesh-present wheel count, sharing the flat path's rule.
     # The count cannot be None: the view carries BLADES and the model refuses
     # a rotor block with empty families_blades.
     blades = _blade_count(view) or 0
@@ -716,8 +718,8 @@ def _the_passages_of_one_rotor(
         # same reason: the per-blade reduction is one row per blade, a blade's
         # plots are the ones named for its family, and the products stage
         # reaches the reference only through a matrix it may not have.
-        entry[BLADE_FAMILIES_KEY] = [str(family) for family in block.families_blades]
-    if delta_time_s is None or not speed.rpm:
+        entry[BLADE_FAMILIES_KEY] = _rotor_blade_families(case, block)
+    if delta_time_s is None or not speed.rpm or blades < 1:
         reason = (
             f"case {case.sim_id!r} turns {alias!r} at {speed.rpm} rev/min with a solver "
             f"step of {delta_time_s}, so one blade passage of it has no length in steps."
@@ -1044,7 +1046,7 @@ def _flat_row_passages(
     _flat_rotor = next(iter((case.rotors or {}).values()), None)
     if _flat_rotor is not None:
         plan["blade1_azimuth_deg"] = float(_flat_rotor.blade1.azimuth_deg)
-        plan[BLADE_FAMILIES_KEY] = [str(family) for family in _flat_rotor.families_blades]
+        plan[BLADE_FAMILIES_KEY] = _rotor_blade_families(case, _flat_rotor)
     if revolution is None or per_revolution is None or blades < 1:
         reason = (
             f"case {case.sim_id!r} declares {blades} blades and "

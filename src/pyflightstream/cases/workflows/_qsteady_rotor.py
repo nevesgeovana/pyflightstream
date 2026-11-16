@@ -105,14 +105,13 @@ from ._rows import (
     _qsteady_speed,
     _refuse_unregistered_keys,
     _required_int,
+    _rotor_blade_families,
     _rotor_frame_axis,
-    _sector_copies,
     _the_isolated_rotor,
     _variable,
     _velocity,
     _wheel_blade_count,
     qsteady_case_kind,
-    sector_block_refusal,
 )
 from ._skeleton import (
     _initialize,
@@ -288,8 +287,8 @@ def _refuse_what_is_not_the_rotor(
 
     Every boundary the geometry declares must be one of the rotor's families,
     general or blade, resolved as a row's names are (exact label, alias,
-    family). A wheel carries every blade the rotor block lists; a sector at
-    least one. A geometry whose boundary names are not known is not checked,
+    family). Absent block members are ignored; at least one blade must be
+    present. A geometry whose boundary names are not known is not checked,
     and the build says so.
 
     Returns
@@ -365,7 +364,6 @@ def _refuse_what_is_not_the_rotor(
             f"{', '.join(others)}, which rotor {rotor.alias} does not own (its families are "
             f"{', '.join(rotor.members)}). {_ONLY_AN_ISOLATED_ROTOR}"
         )
-    missing = [blade for blade in rotor.families_blades if blade not in blades_found]
     if kind == "wheel" and shared:
         raise CampaignConfigError(
             f"case {case.sim_id!r} solves the whole wheel of rotor {rotor.alias} (no "
@@ -374,21 +372,9 @@ def _refuse_what_is_not_the_rotor(
             + ". A wheel meshes one surface per blade, so two names for one surface are "
             "one blade and not two."
         )
-    if kind == "wheel" and missing:
+    if not blades_found:
         raise CampaignConfigError(
-            f"case {case.sim_id!r} solves the whole wheel of rotor {rotor.alias} (no "
-            f"{SYMMETRY_VARIABLE}) and its geometry carries no {', '.join(missing)}. A wheel "
-            "meshes every blade; a mesh of one blade is a sector: state "
-            f"{SYMMETRY_VARIABLE} PERIODIC and PERIODIC_COPIES."
-        )
-    # A SECTOR STATING ITS COPIES LISTS ONLY THE MESHED FAMILIES (FR-68): a family
-    # the mesh lacks is an old-style block listing the whole wheel, which would
-    # count the wheel PERIODIC_COPIES times over.
-    if kind == "sector" and missing and _sector_copies(case) is not None:
-        raise CampaignConfigError(sector_block_refusal(case, rotor, missing))
-    if kind == "sector" and not blades_found:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} solves a periodic sector of rotor {rotor.alias} and its "
+            f"case {case.sim_id!r} solves a {kind} of rotor {rotor.alias} and its "
             f"geometry carries none of its blades ({', '.join(rotor.families_blades)})."
         )
     return sorted(owned)
@@ -551,7 +537,8 @@ def _blade_stations_from_the_mesh(
     for operation in operations:
         if operation.op == "rename" and operation.surface in groups and operation.to:
             groups[operation.to] = groups.pop(operation.surface)
-    blade = rotor.families_blades[0] if rotor.families_blades else None
+    blades = _rotor_blade_families(case, rotor)
+    blade = blades[0] if blades else None
     if blade is None:
         return f"rotor {rotor.alias} lists no blade"
     try:
@@ -840,7 +827,7 @@ def _park_the_qsteady_record(
         axis_vector=rotor.axis_vector,
         diameter_m=rotor.diameter_m,
         families_general=tuple(rotor.families_general),
-        families_blades=tuple(rotor.families_blades),
+        families_blades=tuple(_rotor_blade_families(case, rotor)),
         blade1_azimuth_deg=rotor.blade1.azimuth_deg,
         positions=tuple(
             _qsteady.QsteadyClocking(
@@ -1181,7 +1168,7 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     speed = _qsteady_speed(case, rotor)
     _refuse_unregistered_keys(case, QSTEADY_ROTOR)
     custom = _the_custom_freestream(case)
-    angles = _qsteady.clocking_angles(rotor.blade_count, positions)
+    angles = _qsteady.clocking_angles(_wheel_blade_count(case, rotor), positions)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")

@@ -62,7 +62,6 @@ from ._rows import (
     _uses_letter_frame,
     _variable,
     _wheel_blade_count,
-    sector_block_refusal,
 )
 from ._vocabulary import (
     MOTIONS_VARIABLE,
@@ -1263,10 +1262,9 @@ def _rotor_blade_frames(
     The frames turn with the blades, so a per-blade product is read in the
     frame of the blade it is about.
 
-    A BLADE THE MESH DOES NOT CARRY GETS NO FRAME, and the count is not
-    reduced by its absence. On a ``SYMMETRY: PERIODIC`` row it is refused
-    instead: the sector's block lists only the meshed families, and a block
-    listing the whole wheel would count it ``PERIODIC_COPIES`` times over.
+    A BLADE THE MESH DOES NOT CARRY GETS NO FRAME. Missing block members
+    are skipped by the same rule as pproc families; the count reads the
+    families this mesh carries, times a periodic sector's copies.
     The returned mapping is keyed by the blade's FAMILY, as
     the flat form's is, so a pproc entry citing a blade resolves the same
     way on either.
@@ -1276,12 +1274,11 @@ def _rotor_blade_frames(
     names the frames ``<stem><k>`` where a row shape already names them so.
     """
     inventory = set(_inventory(script))
-    lacking = [family for family in rotor.families_blades if family not in inventory]
-    if inventory and lacking and _sector_copies(view) is not None:
-        raise CampaignConfigError(sector_block_refusal(view, rotor, lacking))
     if origin is None:
         origin = _point_from_metres(view, script, rotor.origin, "rotor x_m/y_m/z_m")
-    count = _wheel_blade_count(view, rotor)
+    count = _wheel_blade_count(
+        view, rotor, view.inventory if view.inventory is not None else _inventory(script)
+    )
     created: dict[str, int] = {}
     for number, family in enumerate(rotor.families_blades, start=1):
         if family not in inventory:
