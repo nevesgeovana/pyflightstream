@@ -496,6 +496,25 @@ class _ReachGuardGraph:
             if f"{base}.{alias.name}" in self.modules:
                 yield (f"{base}.{alias.name}", _REACH_GUARD___MODULE_NODE)
 
+    def _delegated_targets(self, module: str, node: ast.Call) -> set[_ReachGuardTarget]:
+        """Resolve the two literal callbacks of the actual delegated-command registry."""
+        words = [
+            argument.value
+            for argument in node.args
+            if isinstance(argument, ast.Constant) and isinstance(argument.value, str)
+        ]
+        if len(node.args) != 2 or len(words) != 2 or node.keywords:
+            return set()
+        registry = ("pyflightstream._cli", "register_delegated_commands")
+        if registry not in self.expression(module, node.func):
+            return set()
+        found: set[_ReachGuardTarget] = set()
+        for word in words:
+            target_module, separator, name = word.partition(":")
+            if separator:
+                found.update(self.symbol(target_module, name))
+        return found
+
     def uses(self, module: str, nodes: Iterable[ast.AST]) -> set[_ReachGuardTarget]:
         """Return every target the code under ``nodes`` uses."""
         info = self.modules[module]
@@ -508,6 +527,8 @@ class _ReachGuardGraph:
                     found.update(self.expression(module, node))
                 elif isinstance(node, ast.Call) and _reach_guard___is_import_module(node):
                     found.update(self.expression(module, node))
+                elif isinstance(node, ast.Call):
+                    found.update(self._delegated_targets(module, node))
                 elif isinstance(node, (ast.Import, ast.ImportFrom)):
                     found.update(self._imported(module, node))
                 elif (
@@ -842,10 +863,11 @@ class TestReachGuard:
     stage registrations, top-level imports, ``if`` and ``try`` tests). Its edges
     are the names a node's code uses, resolved through the module's imports
     (module-level and function-local, absolute and relative, ``import a.b as c``
-    and attribute chains through modules), plus three dynamic forms the package
+    and attribute chains through modules), plus four dynamic forms the package
     uses: ``importlib.import_module("pyflightstream...")`` followed by an
     attribute, a string holding ``from pyflightstream.x import y`` (the launcher
-    a coupled point stages for the solver), and the rule that using any
+    a coupled point stages for the solver), the two literal ``module:function``
+    callbacks passed to ``register_delegated_commands``, and the rule that using any
     definition of a module imports that module and its parent packages. The
     roots are the command-line entry points of the workspace: ``pyfs-matrix``
     (``pyflightstream.run.cli.main``), ``pyfs-workspace``
@@ -1192,3 +1214,44 @@ class TestReachGuard:
         verdict = _reach_guard__analyse(modules, roots=(("pyflightstream._cli", "main"),))
         unreached = {capability.paths[0].rpartition(".")[2] for capability in verdict.unreached}
         assert unreached == {"annotated", "dead", "guarded", "typed"}
+
+
+def test_p0580_only_registered_command_targets_are_reachable() -> None:
+    """PFS-2140.011: live literal registrations reach both targets, ordinary strings do not."""
+    api = "__all__ = ['build', 'entry']\ndef build(): pass\ndef entry(): pass\n"
+    registration = "register('pyflightstream.api:build', 'pyflightstream.api:entry')"
+    cases: tuple[tuple[str, set[str]], ...] = (
+        (f"def main():\n    {registration}\n", set()),
+        (
+            "def main():\n    targets = ('pyflightstream.api:build', 'pyflightstream.api:entry')\n",
+            {"build", "entry"},
+        ),
+        (
+            "def unrelated(build, entry): pass\n"
+            + f"def main():\n    {registration.replace('register(', 'unrelated(')}\n",
+            {"build", "entry"},
+        ),
+        (f"def main():\n    return\n    {registration}\n", {"build", "entry"}),
+        (
+            "def main():\n"
+            "    builder = 'pyflightstream.api:build'\n"
+            "    register(builder, 'pyflightstream.api:entry')\n",
+            {"build", "entry"},
+        ),
+    )
+    for source, expected in cases:
+        modules = _reach_guard___overlay(
+            {},
+            {
+                "pyflightstream.api": api,
+                "pyflightstream._cli": "def register_delegated_commands(build, entry): pass\n",
+                "pyflightstream.workspace.cli": (
+                    "from pyflightstream._cli import register_delegated_commands as register\n"
+                    "__all__ = ['main']\n" + source
+                ),
+            },
+        )
+        verdict = _reach_guard__analyse(modules, roots=(("pyflightstream.workspace.cli", "main"),))
+        assert {
+            capability.paths[0].rsplit(".", 1)[1] for capability in verdict.unreached
+        } == expected
