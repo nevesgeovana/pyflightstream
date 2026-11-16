@@ -990,6 +990,7 @@ class TestReachGuard:
             "pyflightstream.post.corrections.sector_offset_calibration",
             "pyflightstream.workspace._mark_boundaries._emit_fsi_marking",
             "pyflightstream.workspace._mark_boundaries.plan_mark_boundaries",
+            "pyflightstream.script.helpers.with_vorticity_selection",
         )
         graph = _ReachGuardGraph(modules)
         missing = []

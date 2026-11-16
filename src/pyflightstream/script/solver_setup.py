@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import (
     BaseModel,
@@ -862,17 +862,10 @@ def with_vorticity_selection(
 ) -> SolverSetup:
     """Return the snapshot with the induced-drag selection replaced.
 
-    Helper-facing like :func:`build_setup`, and deliberately outside
-    ``__all__``: the snapshot is built by the curated helpers, never
-    hand-stamped by a caller.
-
-    The deprecated
-    :func:`pyflightstream.script.helpers.analysis_setup` selection path
-    emits its own SET_VORTICITY_DRAG_BOUNDARIES after the settings call
-    already built the snapshot. Restamping the record keeps the manifest
-    describing the script that will actually run: a snapshot that says
-    "no selection" while the script selects boundaries would be the
-    provenance record lying about its own script.
+    :func:`build_setup` uses this update when the validated settings call
+    states a selection. It records that selection as explicit and emitted,
+    without default evidence, so the manifest describes the selection the
+    script will apply. The frozen input snapshot remains unchanged.
 
     Parameters
     ----------
@@ -945,16 +938,14 @@ _UNSTEADY_COMMAND = "SET_SOLVER_UNSTEADY"
 
 def _vorticity_record(
     entry: CommandEntry,
-    passed: Mapping[str, object],
     *,
     available: bool,
 ) -> FlagRecord:
-    """Build the snapshot record of the induced-drag boundary selection.
+    """Build the default or unknown induced-drag boundary-selection record.
 
-    The selection is optional, so its record has two shapes. A passed
-    selection is ``explicit`` and emitted (deferred to the analysis
-    phase). No selection is the documented solver behavior rather than
-    an absence of knowledge: the script places no boundary on the
+    An explicit selection is applied by :func:`with_vorticity_selection`.
+    No selection is the documented solver behavior rather than an absence
+    of knowledge: the script places no boundary on the
     vorticity CDi list, and boundaries outside that list keep the
     surface pressure integration of the solver, a complete induced-drag
     calculation (FSM-26.120 p.202). That case is recorded as a ``default``
@@ -967,9 +958,6 @@ def _vorticity_record(
     nothing: per-version facts need the command to exist.
     """
     base = {"command": entry.name, "family": entry.chapter}
-    selection = passed.get("vorticity_drag_boundaries")
-    if selection is not None:
-        return FlagRecord(**base, provenance=_EXPLICIT, value=_normalize(selection), emitted=True)
     # THE DEFAULT AND ITS CITATION ARE THE ENTRY'S (PFS-2006.01): restated
     # here they were a second copy no validator of the database could see.
     # An entry carrying no default leaves the record honestly unknown.
@@ -1068,10 +1056,13 @@ def build_setup(
         view[VORTICITY_COMMAND]
         if VORTICITY_COMMAND in view
         else registry.commands[VORTICITY_COMMAND],
-        passed,
         available=VORTICITY_COMMAND in view,
     )
-    return SolverSetup(fs_version=resolve(version).canonical, flags=flags)
+    setup = SolverSetup(fs_version=resolve(version).canonical, flags=flags)
+    selection = passed.get("vorticity_drag_boundaries")
+    if selection is not None:
+        return with_vorticity_selection(setup, cast("Sequence[int] | Literal['all']", selection))
+    return setup
 
 
 def script_from_setup(script: Script, setup: SolverSetup) -> SolverSetup:
