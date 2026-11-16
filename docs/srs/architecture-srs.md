@@ -130,12 +130,12 @@ boundaries; they do not repeat the chronology of each extraction.
     owns one emission concern. A new route reuses the script builder and its
     command validation rather than constructing a second command language.
 
-    Architecture rule FR-991: The vocabulary membership of FR-980 and the classification of each cited token (selected or skipped, refused only when requested) are one resolver in the cases layer, taking plain values: the names, the aliases and the study list. `workspace/inputs.py` parses the `[study]` table; the plan lines (FR-987), the emitted selections (FR-982) and `skipped_names` (FR-989) consume the same resolution result. Every family-bearing plan input uses that default skip, with or without a study vocabulary (0.58.0).
+    Architecture rule FR-991: The vocabulary membership of FR-980 and the classification of each cited token (selected or skipped, refused only when requested) are one resolver in the cases layer, taking plain values: the names, the aliases and the study list. `workspace/inputs.py` parses the `[study]` table; the plan lines (FR-987), the emitted selections (FR-982) and `skipped_names` (FR-989) consume the same resolution result. Every family-bearing plan input uses that default skip, with or without a study vocabulary.
 
     Code: `pyflightstream.cases.workflows._names:_judge_the_group_members_the_model_lacks`. Test: `tests/tier1_offline/test_p0390_r02.py::test_p0580_an_unheld_name_is_skipped_by_default_and_refused_by_the_flag`.
 
     Historical migration record for FR-991, retained verbatim. Its token
-    classification and test below were superseded by the 0.58.0 rule above:
+    classification and test below are superseded by the current rule above:
 
     > The vocabulary membership of FR-980 and the classification of each cited token (selects, skipped, misspelled) are one resolver in the cases layer, taking plain values: the names, the aliases and the study list. `workspace/inputs.py` parses the `[study]` table; the plan lines (FR-987), the emitted selections (FR-982) and `skipped_names` (FR-989) consume the same resolution result.
 
