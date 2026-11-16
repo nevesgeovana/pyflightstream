@@ -2929,11 +2929,6 @@
     },
     {
       "source": "pyflightstream.cases._matrix_upgrade",
-      "target": "pyflightstream._retired_names",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases._matrix_upgrade",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -19510,16 +19505,6 @@
     {
       "source": "pyflightstream.workspace.migrate",
       "target": "pyflightstream._textio",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace.migrate",
-      "target": "pyflightstream.cases.matrix",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace.migrate",
-      "target": "pyflightstream.workspace._layout",
       "kind": "module"
     },
     {

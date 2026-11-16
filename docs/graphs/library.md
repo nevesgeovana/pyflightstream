@@ -3145,8 +3145,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace.migrate"><summary><code>pyflightstream.workspace.migrate</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.workspace._layout">pyflightstream.workspace._layout</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.record_document">pyflightstream.workspace.record_document</a> (module)</li>
 </ul></details>
@@ -3353,7 +3351,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.cases._matrix_upgrade"><summary><code>pyflightstream.cases._matrix_upgrade</code></summary><ul>
-<li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._matrix_layouts">pyflightstream.cases._matrix_layouts</a> (module)</li>
 </ul></details>
