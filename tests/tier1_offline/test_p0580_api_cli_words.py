@@ -98,3 +98,54 @@ def test_beam_declares_both_spellings_of_the_inspection_flag():
     for flag in ("--visual-inspection", "--visual-inspect"):
         stated = parser.parse_args(["beam", "x.obj", "--families", "B", "--stations", "3", flag])
         assert stated.visual_inspection is True
+
+
+@pytest.mark.parametrize(
+    ("module", "name", "home"),
+    [
+        ("pyflightstream.run.cli", "LoadsNotFoundError", "pyflightstream.results.tables"),
+        ("pyflightstream.run.cli", "MalformedOutputError", "pyflightstream.results"),
+        ("pyflightstream.run.cli", "PyflightstreamWarning", "pyflightstream.exceptions"),
+        ("pyflightstream.run.cli", "sweep_table", "pyflightstream.results.tables"),
+        (
+            "pyflightstream.script.helpers",
+            "PyflightstreamDeprecationWarning",
+            "pyflightstream.exceptions",
+        ),
+    ],
+)
+def test_p0580_current_public_bindings_keep_their_identity_after_the_cli_cut(module, name, home):
+    """P0580-PARITY-CURRENT-BINDINGS: AD-15 preserves names whose operation is still current."""
+    expected = getattr(importlib.import_module(home), name)
+    actual = getattr(importlib.import_module(module), name, None)
+    assert actual is expected
+
+
+@pytest.mark.parametrize(
+    ("module", "name", "replacement"),
+    [
+        ("pyflightstream.results.tables", "state_in_sweep_table", "group files"),
+        ("pyflightstream.results.tables", "sweep_identifiers_held", "group files"),
+        ("pyflightstream.results.tables", "write_table", "results.to_csv"),
+        ("pyflightstream.run.cli", "GEOMETRY_COMMANDS", "pyfs-mesh"),
+        ("pyflightstream.run.cli", "cmd_geometry", "pyfs-mesh"),
+        ("pyflightstream.run.cli", "SWEEP_TABLE_NAME", "group files"),
+        ("pyflightstream.run.cli", "write_sweep_table", "group files"),
+        (
+            "pyflightstream.script.helpers",
+            "ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES",
+            "solver_settings(vorticity_drag_boundaries=)",
+        ),
+    ],
+)
+def test_p0580_retired_product_and_dispatch_helpers_refuse_at_their_old_public_home(
+    module, name, replacement
+):
+    """P0580-PARITY-RETIRED-HOMES: the removed operation's re-export names its replacement."""
+    from pyflightstream.exceptions import RetiredAttributeError
+
+    target = importlib.import_module(module)
+    with pytest.raises(AttributeError) as refused:
+        getattr(target, name)
+    assert isinstance(refused.value, RetiredAttributeError)
+    assert name in str(refused.value) and replacement in str(refused.value)

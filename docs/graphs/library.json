@@ -14674,6 +14674,11 @@
     },
     {
       "source": "pyflightstream.run.cli",
+      "target": "pyflightstream._deprecations",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.cli",
       "target": "pyflightstream._errors",
       "kind": "module"
     },
@@ -14710,6 +14715,11 @@
     {
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream.options",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.cli",
+      "target": "pyflightstream.results.tables",
       "kind": "module"
     },
     {
@@ -15500,6 +15510,11 @@
     {
       "source": "pyflightstream.script.helpers",
       "target": "pyflightstream._decimal",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script.helpers",
+      "target": "pyflightstream._deprecations",
       "kind": "module"
     },
     {

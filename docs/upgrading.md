@@ -96,6 +96,14 @@ functions left with the SUPER file and the sweep table, refused by name in the s
 and `results.tables.write_sweep_table` (join the `TOTAL` group files; `Table.to_csv` writes
 the derived `sweep_table`).
 
+Those refusals also cover the former re-exports and bookkeeping helpers:
+`results.tables.write_table`, `state_in_sweep_table` and `sweep_identifiers_held`;
+`run.cli.SWEEP_TABLE_NAME` and `run.cli.write_sweep_table`; the old geometry
+dispatcher `run.cli.GEOMETRY_COMMANDS` and `run.cli.cmd_geometry`; and the removed
+forwarding promise `script.helpers.ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES`.
+The current exception and warning classes, and the derived `sweep_table`
+reader, keep their existing public bindings and object identity.
+
 The writers of the 0.57.0 polar table and its file name are removed and refused by name,
 in `post.polar`, `post.products` and `post`:
 

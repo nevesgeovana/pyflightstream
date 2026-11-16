@@ -68,7 +68,11 @@ from os import fspath
 from typing import Literal
 
 from pyflightstream._decimal import plain_decimal as plain_decimal
+from pyflightstream._deprecations import removed_names_hook as _removed_names_hook
 from pyflightstream._digest import one_file_key as one_file_key
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning as PyflightstreamDeprecationWarning,
+)
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._retired_names import REMOVED_FORMS
 from pyflightstream.script import (
@@ -2270,3 +2274,7 @@ def unsteady_action(
     if action_script is not None:
         script._pending_action_scripts[filename] = action_script
     return record
+
+
+# The removed forwarding promise is a named refusal, not a live shim.
+__getattr__ = _removed_names_hook(__name__)

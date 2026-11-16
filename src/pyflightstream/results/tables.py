@@ -93,7 +93,6 @@ from pyflightstream.results.core import (
     REDUCTION_COLUMN,
     REDUCTION_WINDOW_CODES,
     REDUCTION_WINDOW_COLUMN,
-    MalformedOutputError,
     UnsupportedResultTypeError,
     reduction_for_solver_mode,
     window_for_reduction,
@@ -101,6 +100,9 @@ from pyflightstream.results.core import (
 
 # Re-export for callers using the results.tables path.
 from pyflightstream.results.core import IncompleteOutputError as IncompleteOutputError
+from pyflightstream.results.core import (
+    MalformedOutputError as MalformedOutputError,
+)
 from pyflightstream.results.exports import (
     FORCE_DISTRIBUTION_COLUMNS,
     OFF_BODY_STREAMLINE_COLUMNS,

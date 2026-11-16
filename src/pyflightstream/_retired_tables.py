@@ -603,6 +603,53 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         why=_THE_CAMPAIGN_SWEEP_SENTENCE,
         instead="Join",
     ),
+    **{
+        f"pyflightstream.results.tables.{name}": RetiredName(
+            owner="pyflightstream.results.tables",
+            old=name,
+            new="the group files of each polar",
+            retired_in="0.58.0",
+            why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+            instead="Join",
+        )
+        for name in ("state_in_sweep_table", "sweep_identifiers_held")
+    },
+    "pyflightstream.results.tables.write_table": RetiredName(
+        owner="pyflightstream.results.tables",
+        old="write_table",
+        new="pyflightstream.results.to_csv(result, path)",
+        retired_in="0.58.0",
+        why="The writer is private; parsed results are written through results.to_csv.",
+    ),
+    **{
+        f"pyflightstream.run.cli.{name}": RetiredName(
+            owner="pyflightstream.run.cli",
+            old=name,
+            new="pyfs-mesh, pyfs-geom or pyfs-fsi beam",
+            retired_in="0.58.0",
+            why="The removed geometry dispatcher mixed the operations of those three tools.",
+            instead="Use",
+        )
+        for name in ("GEOMETRY_COMMANDS", "cmd_geometry")
+    },
+    **{
+        f"pyflightstream.run.cli.{name}": RetiredName(
+            owner="pyflightstream.run.cli",
+            old=name,
+            new="the group files of each polar",
+            retired_in="0.58.0",
+            why=_THE_CAMPAIGN_SWEEP_SENTENCE,
+            instead="Join",
+        )
+        for name in ("SWEEP_TABLE_NAME", "write_sweep_table")
+    },
+    "pyflightstream.script.helpers.ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES": RetiredName(
+        owner="pyflightstream.script.helpers",
+        old="ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES",
+        new="solver_settings(vorticity_drag_boundaries=)",
+        retired_in="0.58.0",
+        why="The removed analysis_setup forwarding parameter has no live promise to describe.",
+    ),
 }
 
 _MATRIX_DEFAULT_BUILD = (

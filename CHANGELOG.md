@@ -125,6 +125,8 @@ The rotor-row forms refused since 0.15.0 (`MOVING_BOUNDARIES` in a MOTIONS recor
 
 ### Fixed
 
+The CLI home cut keeps the current error and warning classes and the derived `sweep_table` reader at their earlier public import paths. Former re-exports and bookkeeping helpers of the retired sweep file, geometry dispatcher and analysis-setup forwarding promise now refuse by name with their replacement, rather than failing with an unexplained missing attribute. migration: follow the refusal to the current product or tool; docs/upgrading.md#0580-post-tree.
+
 Repeated coarse reference checks emit one precision note per stated reference quantity and value in a post, with a fresh note on the next post. Reference mismatch checks are unchanged. PFS-2124.029. migration: none.
 
 Window-averaged FAM and group ACOEF files retain the plotted drag split, including `CD0` and `CDI` on histories that print `CDO` and `CDI`, and `CDV` and `CDP` on histories that print that pair. The split uses the same window as the loads and the ACOEF reference dynamic pressure. P0580-XFIX-3. migration: post the retained histories again to replace the missing values; docs/upgrading.md#polar-files-by-family-and-by-group.

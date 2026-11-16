@@ -55,7 +55,9 @@ from pyflightstream._console import (
 )
 from pyflightstream._console import table as table
 from pyflightstream._console import wrap as wrap
+from pyflightstream._deprecations import removed_names_hook as _removed_names_hook
 from pyflightstream._errors import InputValueError, PyflightstreamError
+from pyflightstream._errors import PyflightstreamWarning as PyflightstreamWarning
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
@@ -76,6 +78,11 @@ from pyflightstream.cases.workflows import read_a_choice as read_a_choice
 from pyflightstream.cases.workflows import resolve_workflow as resolve_workflow
 from pyflightstream.cases.workflows import workflow_names as workflow_names
 from pyflightstream.options import option_context
+
+# These current public bindings survive the CLI home cut (AD-15).
+from pyflightstream.results.tables import LoadsNotFoundError as LoadsNotFoundError
+from pyflightstream.results.tables import MalformedOutputError as MalformedOutputError
+from pyflightstream.results.tables import sweep_table as sweep_table
 from pyflightstream.run import (
     CampaignErrors,
     LoadsAssessor,
@@ -1347,6 +1354,10 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     stem = matrix_stem(args.matrix)
     _report_skips(workspace, [stem])
     return status
+
+
+# Former helpers of removed products and dispatch homes answer by name.
+__getattr__ = _removed_names_hook(__name__)
 
 
 if __name__ == "__main__":

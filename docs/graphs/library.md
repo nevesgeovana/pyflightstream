@@ -1877,6 +1877,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.run.cli"><summary><code>pyflightstream.run.cli</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._cli">pyflightstream._cli</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._console">pyflightstream._console</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._deprecations">pyflightstream._deprecations</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._progress">pyflightstream._progress</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (deferred)</li>
@@ -1885,6 +1886,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.options">pyflightstream.options</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.results.tables">pyflightstream.results.tables</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run">pyflightstream.run</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._alias">pyflightstream.run._alias</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._cli_parsers">pyflightstream.run._cli_parsers</a> (module)</li>
@@ -4842,6 +4844,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.script.helpers"><summary><code>pyflightstream.script.helpers</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._decimal">pyflightstream._decimal</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._deprecations">pyflightstream._deprecations</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (module)</li>
