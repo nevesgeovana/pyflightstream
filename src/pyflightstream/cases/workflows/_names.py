@@ -153,31 +153,13 @@ def _declared_labels(labels: Mapping[str, int]) -> str:
 
 
 def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Script) -> None:
-    """Refuse a pproc artifact none of whose cited names the opened geometry carries.
+    """Refuse an all-absent pproc only when it names undeclared families.
 
-    PFS-2028.00, the RED of RPT-044: a group citing the mesh solid name
-    ``Wing`` against a file whose inventory carries ``MainWing`` only
-    planned READY, because a steady row's groups are resolved at products
-    time, after the seat is spent, where a group none of whose families
-    is in the loads table sums to zero. That is the case of a boundary
-    renamed in the solver before the save: the new name is the file's
-    and the mesh solid's resolves nothing.
-
-    WHAT IS REFUSED IS THE ARTIFACT AND THE GEOMETRY SHARING NO NAME, not
-    a member missing from one group. The artifact is written once for a
-    study and shared by rows opening different geometries (the tier-3
-    ``p002`` is ``Wing``, ``Body`` and ``Base`` and serves the wing rows
-    and the body rows alike), so a family the file lacks is left out by
-    design, per group and per plot entry, and a group summing to zero on
-    the wing rows is what the reference products carry for the body groups of a
-    wing polar. An artifact that cites a POSITION resolves by construction.
-    With no inventory declared there is nothing to check against, which
-    is the permissive state FR-30c licenses. An EMPTY group is every
-    family and resolves by construction and
-    is passed over rather than ending the check. A word is resolved as
-    every boundary-citing cell resolves it, exact name then alias then
-    family, and the message cites the word THE FILE WRITES, not what an
-    alias expands to.
+    A reference may declare families this row's mesh lacks. Its groups are
+    left to the shared per-member skip reader, even when none remains on
+    this row. Unknown names keep the RPT-044 diagnostic, citing the words
+    the artifact writes. Positions and unavailable inventories retain their
+    existing interpretation.
     """
     pproc = case.pproc
     if pproc is None or not pproc.groups:
@@ -198,6 +180,8 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
                 cited.append(str(member))
     if not cited or any(_resolve_token(case, name, labels) for name in cited):
         return
+    if not _undeclared_families(case, cited, list(labels)):
+        return
     raise CampaignConfigError(
         f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "
         f"{', '.join(repr(name) for name in cited)}, and {_inventory_source(case)} declares "
@@ -212,9 +196,10 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
 def _judge_the_group_members_the_model_lacks(case: SimCase, script: Script) -> None:
     """Judge each ``[groups]`` member that selects nothing on the row's model (FR-435).
 
-    Called after :func:`_refuse_a_pproc_the_geometry_shares_no_name_with`, so a
-    pproc none of whose groups selects a boundary keeps that refusal and its
-    text (FR-986). Of the rest, a member the row's study holds is skipped and said
+    Called after :func:`_refuse_a_pproc_the_geometry_shares_no_name_with`, so
+    undeclared all-absent selections retain their named refusal. A declared
+    selection absent from this row, including a whole pproc's groups, is
+    skipped and said. A member the row's study holds is skipped and said
     (FR-982: it is left out of its group at post, and a group none of whose members
     selects anything writes no polar row), one the study
     does not hold uses the ordinary family warning, and every one is refused on a run that asked
@@ -456,12 +441,9 @@ def _selected_families(
 def _the_reference_vocabulary(case: SimCase) -> list[str]:
     """Return every family name the reference's rotors declare, in their order.
 
-    THE REFERENCE'S OWN INVENTORY, and deliberately not the mesh's. Which
-    rotors an entry reaches is a property of the two FILES, so it must
-    give the same answer on a steady row and a rotor row; resolving the
-    entry's words against the geometry would make an entry reach a rotor
-    on one row and be refused on another, and the refusal below says in so
-    many words that it cannot come right on another mesh.
+    Rotor membership is a property of the reference, independent of the
+    current mesh. Mesh filtering and the skip of an absent numbered sibling
+    happen separately, without assigning it to a different blade's frame.
     """
     return [
         family

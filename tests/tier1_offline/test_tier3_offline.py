@@ -616,16 +616,8 @@ def test_moving_boundaries_naming_all_moves_every_boundary(tmp_path):
     assert _moving_payload(root, every) == "1,2,3"
 
 
-def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan(tmp_path):
-    """PFS-2028.00, the RED of RPT-044: a group citing the mesh solid name `Wing`
-    against 14_WING_RENAMED.fsm, whose inventory carries MainWing only, planned
-    READY on 2026-09-09 because a steady row's groups resolve at products time.
-    An artifact none of whose cited names the opened geometry carries is refused
-    at plan time naming the row, the artifact, the names, the file and its
-    inventory. The tier-3 artifacts are shared across geometries and a member
-    the file lacks is left out by design, so a member missing from ONE group is
-    not what is refused (p002's group 3 is Body and Base, and the wing rows plan
-    READY with it): the refusal is the artifact and the geometry sharing no name."""
+def test_p0581_a_declared_family_absent_from_the_saved_mesh_is_skipped_at_plan(tmp_path):
+    """P0581-SKIP: a reference-declared Wing skips on a mesh carrying MainWing."""
     root = _tier3_copy(tmp_path)
     _pproc(root, "p005", '[groups]\n"1" = "Wing"\n')
     matrix = _one_row_matrix(
@@ -634,11 +626,9 @@ def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan
         f"7206 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p005')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
-    plan = _plan(root, matrix)
-    assert plan.blocked, "the mesh solid name against the renamed file planned READY"
-    message = str(plan.blocked[0].error)
-    for fragment in ("7206", "p005", "'Wing'", "14_WING_RENAMED.fsm", "'MainWing'"):
-        assert fragment in message, message
+    with pytest.warns(PyflightstreamWarning, match="Wing.*skipped"):
+        plan = _plan(root, matrix)
+    assert not plan.blocked
     # The same artifact against the file whose inventory carries Wing plans READY.
     plain = _one_row_matrix(
         root,
@@ -682,11 +672,8 @@ def test_an_artifact_whose_only_group_is_all_plans_ready_against_any_geometry(tm
     assert not _plan(root, matrix).blocked, "an artifact citing no name was refused"
 
 
-def test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members(tmp_path):
-    """The interface lens of 2026-09-09: the guard substituted the alias MEMBERS
-    into its message, so it reported names the user never wrote and could not find
-    in the file, and it looked them up without case folding while every other site
-    folds. The artifact writes `wing`; the message says `wing`."""
+def test_p0581_the_skip_cites_the_word_the_artifact_writes(tmp_path):
+    """P0581-SKIP: a declared alias absent from this mesh is warned by name."""
     root = _tier3_copy(tmp_path)
     # THE ALIAS LIVES IN THE REFERENCE SINCE 0.15.0 (FR-59), joining the
     # table the file already declares; the row cites the setup it always did.
@@ -704,12 +691,9 @@ def test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members(tm
         f"7212 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p008')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
-    plan = _plan(root, matrix)
-    assert plan.blocked, "the alias resolving to nothing planned READY"
-    message = str(plan.blocked[0].error)
-    assert "'wing'" in message, f"the word the file writes: {message}"
-    assert "'Wing'" not in message, f"the alias's member, which the file never writes: {message}"
-    assert "MainWing" in message, message
+    with pytest.warns(PyflightstreamWarning, match="'wing'.*skipped"):
+        plan = _plan(root, matrix)
+    assert not plan.blocked
 
 
 def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):

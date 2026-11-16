@@ -504,19 +504,44 @@ def test_p0580_a_family_list_every_name_of_which_is_absent_is_left_out(tmp_path)
     assert any("analysis_families" in line and "skipped" in line for line in said)
 
 
-def test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal(tmp_path):
-    """P0390-R02 (FR-986) no group selects a wing-body boundary: refused with its 0.38.0 text."""
+def test_p0581_skip_a_pproc_whose_only_group_is_absent_on_this_row(tmp_path):
+    """P0581-SKIP: plan a tail-only pproc on wing-body and full meshes."""
     pproc = '[groups]\nTAIL = "tail"\n'
     workspace, path = study(tmp_path, pproc=pproc)
     plan, said = planned(workspace, path)
-    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
-    assert error_of(plan, "2001").startswith(
-        "CampaignConfigError: case '2001' names the pproc artifact 'p001' "
-        "(inputs/pproc/p001.toml), whose groups cite 'tail', and the sidecar "
-        "wb.fsm.boundaries.toml beside wb.fsm "
-        "declares none of those names or families; it declares 'Wing', 'Body', 'Base'."
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
+    assert any("groups.TAIL" in line and "tail" in line and "2001" in line for line in said)
+
+
+def test_p0581_skip_an_unknown_group_family_still_refuses_by_name(tmp_path):
+    """P0581-SKIP: a pproc selecting a typo has no reference declaration to skip."""
+    workspace, path = study(tmp_path, pproc='[groups]\nTAIL = "Tial"\n')
+    plan, _ = planned(workspace, path)
+    assert all(point.status is PlanStatus.BLOCKED for point in plan.points)
+    assert "Tial" in error_of(plan, "2001")
+
+
+def test_p0581_skip_power_off_groups_without_a_study_vocabulary(tmp_path):
+    """P0581-SKIP: only the reference's rotor declares the absent spinner and blades."""
+    rotor = (
+        '[ROTOR]\nkind = "rotor"\nx_m = 0.0\ny_m = 0.0\nz_m = 0.0\n'
+        'axis = "X"\ndiameter_m = 2.0\nfamilies_general = ["S"]\n'
+        'families_blades = ["Blade1", "Blade2"]\n'
+        'blade1 = { azimuth_deg = 0.0, zero = "Z" }\n'
     )
-    assert fr435_warnings(said) == []
+    workspace, path = study(
+        tmp_path,
+        reference=REFERENCE + rotor,
+        setup="iterations = 10\n",
+        pproc='[groups]\nSPINNER = "S"\nSECOND_BLADE = "Blade2"\n',
+        models=(("2001", "body.fsm", ["Body"]),),
+    )
+    plan, said = planned(workspace, path)
+    assert status_of(plan) == {"2001": {PlanStatus.READY}}
+    assert any("groups.SPINNER" in line and "'S'" in line and "skipped" in line for line in said)
+    assert any(
+        "groups.SECOND_BLADE" in line and "Blade2" in line and "skipped" in line for line in said
+    )
 
 
 # --- FR-983: a skip that renumbers an indexed base region ------------------------

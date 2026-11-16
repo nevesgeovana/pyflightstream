@@ -67,8 +67,12 @@ asks for refusals.
 
 A declaration with no remaining family emits no entry, so an empty selection cannot
 invoke a solver default or clear a saved selection. An explicitly empty clearing request
-keeps its existing meaning. A pproc whose groups share no name with the geometry still
-refuses, as before. Unreadable or contradictory inventories, ambiguous boundary IDs and
+keeps its existing meaning. Since 0.58.1, groups selecting only declared families
+absent from this mesh are warned and skipped even when none of the pproc's groups
+remains. The row still plans READY and other items run. For example, a group selecting
+spinner and blade families declared by the reference emits nothing on a power-off
+body-only mesh. An all-absent selection naming a family that exists nowhere in the
+reference or its declarations still refuses by name. Unreadable or contradictory inventories, ambiguous boundary IDs and
 structural consistency checks retain their own diagnostics. Family lists need no edit.
 
 ## 0.58.0 post tree

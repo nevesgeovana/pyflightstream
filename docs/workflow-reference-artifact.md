@@ -249,14 +249,17 @@ name, the row and its geometry, the reference and the names of its
 vocabulary, and saying to correct the name or to add it to the reference's
 `[study] surfaces`.
 
-Three refusals stay as they are, even where the vocabulary holds every name:
+An entirely absent family selection emits no entry, so it cannot invoke a
+solver's every-boundary default. Since 0.58.1, this also applies when none of
+a pproc's declared groups selects a boundary of the row's model: declared
+families absent from this mesh are warned and skipped, and the row still
+plans READY. For example, groups selecting the reference's spinner and blades
+emit nothing on a body-only power-off mesh. The other pproc items still run.
+An all-absent selection naming a family that exists nowhere in the reference
+or its declarations still refuses by name. No separate `[study]` table is
+needed when aliases or rotor blocks already declare the families.
 
-- a `*_families` key every cited name of which selects nothing on the row is
- refused, because an empty selection is the solver's every-boundary default,
- a different selection and not a smaller one;
-- a pproc none of whose groups selects a boundary of the row's model is
- refused;
-- a skip in `base_regions`, or of a `create` entry of
+A skip in `base_regions`, or of a `create` entry of
  `base_region_operations`, on a row whose setup addresses a
  `base_region_operations` entry by an `index` other than `all`, is refused
  naming the skipped name and the indexed entry, because the skip renumbers

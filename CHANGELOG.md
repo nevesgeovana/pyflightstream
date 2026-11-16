@@ -11,6 +11,8 @@ FlightStream versions.
 
 ### Fixed
 
+Post-processing groups selecting only declared families absent from a row's mesh are warned and skipped even when every group is absent; the row still plans READY and other items run. Unknown all-absent family names retain their named refusal. migration: shared pproc files need no power-off-specific group edit.
+
 Expanding-frame post-processing items selecting only families absent from a row are warned and skipped, including `Blade2` in `LOCAL_AXIS` on a Blade1-only sector; other items still run. migration: shared pproc files need no sector-specific selection edit.
 
 MESH_ROUTE moves from a matrix column to an optional VAR_NAMES variable; the column is gone.

@@ -277,10 +277,13 @@ table are twenty-seven emissions on a nine-rotor aircraft. A name that
 would collide carries `{family}`, and the reader refuses a name without it
 where the entry emits more than once.
 
-TWO WAYS AN ENTRY CAN FAIL TO LAND, and they are deliberately different.
-An entry whose families reach no rotor the REFERENCE declares is REFUSED
-at plan time, naming the rotors and the aliases it could have named,
-because that is a writing error and cannot come right on another mesh. An
+An expanding-frame item selecting only known families absent from this row's
+mesh is warned and skipped, even when it reaches no rotor of this reference.
+For example, `families = ["Blade2"]` with `frame = "LOCAL_AXIS"` emits no
+section on a Blade1-only sector; the pproc's Blade1 sections still emit.
+A numbered blade can belong to a declared family without being meshed by this
+reference. A selection naming an undeclared family, or a present family that
+belongs to no rotor, still refuses by name. An
 entry whose rotors the reference does declare, but whose frames THIS RUN
 did not place, is LEFT OUT with a warning, exactly as an entry whose
 families the geometry lacks is: a steady row places each declared rotor's
