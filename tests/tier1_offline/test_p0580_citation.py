@@ -22,3 +22,7 @@ def _archives() -> dict[str, str]:
 
 def test_p0580_citation_lists_the_archive_of_release_0_57_0():
     assert _archives().get("v0.57.0") == "10.5281/zenodo.24210551"
+
+
+def test_p0580_citation_lists_the_archive_of_release_0_58_0():
+    assert _archives().get("v0.58.0") == "10.5281/zenodo.24288628"
