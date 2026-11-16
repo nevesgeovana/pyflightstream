@@ -153,6 +153,7 @@ rule as pproc families. One reference can list `families_blades = ["Blade1", "Bl
 the wheel count is the mesh-present blade families times `PERIODIC_COPIES`: that one-blade
 sector with `PERIODIC_COPIES: 4` has four blades, not sixteen. No reference edit is needed.
 The whole-passage gate, passage cuts, frames and qsteady records use that same count.
+Rows omitting `PERIODIC_COPIES` retain the existing inference from the rotor block.
 
 ## The geometry commands move to pyfs-mesh, pyfs-geom and pyfs-fsi (0.58)
 

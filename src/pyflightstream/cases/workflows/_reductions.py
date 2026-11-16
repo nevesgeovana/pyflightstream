@@ -37,6 +37,7 @@ from ._rows import (
     _sector_copies,
     _the_rotor_a_flat_row_turns,
     _variable,
+    _wheel_blade_count,
     rotor_speed,
 )
 from ._timing import (
@@ -438,8 +439,8 @@ def _the_count_the_block_declares(case: SimCase, block: RotorBlock, stated: int 
     wheel's own; the whole-passage gate and every passage cut read it here.
     """
     families = _rotor_blade_families(case, block)
-    declared = len(families)
     sector = _sector_copies(case)
+    declared = len(families) if sector is not None else _wheel_blade_count(case, block)
     if sector is not None and stated in (None, declared, declared * sector):
         return declared * sector
     if stated is None or stated == declared:
@@ -453,8 +454,9 @@ def _the_count_the_block_declares(case: SimCase, block: RotorBlock, stated: int 
         return stated
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {BLADES_VARIABLE}: {stated} and its reference "
-        f"declares rotor {block.alias!r} with {declared} blade(s) in the mesh "
-        f"({', '.join(families)}). The present families are the count (FR-68), times "
+        f"declares rotor {block.alias!r} with {declared} blade(s) counted for this row "
+        f"(mesh families: {', '.join(families)}). "
+        "The present families are the count (FR-68), times "
         f"{PERIODIC_COPIES_VARIABLE} on a {SYMMETRY_VARIABLE} PERIODIC row; "
         f"remove {BLADES_VARIABLE} from the row, or correct the block."
     )

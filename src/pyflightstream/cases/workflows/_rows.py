@@ -1107,11 +1107,17 @@ def _wheel_blade_count(
     every passage cut and the blade frames' spacing read it, so a sector
     meshing two blades of a four-blade wheel places its second blade a
     quarter turn after the first and cuts quarter-turn passages.
+    Omitted copies keep the existing geometry path's inference from the
+    block's wheel count; this reader does not change that path's admission.
     """
     copies = _sector_copies(case)
-    return len(_rotor_blade_families(case, rotor, inventory)) * (
-        copies if copies is not None else 1
-    )
+    families = _rotor_blade_families(case, rotor, inventory)
+    if (
+        copies is None
+        and str(_variable(case, SYMMETRY_VARIABLE) or "").strip().upper() == "PERIODIC"
+    ):
+        return rotor.blade_count
+    return len(families) * (copies if copies is not None else 1)
 
 
 def _the_rotor_a_flat_row_turns(case: SimCase) -> RotorBlock | None:
