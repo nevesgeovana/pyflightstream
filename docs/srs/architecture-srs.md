@@ -134,6 +134,13 @@ boundaries; they do not repeat the chronology of each extraction.
 
     Code: `pyflightstream.cases.workflows._names:_judge_the_group_members_the_model_lacks`. Test: `tests/tier1_offline/test_p0390_r02.py::test_p0580_an_unheld_name_is_skipped_by_default_and_refused_by_the_flag`.
 
+    Historical migration record for FR-991, retained verbatim. Its token
+    classification and test below were superseded by the 0.58.0 rule above:
+
+    > The vocabulary membership of FR-980 and the classification of each cited token (selects, skipped, misspelled) are one resolver in the cases layer, taking plain values: the names, the aliases and the study list. `workspace/inputs.py` parses the `[study]` table; the plan lines (FR-987), the emitted selections (FR-982) and `skipped_names` (FR-989) consume the same resolution result.
+
+    Historical test anchor: `tests/tier1_offline/test_p0390_r02.py::test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary`.
+
 !!! decision "AD-13 Product families share a resolved context"
     Post resolves input records into a context, then calls the polar, rotor,
     unsteady and point-product families. Common table readers live below those
