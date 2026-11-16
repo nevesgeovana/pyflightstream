@@ -2318,6 +2318,21 @@ def _post_058_row(
         return False
     if any(after[key] != value for key, value in before.items() if key not in removed):
         return False
+    point_columns = list(point)
+    if "FAMILY" not in point_columns:
+        return False
+    prefix = [
+        name
+        for name in point_columns[: point_columns.index("FAMILY")]
+        if not reduction or name != "WINDOW_PASSAGES"
+    ]
+    if list(after)[: len(prefix)] != prefix:
+        return False
+    payload = [name for name in before if name not in prefix and name not in removed]
+    if removed and "FAMILY" in payload:
+        payload = ["FAMILY", *(name for name in payload if name != "FAMILY")]
+    if [name for name in after if name in payload] != payload:
+        return False
     for key in block - set(before):
         expected = point.get(key)
         if reduction and key == "WINDOW_REVS":

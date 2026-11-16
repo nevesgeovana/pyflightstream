@@ -29,6 +29,8 @@ The canonical run block of the current post tables (`post._run_block`): its colu
 
 ### Changed
 
+Parity requires the canonical CSV block first and keeps shared payload columns in their original order, including the documented FAMILY-first sections identity. An unrelated column reordering is not a run-block migration. migration: none.
+
 The parity comparison of a retired rotor table binds its old rotor alias to the replacement GROUP, ROTOR_ID and GROUP_ID, so a changed identity cannot pass as the documented sign migration. migration: none.
 
 Parity checks name the canonical CSV run block and the documented history/reduction moves only when row counts and shared cells stay exact. Added metadata must match the point's family polar block; each reduction keeps its own window. PFS-2232. migration: parity receipts identify the replacement path and the definition of the row window.

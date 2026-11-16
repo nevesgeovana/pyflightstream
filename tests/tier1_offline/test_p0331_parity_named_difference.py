@@ -294,6 +294,13 @@ def test_p0580_post_parity_keeps_exact_cells_and_each_reduction_window():
     assert named({target: _post_csv(new)}) is None
     assert named(release, defined - {"FR-3789"}) is None
     assert named(release, version="0.58.0") is None
+    reversed_columns = [dict(reversed(tuple(row.items()))) for row in new]
+    assert named({**release, target: _post_csv(reversed_columns)}) is None
+    payload_order = [dict(row) for row in new]
+    for row in payload_order:
+        reduction = row.pop("REDUCTION")
+        row["REDUCTION"] = reduction
+    assert named({**release, target: _post_csv(payload_order)}) is None
 
 
 def test_p0580_post_parity_requires_the_defined_aft_rotor_signs():
