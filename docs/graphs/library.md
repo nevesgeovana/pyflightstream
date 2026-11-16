@@ -1426,6 +1426,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._cli">pyflightstream._cli</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._console">pyflightstream._console</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.options">pyflightstream.options</a> (module)</li>
@@ -1880,7 +1881,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._deprecations">pyflightstream._deprecations</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._progress">pyflightstream._progress</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases.matrix">pyflightstream.cases.matrix</a> (module)</li>

@@ -103,6 +103,8 @@ dispatcher `run.cli.GEOMETRY_COMMANDS` and `run.cli.cmd_geometry`; and the remov
 forwarding promise `script.helpers.ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES`.
 The current exception and warning classes, and the derived `sweep_table`
 reader, keep their existing public bindings and object identity.
+The `run.cli` and `script.helpers` reference pages now list their supported bindings
+explicitly; the by-name retirement refusals remain available and require no further edit.
 
 The writers of the 0.57.0 polar table and its file name are removed and refused by name,
 in `post.polar`, `post.products` and `post`:

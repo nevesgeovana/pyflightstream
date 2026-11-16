@@ -1050,3 +1050,79 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         default=None,
         help="with --from-sims: the solver steps of one revolution, for a LAST_REVS_AVG window",
     )
+
+
+#: The storage verbs, including their retired flag spelling.
+_STORAGE_COMMANDS = ("space-in-use", "free-space", "delete-sims", "sync")
+
+
+def _parse_recipes(pairs: list[str]) -> dict[str, str]:
+    """Turn repeated ``CODE=module:function`` options into the mapping."""
+    recipes: dict[str, str] = {}
+    for item in pairs:
+        code, separator, reference = item.partition("=")
+        code, reference = code.strip(), reference.strip()
+        if not separator or not code or not reference:
+            raise InputValueError(
+                f"--recipe expects CODE=module:function (the FS_SCRIPT code and the "
+                f"recipe it maps to), got {item!r}"
+            )
+        recipes[code] = reference
+    return recipes
+
+
+def _refused_campaign_file(argv: list[str] | None) -> bool:
+    """Name the matrix replacement before parsing a retired convert invocation."""
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    # The command is the first word past the global flags, none of which takes a value.
+    if next((item for item in arguments if not item.startswith("-")), None) != "convert":
+        return False
+    print(
+        "Campaign-file conversion is not supported; the matrix is the sole campaign "
+        "declaration. Use pyfs-matrix plan <matrix> --workspace <workspace>. "
+        "See docs/upgrading.md.",
+        file=sys.stderr,
+    )
+    return True
+
+
+def _refused_sweep_csv(argv: list[str] | None) -> bool:
+    """Name the successor of ``run --sweep-csv``, retired with the table it named."""
+    from pyflightstream._retired_names import REMOVED_FORMS
+
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    command = next((item for item in arguments if not item.startswith("-")), None)
+    if command != "run":
+        return False
+    if not any(item == "--sweep-csv" or item.startswith("--sweep-csv=") for item in arguments):
+        return False
+    print(REMOVED_FORMS["pyfs-matrix.--sweep-csv"].message(), file=sys.stderr)
+    return True
+
+
+def _storage_flag_form(argv: list[str] | None) -> list[str] | None:
+    """Accept the flag-form spelling, ``pyfs-matrix --workspace W --free-space m001``.
+
+    Each storage command is also a subcommand; written as a leading flag, it
+    is moved to the front and its value (the recipe, the ids or the level)
+    becomes the positional argument. Anything else passes through unchanged.
+    """
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    if not tokens or not tokens[0].startswith("-") or tokens[0] in ("-h", "--help", "--version"):
+        return argv
+    for index, token in enumerate(tokens):
+        name, _, inline = token.partition("=")
+        if name[2:] not in _STORAGE_COMMANDS or not name.startswith("--"):
+            continue
+        rest = tokens[:index] + tokens[index + 1 :]
+        if name == "--space-in-use":
+            return [name[2:], *rest]
+        # delete-sims names its simulations with --sims only (positional ids removed in 0.43.0).
+        selector = ["--sims"] if name == "--delete-sims" else []
+        if inline:
+            return [name[2:], *selector, inline, *rest]
+        if index + 1 < len(tokens):
+            value = tokens[index + 1]
+            return [name[2:], *selector, value, *tokens[:index], *tokens[index + 2 :]]
+        return [name[2:], *rest]
+    return argv

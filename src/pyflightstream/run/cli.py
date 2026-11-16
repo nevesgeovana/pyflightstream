@@ -95,6 +95,9 @@ from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, listed_ids, split_typed_ids
 from pyflightstream.run._cli_parsers import (
+    _STORAGE_COMMANDS as _STORAGE_COMMANDS,
+)
+from pyflightstream.run._cli_parsers import (
     _build_parser,
     cmd_mark_converged,
     cmd_search_log_batch,
@@ -104,7 +107,19 @@ from pyflightstream.run._cli_parsers import (
     resume_hint,
     watch_interval_error,
 )
+from pyflightstream.run._cli_parsers import (
+    _parse_recipes as _parse_recipes,
+)
 from pyflightstream.run._cli_parsers import _parse_workflows as _parse_workflows
+from pyflightstream.run._cli_parsers import (
+    _refused_campaign_file as _refused_campaign_file,
+)
+from pyflightstream.run._cli_parsers import (
+    _refused_sweep_csv as _refused_sweep_csv,
+)
+from pyflightstream.run._cli_parsers import (
+    _storage_flag_form as _storage_flag_form,
+)
 from pyflightstream.run._cli_parsers import _whole_sims as _whole_sims
 from pyflightstream.run._cli_print import (
     _print_collect,
@@ -138,21 +153,6 @@ from pyflightstream.workspace.naming import (
     NamingTemplateError,
     is_portable_name,
 )
-
-
-def _parse_recipes(pairs: list[str]) -> dict[str, str]:
-    """Turn repeated ``CODE=module:function`` options into the mapping."""
-    recipes: dict[str, str] = {}
-    for item in pairs:
-        code, separator, reference = item.partition("=")
-        code, reference = code.strip(), reference.strip()
-        if not separator or not code or not reference:
-            raise InputValueError(
-                f"--recipe expects CODE=module:function (the FS_SCRIPT code and the "
-                f"recipe it maps to), got {item!r}"
-            )
-        recipes[code] = reference
-    return recipes
 
 
 def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) -> dict[str, str]:
@@ -211,35 +211,6 @@ def _confirmed_destruction(yes: bool) -> bool:
     except EOFError:
         return False
     return answer.strip().lower() == "rebuild"
-
-
-def _refused_campaign_file(argv: list[str] | None) -> bool:
-    """Name the matrix replacement before parsing a retired convert invocation."""
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    # The command is the first word past the global flags, none of which takes a value.
-    if next((item for item in arguments if not item.startswith("-")), None) != "convert":
-        return False
-    print(
-        "Campaign-file conversion is not supported; the matrix is the sole campaign "
-        "declaration. Use pyfs-matrix plan <matrix> --workspace <workspace>. "
-        "See docs/upgrading.md.",
-        file=sys.stderr,
-    )
-    return True
-
-
-def _refused_sweep_csv(argv: list[str] | None) -> bool:
-    """Name the successor of ``run --sweep-csv``, retired with the table it named."""
-    from pyflightstream._retired_names import REMOVED_FORMS
-
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    command = next((item for item in arguments if not item.startswith("-")), None)
-    if command != "run":
-        return False
-    if not any(item == "--sweep-csv" or item.startswith("--sweep-csv=") for item in arguments):
-        return False
-    print(REMOVED_FORMS["pyfs-matrix.--sweep-csv"].message(), file=sys.stderr)
-    return True
 
 
 @cli_entrypoint
@@ -478,38 +449,6 @@ def _refuse(message: str) -> NoReturn:
     """Refuse the way every other refusal of this command line does: stderr and exit 2."""
     print(message, file=sys.stderr)
     raise SystemExit(2)
-
-
-#: The storage commands (`pyflightstream.workspace.storage`).
-_STORAGE_COMMANDS = ("space-in-use", "free-space", "delete-sims", "sync")
-
-
-def _storage_flag_form(argv: list[str] | None) -> list[str] | None:
-    """Accept the flag-form spelling, ``pyfs-matrix --workspace W --free-space m001``.
-
-    Each storage command is also a subcommand; written as a leading flag, it
-    is moved to the front and its value (the recipe, the ids or the level)
-    becomes the positional argument. Anything else passes through unchanged.
-    """
-    tokens = list(sys.argv[1:] if argv is None else argv)
-    if not tokens or not tokens[0].startswith("-") or tokens[0] in ("-h", "--help", "--version"):
-        return argv
-    for index, token in enumerate(tokens):
-        name, _, inline = token.partition("=")
-        if name[2:] not in _STORAGE_COMMANDS or not name.startswith("--"):
-            continue
-        rest = tokens[:index] + tokens[index + 1 :]
-        if name == "--space-in-use":
-            return [name[2:], *rest]
-        # delete-sims names its simulations with --sims only (positional ids removed in 0.43.0).
-        selector = ["--sims"] if name == "--delete-sims" else []
-        if inline:
-            return [name[2:], *selector, inline, *rest]
-        if index + 1 < len(tokens):
-            value = tokens[index + 1]
-            return [name[2:], *selector, value, *tokens[:index], *tokens[index + 2 :]]
-        return [name[2:], *rest]
-    return argv
 
 
 def _cmd_storage(args: argparse.Namespace) -> int:
@@ -1354,6 +1293,82 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     stem = matrix_stem(args.matrix)
     _report_skips(workspace, [stem])
     return status
+
+
+# The supported public bindings remain the names offered before the retirement hook.
+__all__ = [
+    "CampaignConfigError",
+    "CampaignErrors",
+    "CampaignPlan",
+    "CampaignWorkspace",
+    "InputArtifactError",
+    "InputValueError",
+    "LIVE_LOG_COMMANDS",
+    "LoadsAssessor",
+    "LoadsNotFoundError",
+    "MATRIX_POINT_NAME",
+    "MalformedOutputError",
+    "MatrixError",
+    "NamingTemplate",
+    "NamingTemplateError",
+    "PyflightstreamError",
+    "PyflightstreamWarning",
+    "QUERY_COMMANDS",
+    "RunStatus",
+    "WorkflowCoverageError",
+    "WorkspaceError",
+    "blocks",
+    "cli_entrypoint",
+    "cmd_mark_converged",
+    "cmd_search_log_batch",
+    "collect_interval_error",
+    "command_console",
+    "command_help",
+    "continuation_block",
+    "derive_thin_blade",
+    "failure_alias_lines",
+    "format_cost_table",
+    "held_warnings",
+    "inflow_harmonics_line",
+    "is_portable_name",
+    "listed_ids",
+    "listed_sims",
+    "main",
+    "matrix_stem",
+    "note_post_ran",
+    "option_context",
+    "parsed",
+    "plan_matrix",
+    "plan_receipt_error",
+    "planner_for",
+    "post_diagnostics",
+    "post_stage_options",
+    "post_warning_policy",
+    "print_held_warnings",
+    "qsteady_validity_line",
+    "read_a_choice",
+    "records_parser",
+    "refused_command",
+    "release_warnings",
+    "renumber_repeated_pols",
+    "resolve_matrix_arguments",
+    "resolve_workflow",
+    "resume_hint",
+    "run_matrix",
+    "run_query",
+    "runner_for",
+    "say_data",
+    "say_summary",
+    "selected_sims",
+    "split_typed_ids",
+    "stage_progress",
+    "sweep_table",
+    "table",
+    "watch_interval_error",
+    "workflow_names",
+    "workflow_registry",
+    "wrap",
+]
 
 
 # Former helpers of removed products and dispatch homes answer by name.

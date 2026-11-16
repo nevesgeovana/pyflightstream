@@ -190,18 +190,13 @@ def _expected_subpackages() -> list[str]:
 #: own. Their surface is the public names they define (FR-1138 as amended in SRS
 #: 1.53.0). The list only shrinks: a new public module declares ``__all__``
 #: (FR-1144), and a module listed here that gains one leaves the list in the same
-#: change. Six of the seven are the modules DOC-B part 2 completes;
-#: ``script.helpers`` stays because it sits at its module-size baseline
-#: entry, which an ``__all__`` would exceed. ``results.tables`` left the list
-#: when its module ``__getattr__`` hook (FR-457) made the renderer count the
-#: hook as a public name of a module read without ``__all__``.
+#: change. Retirement hooks do not become supported API: results.tables,
+#: run.cli and script.helpers declare the existing bindings explicitly.
 MODULES_WITHOUT_ALL = {
     "pyflightstream.post.field_frames",
     "pyflightstream.post.probe_fields",
     "pyflightstream.results.native_surface",
-    "pyflightstream.run.cli",
     "pyflightstream.run.records",
-    "pyflightstream.script.helpers",
 }
 
 
@@ -280,6 +275,25 @@ def _entry_defects(page: str, module_name: str) -> list[str]:
 def _api_differences(page: str, module_name: str, expected: set[str]) -> tuple[set, set]:
     documented = _entries(page, module_name)
     return expected - documented, documented - expected
+
+
+@pytest.mark.parametrize("name", ["pyflightstream.run.cli", "pyflightstream.script.helpers"])
+def test_p0580_retirement_hooks_have_an_explicit_unchanged_public_surface(name):
+    """P0580-PARITY-DOC-HOOK (FR-1138): keep the API names and the hook out of its surface."""
+    import importlib
+
+    generator = _script("gen_api_reference")
+    parity = _script("check_parity")
+    module = importlib.import_module(name)
+    declared = getattr(module, "__all__", None)
+    assert declared is not None
+    source = Path(module.__file__).read_text(encoding="utf-8")
+    assert len(set(declared)) == len(declared)
+    assert set(declared) == set(parity.offered_names(module, source))
+    assert "__getattr__" not in declared
+    assert _expected_surface(name) == set(declared)
+    page = generator.subpackage_page(name, set())
+    assert _entries(page, name) == set(declared)
 
 
 def test_the_api_reference_carries_every_public_name_and_nothing_else():

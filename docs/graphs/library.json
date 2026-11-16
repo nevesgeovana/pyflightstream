@@ -12994,6 +12994,11 @@
     },
     {
       "source": "pyflightstream.run._cli_parsers",
+      "target": "pyflightstream._retired_names",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -14686,11 +14691,6 @@
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream._progress",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run.cli",
-      "target": "pyflightstream._retired_names",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run.cli",
