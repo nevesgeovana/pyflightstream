@@ -2342,6 +2342,116 @@ def _post_058_row(
     return True
 
 
+def _post_058_retired(
+    name: str, base: dict[str, str], release: dict[str, str], defined: set[str]
+) -> dict[str, Any]:
+    """Require the documented replacements before naming a FR-3777 disappearance."""
+    matched = re.fullmatch(
+        r"(.+)/(?:probes/(P[^/]+)_(time_average|per_blade)|"
+        r"polars/P(\d+)[_-]([^/]+)_(uns_avg|rotor))\.csv",
+        name,
+    )
+    if not matched or name in release or "FR-3777" not in defined:
+        return {}
+    root, point, kind, polar, label, polar_kind = matched.groups()
+    rows = _post_058_rows(base[name])
+    if not rows:
+        return {}
+    for old in rows:
+        pol = old.get("POL")
+        paths = [f"{root}/polars/FAM-{item}-P{pol}.csv" for item in ("DIM", "ACOEF", "RCOEF")]
+        if not all(_post_058_rows(release.get(path, "")) for path in paths):
+            return {}
+        if polar_kind == "rotor":
+            try:
+                rotor_matches = _post_058_retired_rotor(old, root, label, release)
+            except (ValueError, OverflowError):
+                rotor_matches = False
+            if not rotor_matches:
+                return {}
+            continue
+        wanted = point or f"P{polar}-{label}"
+        dimensions = _post_058_rows(release[paths[0]])
+        groups = _post_058_rows(release.get(f"{root}/polars/P{pol}-TOTAL-DIM.csv", ""))
+        selected = [row for row in dimensions + groups if row.get("POINT") == wanted]
+        if not selected or not _post_058_retired_loads(old, selected, kind == "per_blade"):
+            return {}
+    return {
+        "requirement": "FR-3777",
+        "why": (
+            "Retired table replaced by same-point FAM/group products with preserved MRP loads; "
+            "docs/upgrading.md#0580-post-tree and docs/definitions/rotor-coefficients.md"
+        ),
+    }
+
+
+def _post_058_retired_loads(
+    old: dict[str, str], replacements: list[dict[str, str]], blade: bool
+) -> bool:
+    """Match every original MRP dimensional component to its family or TOTAL row."""
+    checked = 0
+    for key, value in old.items():
+        matched = re.fullmatch(r"([FM][XYZ]_MRP)(?:_(.+))?", key)
+        if not matched:
+            continue
+        component, family = matched.groups()
+        family = old.get("FAMILY") if blade else family
+        candidates = [row for row in replacements if row.get("FAMILY", row.get("GROUP")) == family]
+        if len(candidates) != 1 or candidates[0].get(component) != value:
+            return False
+        common = set(old) & set(candidates[0]) - {"REDUCTION", "ROTOR", "WINDOW"}
+        if any(old[field] != candidates[0][field] for field in common):
+            return False
+        checked += 1
+    return checked > 0
+
+
+def _post_058_retired_rotor(
+    old: dict[str, str], root: str, alias: str, release: dict[str, str]
+) -> bool:
+    """Check the documented aligned aft-rotor sign migration and unchanged context."""
+    pol = old.get("POL")
+    rows = _post_058_rows(release.get(f"{root}/polars/P{pol}-{alias}-RCOEF.csv", ""))
+    candidates = [row for row in rows if all(row.get(k) == v for k, v in old.items() if k in row)]
+    if len(candidates) != 1:
+        return False
+    new = candidates[0]
+    ident = new.get("ROTOR_ID", "")
+    if float(new.get(f"PITCH{ident}", "nan")) != 0 or float(new.get(f"TOE{ident}", "nan")) != 0:
+        return False
+    warning = f"Rotor {alias} declares its axis aft; 0.58.0 counts thrust positive forward"
+    if warning not in release.get(f"{root}/post.log", ""):
+        return False
+    mapping = {
+        "RPM": (f"RPM{ident}", 1),
+        "DIAMETER": (f"D{ident}", 1),
+        "J": (f"J{ident}", 1),
+        "MTIP": (f"MTIP{ident}", 1),
+        "MHEL": (f"MHEL{ident}", 1),
+        "CT": ("CT", -1),
+        "CQ": ("CQ", -1),
+        "CP": ("CP", 1),
+        "ETA": ("ETA", -1),
+        "ETAW": ("ETAW", -1),
+        "CN": ("CFZ", 1),
+        "CS": ("CFY", 1),
+        "CMN": ("CMZ", -1),
+        "CMS": ("CMY", 1),
+        "MADV": (f"MHEL{ident}", 1),
+    }
+    for prefix, (column, sign) in mapping.items():
+        key = f"{prefix}_{alias}"
+        if key not in old:
+            continue
+        actual = str(float(new.get(column, "nan")) * sign)
+        if not (
+            _post_058_printed_value(old[key], actual, False)
+            or _within_printed_rounding(old[key], actual, coarser=False)
+        ):
+            return False
+    return True
+
+
 def _post_058_printed_value(expected: str | None, actual: str, window: bool) -> bool:
     """Compare only added metadata across the existing five-place/six-digit writers."""
     if expected is None or not re.fullmatch(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", actual):
@@ -2387,6 +2497,7 @@ def compare_texts(
         )
         if kind == "post" and (base_version is None or release_version(base_version) < (0, 58, 0)):
             entry.update(_post_058_csv(name, base, release, defined))
+            entry.update(_post_058_retired(name, base, release, defined))
         differing.append(
             {
                 key: name,

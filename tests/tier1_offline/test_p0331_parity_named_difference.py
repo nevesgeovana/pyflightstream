@@ -123,6 +123,76 @@ def test_p0580_post_parity_keeps_exact_cells_and_each_reduction_window():
     assert named(release, version="0.58.0") is None
 
 
+def test_p0580_post_parity_requires_the_defined_aft_rotor_signs():
+    """P0580-POST-ROTOR: FR-3777 preserves CP and reverses CT/CQ/ETA on an aft shaft."""
+    checker = _load()
+    block, _, _, companion = _post_058_tables()
+    name = "m/polars/P7-Rotor_rotor.csv"
+    target = "m/polars/P7-Rotor-RCOEF.csv"
+    old = dict(
+        POL="7",
+        ROTOR="Rotor",
+        CT_Rotor="-0.25",
+        CQ_Rotor="-0.125",
+        CP_Rotor="-0.5",
+        ETA_Rotor="0.75",
+    )
+    row = {
+        **block,
+        "GROUP": "Rotor",
+        "ROTOR_ID": "0",
+        "CT": "0.25",
+        "CQ": "0.125",
+        "CP": "-0.5",
+        "ETA": "-0.75",
+    }
+    release = {
+        target: _post_csv([row]),
+        **{f"m/polars/FAM-{kind}-P7.csv": companion for kind in ("DIM", "ACOEF", "RCOEF")},
+        "m/post.log": "Rotor Rotor declares its axis aft; 0.58.0 counts thrust positive forward",
+    }
+
+    def named(candidate):
+        result = checker.compare_texts(
+            "post", "file", {name: _post_csv([old])}, candidate, {"FR-3777"}, "0.57.0"
+        )
+        return result["differing"][0].get("requirement")
+
+    assert named(release) == "FR-3777"
+    for key in ("CT", "CQ", "CP", "ETA", "PITCH0", "TOE0", "POL"):
+        assert named({**release, target: _post_csv([{**row, key: "123"}])}) is None
+    assert named({**release, target: _post_csv([{**row, "PITCH0": "wrong"}])}) is None
+    assert named({**release, "m/post.log": "unrelated warning"}) is None
+
+
+def test_p0580_post_parity_requires_the_retired_tables_replacement_loads():
+    """P0580-POST-RETIREMENT: FR-3777 requires the same point and dimensional loads."""
+    checker = _load()
+    block, _, _, _ = _post_058_tables()
+    old = {"POL": "7", "REDUCTION": "per_blade", "FAMILY": "Blade", "FX_MRP": "12.00000"}
+    name = "m/probes/P7-case_per_blade.csv"
+    replacement = "m/polars/FAM-DIM-P7.csv"
+    rows = [{**block, "FAMILY": "Blade", "FAMILY_ID": "1", "FX_MRP": "12.00000"}]
+    release = {
+        replacement: _post_csv(rows),
+        "m/polars/FAM-ACOEF-P7.csv": _post_csv([{**block, "FAMILY": "Blade", "CDW": "1"}]),
+        "m/polars/FAM-RCOEF-P7.csv": _post_csv([{**block, "FAMILY": "Blade", "CT": "1"}]),
+    }
+
+    def named(candidate, requirements=frozenset({"FR-3777"}), version="0.57.0"):
+        result = checker.compare_texts(
+            "post", "file", {name: _post_csv([old])}, candidate, requirements, version
+        )
+        return result["differing"][0].get("requirement")
+
+    assert named(release) == "FR-3777"
+    for field, value in (("FX_MRP", "13.00000"), ("POINT", "other"), ("FAMILY", "Other")):
+        assert named({**release, replacement: _post_csv([{**rows[0], field: value}])}) is None
+    assert named({replacement: release[replacement]}) is None
+    assert named(release, requirements=set()) is None
+    assert named(release, version="0.58.0") is None
+
+
 def test_p0551_gate_unavailable_b_rows_keep_every_other_cell():
     """P0551-GATE: FR-3601/3602 name targets, never changed measurements."""
     checker = _load()

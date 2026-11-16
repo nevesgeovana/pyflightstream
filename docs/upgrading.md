@@ -38,6 +38,9 @@ structural consistency checks retain their own diagnostics. Family lists need no
 The parity receipt names the replacement path for a moved history or reduction
 CSV. It compares shared measurements exactly and checks added context against
 the point's family polar block, with each reduction's own window.
+For a retired average or blade table it checks the replacement's dimensional
+MRP loads. For an aligned aft rotor it checks the documented coefficient
+signs in the rotor group's RCOEF replacement.
 
 The post writes one set of polar files per polar, in the same form for steady, unsteady
 and unsteady-rotor rows. Each product is written to the folder named by its kind, and every
