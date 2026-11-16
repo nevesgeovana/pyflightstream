@@ -89,6 +89,7 @@ import tarfile
 import tempfile
 import tomllib
 import types
+from collections import Counter
 from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -2452,6 +2453,150 @@ def _post_058_retired_rotor(
     return True
 
 
+def _post_058_moved_path(text: str) -> str:
+    """Apply only the documented reduction path migrations, including warning references."""
+    text = re.sub(
+        r"\bsections/(P[\w+.-]+_(?:harmonics\.csv|disc_[\w+.-]*))", r"reductions/\1", text
+    )
+    return re.sub(r"\bprobes/(P[\w+.-]+_per_revolution(?:_[\w+.-]+)?\.csv)", r"reductions/\1", text)
+
+
+def _post_058_render_log(payload: dict[str, Any]) -> str:
+    """Render the specified human log from its machine records without importing a writer."""
+    header = (
+        f"pyflightstream {payload['version']} post\nworkspace={payload['workspace']}\n"
+        f"matrix={payload['matrix']}\ntime={payload['time']}\n"
+        f"check_frozen={payload['check_frozen']} (refuse instead of warn)\n"
+    )
+    if "sims" in payload:
+        header += f"sims={','.join(payload['sims'])}\n"
+    for row in payload["records"]:
+        remedy = f" Remedy: {row['remedy']}" if row["remedy"] else ""
+        header += (
+            f"{row['severity'].upper()} point={row['point']} product={row['product']}: "
+            f"{row['message']}{remedy}\n"
+        )
+    return header
+
+
+def _post_058_extra_warning(
+    row: dict[str, Any], root: str, base: dict[str, str], release: dict[str, str]
+) -> bool:
+    """Recognize only the exact new rotor/group warnings backed by the manifest inventory."""
+    if set(row) != {"point", "product", "message", "remedy", "category", "severity"}:
+        return False
+    if row["severity"] != "warning":
+        return False
+    manifest = json.loads(release.get(f"{root}/products.json", "{}"))
+    message = row["message"]
+    aft = re.fullmatch(
+        r"Rotor ([\w.-]+) declares its axis aft; 0\.58\.0 counts thrust positive forward, "
+        r"so CT, CQ, ETA, T and the in-plane signs of this rotor are opposite to 0\.57\.0\. "
+        r"See docs/upgrading\.md#0580-post-tree\.",
+        message,
+    )
+    if aft:
+        return (
+            row["point"] == "campaign"
+            and row["product"] == "stage"
+            and row["category"] == "reference-frame"
+            and row["remedy"] is None
+            and any(frame.get("rotor") == aft[1] for frame in manifest.get("frames", {}).values())
+            and any(
+                _post_058_retired_rotor(old, root, aft[1], release)
+                for path, text in base.items()
+                if path.startswith(root + "/polars/P") and path.endswith(f"-{aft[1]}_rotor.csv")
+                for old in _post_058_rows(text)
+            )
+        )
+    group = re.fullmatch(
+        r"group '([^']+)' selects no family of the loads exports of simulation '(\d+)' "
+        r"\(([^)]+)\): (every family|its selector (\d+) = ([\w.-]+)) names no surface or alias "
+        r"there; its files are not written\.",
+        message,
+    )
+    if not group:
+        return False
+    name, pol, families, _, selector, label = group.groups()
+    identity = f"polars/P{pol}-{name}"
+    inventory = manifest.get("families", [])
+    if (
+        row["point"] != identity
+        or row["product"] != identity
+        or row["remedy"] != _FF_REMEDY
+        or manifest.get("skipped", {}).get(identity) != message
+        or families != ", ".join(item["FAMILY"] for item in inventory)
+        or any(item["GROUP"] == name for item in manifest.get("groups", []))
+    ):
+        return False
+    if name == "AIRFRAME":
+        return (
+            selector is None
+            and row["category"] == "reference-frame"
+            and all(item.get("ROTOR_ID") is not None for item in inventory)
+        )
+    aliases = {}
+    for path, text in base.items():
+        if path.startswith(root + "/provenance/") and path.endswith(".prov.json"):
+            for activity in json.loads(text).get("activity", {}).values():
+                aliases.update(activity.get("pyfs:aliases", {}))
+    selected = set(aliases.get(label, [label]))
+    return (
+        selector is not None
+        and name == f"g{int(selector):02d}"
+        and row["category"] == "postprocessing"
+        and not selected.intersection(item["FAMILY"] for item in inventory)
+    )
+
+
+def _post_058_logs(
+    name: str, base: dict[str, str], release: dict[str, str], defined: set[str]
+) -> dict[str, Any]:
+    """Retain every warning, allowing only specified paths and inventory-backed additions."""
+    if not name.endswith(("/post.log", "/post.log.json")) or "FR-3789" not in defined:
+        return {}
+    root = name.rsplit("/", 1)[0]
+    try:
+        old = json.loads(base[f"{root}/post.log.json"])
+        new = json.loads(release[f"{root}/post.log.json"])
+        for files, payload in ((base, old), (release, new)):
+            if _post_058_render_log(payload) != files[f"{root}/post.log"]:
+                return {}
+        if {k: v for k, v in old.items() if k != "records"} != {
+            k: v for k, v in new.items() if k != "records"
+        }:
+            return {}
+        expected = Counter(
+            json.dumps(
+                {
+                    key: _post_058_moved_path(value) if isinstance(value, str) else value
+                    for key, value in row.items()
+                },
+                sort_keys=True,
+            )
+            for row in old["records"]
+        )
+        actual = Counter(json.dumps(row, sort_keys=True) for row in new["records"])
+        if expected - actual:
+            return {}
+        extras = list((actual - expected).elements())
+        if len(extras) != len(set(extras)):
+            return {}
+        if extras and not {"FR-3775", "FR-3780", "FR-3783"} <= defined:
+            return {}
+        if any(not _post_058_extra_warning(json.loads(row), root, base, release) for row in extras):
+            return {}
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return {}
+    return {
+        "requirement": "FR-3789",
+        "why": (
+            "Exact warning records after reduction moves; only defined aft-rotor/empty-group "
+            "warnings are added (docs/upgrading.md#0580-post-tree)"
+        ),
+    }
+
+
 def _post_058_printed_value(expected: str | None, actual: str, window: bool) -> bool:
     """Compare only added metadata across the existing five-place/six-digit writers."""
     if expected is None or not re.fullmatch(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", actual):
@@ -2498,6 +2643,7 @@ def compare_texts(
         if kind == "post" and (base_version is None or release_version(base_version) < (0, 58, 0)):
             entry.update(_post_058_csv(name, base, release, defined))
             entry.update(_post_058_retired(name, base, release, defined))
+            entry.update(_post_058_logs(name, base, release, defined))
         differing.append(
             {
                 key: name,

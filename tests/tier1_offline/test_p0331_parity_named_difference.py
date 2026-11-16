@@ -87,6 +87,92 @@ def _post_058_tables():
     return block, old, new, companion
 
 
+def _post_058_logs(record):
+    header = dict(
+        version="<VERSION>", workspace="ws", matrix="m", time="<TIME>", check_frozen=False
+    )
+    remedy = f" Remedy: {record['remedy']}" if record["remedy"] else ""
+    text = (
+        "pyflightstream <VERSION> post\nworkspace=ws\nmatrix=m\ntime=<TIME>\n"
+        "check_frozen=False (refuse instead of warn)\n"
+        f"{record['severity'].upper()} point={record['point']} product={record['product']}: "
+        f"{record['message']}{remedy}\n"
+    )
+    return {"m/post.log": text, "m/post.log.json": json.dumps({**header, "records": [record]})}
+
+
+def test_p0580_post_parity_preserves_warning_records_across_the_path_move():
+    """P0580-POST-LOG: FR-3789 permits paths, never a lost record or changed severity."""
+    checker = _load()
+    record = dict(
+        point="P7-case",
+        product="sections/P7-case_harmonics.csv",
+        message="No sectional series",
+        remedy=None,
+        category="section-layout",
+        severity="warning",
+    )
+    base = _post_058_logs(record)
+    release = _post_058_logs({**record, "product": "reductions/P7-case_harmonics.csv"})
+
+    def named(candidate, requirements=frozenset({"FR-3789"}), version="0.57.0"):
+        result = checker.compare_texts("post", "file", base, candidate, requirements, version)
+        return [row.get("requirement") for row in result["differing"]]
+
+    assert named(release) == ["FR-3789", "FR-3789"]
+    for key in record:
+        wrong = _post_058_logs(
+            {**record, "product": "reductions/P7-case_harmonics.csv", key: "wrong"}
+        )
+        assert named(wrong) == [None, None], key
+    assert named({**release, "m/post.log": release["m/post.log"] + "lost data\n"}) == [None, None]
+    assert named(release, requirements=frozenset()) == [None, None]
+    assert named(release, version="0.58.0") == [None, None]
+
+
+def test_p0580_post_parity_requires_inventory_evidence_for_an_empty_group_warning():
+    """P0580-POST-LOG-GROUP: a recorded alias containing a real family cannot be skipped."""
+    checker = _load()
+    message = (
+        "group 'g02' selects no family of the loads exports of simulation '7' (Blade): "
+        "its selector 2 = Wing names no surface or alias there; its files are not written."
+    )
+    record = dict(
+        point="polars/P7-g02",
+        product="polars/P7-g02",
+        message=message,
+        remedy="restore the required data or correct the stated inputs and post again.",
+        category="postprocessing",
+        severity="warning",
+    )
+    release = _post_058_logs(record)
+    manifest = dict(
+        families=[dict(FAMILY="Blade", ROTOR_ID=0)], groups=[], skipped={"polars/P7-g02": message}
+    )
+    release["m/products.json"] = json.dumps(manifest)
+    payload = json.loads(release["m/post.log.json"])
+    base = {
+        "m/post.log.json": json.dumps({**payload, "records": []}),
+        "m/post.log": release["m/post.log"].split("WARNING")[0],
+    }
+    defined = {"FR-3789", "FR-3775", "FR-3780", "FR-3783"}
+
+    def named(before, after):
+        result = checker.compare_texts("post", "file", before, after, defined, "0.57.0")
+        return [row.get("requirement") for row in result["differing"]]
+
+    assert named(base, release) == ["FR-3789", "FR-3789"]
+    wrong = {**release, "m/products.json": json.dumps({**manifest, "skipped": {}})}
+    assert named(base, wrong) == [None, None]
+    before = {
+        **base,
+        "m/provenance/p.prov.json": json.dumps(
+            {"activity": {"run": {"pyfs:aliases": {"Wing": ["Blade"]}}}}
+        ),
+    }
+    assert named(before, release)[:2] == [None, None]
+
+
 def test_p0580_post_parity_keeps_exact_cells_and_each_reduction_window():
     """P0580-POST-PARITY: FR-3778/3789 name only the defined row block and move."""
     checker = _load()

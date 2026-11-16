@@ -41,6 +41,9 @@ the point's family polar block, with each reduction's own window.
 For a retired average or blade table it checks the replacement's dimensional
 MRP loads. For an aligned aft rotor it checks the documented coefficient
 signs in the rotor group's RCOEF replacement.
+The log comparison retains warning multiplicity across the path moves and
+requires the human log to agree with its JSON records. Added empty-group and
+aft-rotor warnings must match their definitions and inventory evidence.
 
 The post writes one set of polar files per polar, in the same form for steady, unsteady
 and unsteady-rotor rows. Each product is written to the folder named by its kind, and every
