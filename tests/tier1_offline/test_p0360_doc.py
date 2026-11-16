@@ -80,9 +80,9 @@ def definition_pins_problems(root: Path, docs: Path) -> list[str]:
                 source.read_text("utf-8"),
             ):
                 expected = mapping.get(anchor)
-                if page == old or expected != page:
+                if page == old or (expected is not None and expected != page):
                     problems.append(f"stale pin: {source.name}: {page}#{anchor}")
-                elif anchor not in ids(docs / page):
+                elif not (docs / page).is_file() or anchor not in ids(docs / page):
                     problems.append(f"missing pin anchor: {page}#{anchor}")
     return problems
 
@@ -127,6 +127,22 @@ def test_definitions_split(tmp_path):
     source.mkdir()
     (source / "pin.py").write_text('"""post-processing-definitions' + '.md#etaw"""', "utf-8")
     assert any("stale pin" in p for p in definition_pins_problems(tmp_path, DOCS))
+
+
+def test_new_definition_anchors_are_checked_without_relocating_historical_slugs(tmp_path):
+    """NFR-34: current definitions may add anchors; each target must still resolve."""
+    source = tmp_path / "src"
+    source.mkdir()
+    pin = source / "pin.py"
+    page = "definitions/airframe-coefficients.md"
+    pin.write_text(f'"""{page}#dim"""', "utf-8")
+    assert definition_pins_problems(tmp_path, DOCS) == []
+    pin.write_text(f'"""{page}#no-such-dimension"""', "utf-8")
+    assert definition_pins_problems(tmp_path, DOCS) == [
+        f"missing pin anchor: {page}#no-such-dimension"
+    ]
+    pin.write_text(f'"""{page}#etaw"""', "utf-8")
+    assert definition_pins_problems(tmp_path, DOCS) == [f"stale pin: pin.py: {page}#etaw"]
 
 
 def test_mesh_split(tmp_path):
