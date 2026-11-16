@@ -19,8 +19,8 @@ The matrix header has no `MESH_ROUTE` column. An absent variable states no route
 The column insertion step of `pyfs-workspace migrate` and the
 `matrix.layout-0.56.0` retirement are removed; the nineteen-column header reads
 without a layout warning. The former column is an unknown column under the ordinary reader.
-The insertion helpers `cases.matrix.upgrade_layout_bytes` and
-`cases._matrix_upgrade.upgrade_matrix_layout` are removed with that step.
+The former `upgrade_layout_bytes` helper in `cases.matrix` and
+`upgrade_matrix_layout` in `cases._matrix_upgrade` are removed with that step.
 
 Accepted deprecated inputs show their replacements once with default warning
 filters, including during a quiet post: change `[products] superfile_format`
