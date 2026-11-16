@@ -24,6 +24,16 @@ def plain_decimal(value: float) -> str:
     carries, would otherwise be written with the letter e, and a letter on
     any line of the node file makes the import mark nothing (RPT-061).
 
+    Parameters
+    ----------
+    value : float
+        Finite floating-point value to spell without exponent notation.
+
+    Returns
+    -------
+    str
+        Plain decimal text that reads back to the same floating-point value.
+
     Examples
     --------
     >>> plain_decimal(1.665e-17)

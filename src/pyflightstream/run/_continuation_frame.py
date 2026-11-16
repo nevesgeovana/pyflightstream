@@ -532,7 +532,18 @@ def pending_restart_points(
 
 
 def continuation_block(points: Iterable[object]) -> list[str]:
-    """Return the plan's block of what ``RESTART`` does on each point that states it."""
+    """Return the plan's block of what ``RESTART`` does on each point that states it.
+
+    Parameters
+    ----------
+    points : iterable of object
+        Plan entries exposing continuation and run_id attributes.
+
+    Returns
+    -------
+    list of str
+        Run ids and indented descriptions for entries with a continuation.
+    """
     lines = []
     for entry in points:
         said = getattr(entry, "continuation", None)

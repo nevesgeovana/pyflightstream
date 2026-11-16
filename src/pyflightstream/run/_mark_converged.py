@@ -495,7 +495,18 @@ def add_mark_converged_parser(subparsers: Any) -> None:
 
 
 def cmd_mark_converged(args: argparse.Namespace) -> int:
-    """Run ``pyfs-workspace mark-converged`` and print what it did, or would do (FR-414)."""
+    """Run ``pyfs-workspace mark-converged`` and print what it did, or would do (FR-414).
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed workspace, simulation ids, reason, point filter and apply flag.
+
+    Returns
+    -------
+    int
+        0 for a clean preview or application; 2 for a refusal or read/write error.
+    """
     try:
         entry = mark_converged(
             args.workspace, args.sims, reason=args.reason, points=args.points, apply=args.apply

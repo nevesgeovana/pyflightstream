@@ -189,6 +189,16 @@ def qsteady_validity_line(validity: Mapping[str, object]) -> str:
     """Return the words the plan prints for one quasi-steady wheel point.
 
     ``validity`` is one :attr:`PointPlan.qsteady_validity`.
+
+    Parameters
+    ----------
+    validity : mapping of str to object
+        The point quasi-steady validity record.
+
+    Returns
+    -------
+    str
+        The reduced-frequency summary or its unavailable-data note.
     """
     note = validity.get("note")
     if note:
@@ -208,6 +218,16 @@ def inflow_harmonics_line(harmonics: Mapping[str, object]) -> str:
     nP is counted on ONE BLADE (how many times it meets the perturbation per
     revolution), not the blade-passing N P of a fixed surface nor the rotor
     total (:mod:`pyflightstream.cases.qsteady`).
+
+    Parameters
+    ----------
+    harmonics : mapping of str to object
+        The point inflow harmonic summary, including any unavailable-data note.
+
+    Returns
+    -------
+    str
+        The computed summary or the reason it could not be computed.
     """
     note = harmonics.get("note")
     if harmonics.get("n_max") is None:

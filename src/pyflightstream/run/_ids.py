@@ -489,6 +489,20 @@ def post_stage_options(
     before them keeps working: one without ``sims`` rebuilds its matrix whole
     when the run posts a simulation, as every stage did before the run posted
     each polar as it finished.
+
+    Parameters
+    ----------
+    stage : callable
+        Post stage whose accepted keywords are inspected.
+    sims : sequence of str or None, optional
+        Simulation ids to pass when the stage accepts sims.
+    keep : bool, optional
+        Request keep_unrebuilt when the stage accepts it.
+
+    Returns
+    -------
+    dict of str to object
+        Only the requested options the stage can receive.
     """
     import inspect
 

@@ -83,6 +83,22 @@ def wrap(text: str, *, first: str = "", rest: str | None = None, width: int = WI
     as many spaces as ``first`` is long, so a continuation reads under the text.
     A line break already in ``text`` is kept, and each of its lines is wrapped
     on its own; words are never split or reordered.
+
+    Parameters
+    ----------
+    text : str
+        Text to wrap, retaining existing line breaks.
+    first : str, optional
+        Prefix of the first output line.
+    rest : str or None, optional
+        Prefix of later lines; spaces matching first when omitted.
+    width : int, optional
+        Target line width, including the prefix.
+
+    Returns
+    -------
+    list of str
+        The wrapped lines, without newline terminators.
     """
     indent = " " * len(first) if rest is None else rest
     lines: list[str] = []
@@ -110,13 +126,42 @@ def blocks(sections: Iterable[tuple[str, Sequence[str]]]) -> str:
 
     Each section is ``(title, lines)``; the lines are printed as given, so the
     caller indents them.
+
+    Parameters
+    ----------
+    sections : iterable of (str, sequence of str)
+        Each title and its already formatted content lines.
+
+    Returns
+    -------
+    str
+        The nonempty sections joined with one blank line.
     """
     shown = ["\n".join([title, *lines]) for title, lines in sections if lines and any(lines)]
     return "\n\n".join(shown)
 
 
 def table(rows: Sequence[Sequence[str]], *, indent: str = "  ") -> list[str]:
-    """Return ``rows`` as left-aligned columns, the first row being the heading."""
+    """Return ``rows`` as left-aligned columns, the first row being the heading.
+
+    Parameters
+    ----------
+    rows : sequence of sequence of str
+        Rectangular rows of text, including the heading row.
+    indent : str, optional
+        Prefix of every output line.
+
+    Returns
+    -------
+    list of str
+        One padded line per row; an empty list for no rows.
+
+    Examples
+    --------
+    >>> from pyflightstream.run.cli import table
+    >>> table([["name", "value"], ["a", "1"]], indent="")[1].split()
+    ['a', '1']
+    """
     if not rows:
         return []
     widths = [max(len(row[column]) for row in rows) for column in range(len(rows[0]))]
@@ -135,6 +180,11 @@ def held_warnings() -> Iterator[list[warnings.WarningMessage]]:
     The filters in force still decide: an ignored warning is not held, and a
     warning turned into an error still raises. :func:`release_warnings` gives
     the held ones back to :mod:`warnings`.
+
+    Yields
+    ------
+    list of warnings.WarningMessage
+        The mutable list populated by warnings admitted inside the context.
     """
     with warnings.catch_warnings(record=True) as caught:
         yield caught
@@ -148,6 +198,11 @@ def release_warnings(held: Sequence[warnings.WarningMessage]) -> None:
     recording warnings still receives them. Each was admitted by the filters
     when it was held, so each is warned once more under ``always``: a ``once``
     filter that already saw it would otherwise drop it here.
+
+    Parameters
+    ----------
+    held : sequence of warnings.WarningMessage
+        Captured warnings to emit again, in their original order.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("always")
@@ -303,6 +358,18 @@ def command_help(parser: argparse.ArgumentParser, names: Sequence[str]) -> str:
     an alias gets its command's line; the command's description where it
     states no help; and the empty string
     where it states neither.
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        Root parser containing the command.
+    names : sequence of str
+        Nested command names, from the root outward.
+
+    Returns
+    -------
+    str
+        The deepest resolved command help, with whitespace collapsed.
     """
     help_text = ""
     current: argparse.ArgumentParser | None = parser

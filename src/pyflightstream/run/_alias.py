@@ -546,6 +546,16 @@ def listed_ids(values: Sequence[str] | None) -> list[str]:
     ids), the words are joined with commas and read by
     :func:`pyflightstream.workspace.ledger.listed_sims`, so ``2006 2007``,
     ``2006,2007`` and ``[2006,2007]`` read alike; a repeated id is read once.
+
+    Parameters
+    ----------
+    values : sequence of str or None
+        Argument words containing simulation ids; None selects no ids.
+
+    Returns
+    -------
+    list of str
+        Parsed ids in first-seen order, with duplicates removed.
     """
     return list(
         dict.fromkeys(

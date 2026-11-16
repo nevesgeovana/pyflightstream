@@ -29,6 +29,8 @@ The canonical run block of the current post tables (`post._run_block`): its colu
 
 ### Changed
 
+The CLI helpers included in the API reference document their parameters, returned or yielded values and refusals at their definitions; the formatted-table example is runnable. NFR-30, FR-1147. migration: none.
+
 Parity requires the canonical CSV block first and keeps shared payload columns in their original order, including the documented FAMILY-first sections identity. An unrelated column reordering is not a run-block migration. migration: none.
 
 The parity comparison of a retired rotor table binds its old rotor alias to the replacement GROUP, ROTOR_ID and GROUP_ID, so a changed identity cannot pass as the documented sign migration. migration: none.

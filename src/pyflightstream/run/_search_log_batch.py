@@ -231,7 +231,18 @@ def add_search_log_batch_parser(subparsers: Any) -> None:
 
 
 def cmd_search_log_batch(args: argparse.Namespace) -> int:
-    """Run ``pyfs-workspace search-log-batch`` and print what it did, or would do."""
+    """Run ``pyfs-workspace search-log-batch`` and print what it did, or would do.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed workspace, simulation ids, apply flag and master-log selection.
+
+    Returns
+    -------
+    int
+        0 after a completed preview or write; 2 for a refusal or read/write error.
+    """
     from pyflightstream.run._alias import listed_ids
 
     try:

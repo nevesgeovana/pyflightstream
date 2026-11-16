@@ -263,7 +263,13 @@ def say_summary(text: str) -> None:
 
 
 def say_data(text: str) -> None:
-    """Print requested data on stdout at every console level, including quiet."""
+    """Print requested data on stdout at every console level, including quiet.
+
+    Parameters
+    ----------
+    text : str
+        Requested output, printed with a terminating newline.
+    """
     stream = sys.stdout
     if isinstance(stream, _ConsoleStream):
         stream.write_data(text + "\n")
@@ -675,6 +681,20 @@ def stage_progress(
     stopped when it raised or was interrupted; the stage's own exception
     passes through unchanged. A stage with nothing to do says nothing, and a
     Python caller outside a console command sees nothing at all.
+
+    Parameters
+    ----------
+    name : str
+        Stage label printed by the command console.
+    total_files : int or None, optional
+        Expected file count, when known.
+    total_bytes : int or None, optional
+        Expected byte count, when known.
+
+    Yields
+    ------
+    StageProgress
+        The stage counter to advance as work completes.
     """
     stage = StageProgress(name, total_files, total_bytes)
     try:
@@ -899,6 +919,11 @@ def print_held_warnings(held: list[warnings.WarningMessage]) -> None:
 
     The one printer of the ``Warnings (<count>)`` block (FR-201): ``plan``
     prints it after its header, every other command at its end.
+
+    Parameters
+    ----------
+    held : list of warnings.WarningMessage
+        Captured warnings to print together, in their original order.
     """
     if not held:
         return
@@ -942,6 +967,28 @@ def command_console(
 
     Only inside :func:`command_terminal`, and once: a nested command runs in
     the console already open.
+
+    Parameters
+    ----------
+    program : str
+        Program name in the opening title.
+    command : str
+        Command name in the title and optional live-log filename.
+    what : str
+        Description of the command work.
+    workspace : str or Path or None, optional
+        Campaign root shown in the header and used for a live log.
+    live_log : bool, optional
+        Record console output in the workspace logs folder.
+    header : bool, optional
+        Defer the opening block until another line would be printed.
+    hold : bool, optional
+        Collect warnings and print them together when the command ends.
+
+    Yields
+    ------
+    None
+        The console context, restoring the original streams on exit.
     """
     terminal = _TERMINAL.get()
     if terminal is None or terminal.console is not None or sys.stderr is None:

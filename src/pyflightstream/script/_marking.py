@@ -81,6 +81,21 @@ def render_trailing_edge_vertex_file(vertices: Sequence[Sequence[float]]) -> str
     line per vertex with an id and its three coordinates. The package states the unit as
     METER because the marking pass sets the simulation to metres. The probe of
     CMP-26100_2026-11-02_mark-26100-vertex read this layout back from the saved simulation.
+
+    Parameters
+    ----------
+    vertices : sequence of sequence of float
+        Rim vertex coordinates in metres, three values per vertex.
+
+    Returns
+    -------
+    str
+        Vertex count, METER unit token and numbered rows, newline-terminated.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the rim contains no vertices.
     """
     rows = [
         f"{number},{float(x)!r},{float(y)!r},{float(z)!r}"
@@ -99,6 +114,25 @@ def mark_trailing_edge_vertices(
     A file that named the vertices of two rims of a blunt trailing edge could also mark
     the edges between them, so each rim has its own file and its own import (FR-3470).
     The text is parked on the script like a wake-edge node file and written by the run.
+
+    Parameters
+    ----------
+    script : Script
+        Marking script targeting the measured vertex-file build.
+    node_file : str or path-like
+        Path emitted in the import command and parked for the run to write.
+    vertices : sequence of sequence of float
+        Coordinates of one rim in metres, three values per vertex.
+
+    Returns
+    -------
+    str
+        The emitted vertex-file import command name.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the script targets another build or the rim has no vertices.
     """
     if script.version.canonical != VERTEX_FILE_BUILD:
         raise CommandArgumentError(
@@ -121,7 +155,23 @@ def marking_only(script: Script) -> Script:
 
 @contextmanager
 def marking_import(script: Script):
-    """Scope B1's measured marking phase to a fresh FSI import before initialization."""
+    """Scope B1's measured marking phase to a fresh FSI import before initialization.
+
+    Parameters
+    ----------
+    script : Script
+        Fresh import whose marking-only state is restored on context exit.
+
+    Yields
+    ------
+    None
+        The marking context before solver initialization.
+
+    Raises
+    ------
+    ScriptOrderError
+        If the script has already been initialized.
+    """
     require_marking_build(script)
     if script._initialized_at is not None:
         raise ScriptOrderError("FSI marking requires a fresh import before initialization")

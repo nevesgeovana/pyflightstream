@@ -63,7 +63,13 @@ _RNG = random.Random()
 
 
 def post_warning_policy() -> bool | None:
-    """Return CLI warning preference, or None for ordinary Python callers."""
+    """Return CLI warning preference, or None for ordinary Python callers.
+
+    Returns
+    -------
+    bool or None
+        The active command warning preference; None outside that context.
+    """
     return _POST_WARNINGS.get()
 
 

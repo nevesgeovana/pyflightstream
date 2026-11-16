@@ -704,9 +704,14 @@ def read_a_choice(word: object, *, context: str) -> bool:
         What is being read, quoted in the refusal, so the message names the
         flag or the row key the user actually wrote.
 
+    Returns
+    -------
+    bool
+        The boolean stated by the word, or the original boolean value.
+
     Raises
     ------
-    ValueError
+    InputValueError
         If the word is outside the vocabulary. The message lists both
         halves of it, because a user who wrote the wrong word for NO needs
         to see the right words for NO beside the ones for yes.

@@ -228,6 +228,12 @@ def resolve_matrix_arguments(args: object) -> int | None:
     every later use of the argument (the plan receipt, the post, the rebuild)
     reads the one file.
 
+    Parameters
+    ----------
+    args : object
+        Parsed arguments exposing the subcommand, workspace and matrix destinations;
+        resolved paths are written back to this object.
+
     Returns
     -------
     int or None

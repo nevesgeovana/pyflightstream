@@ -98,14 +98,36 @@ def _parse_workflows(pairs: list[str]) -> dict[str, str]:
 
 
 def collect_interval_error(value: float | None) -> str | None:
-    """Return the refusal for an invalid settle interval from arguments or settings."""
+    """Return the refusal for an invalid settle interval from arguments or settings.
+
+    Parameters
+    ----------
+    value : float or None
+        Requested collection settle interval in seconds.
+
+    Returns
+    -------
+    str or None
+        Refusal text for a nonpositive or nonfinite interval; None otherwise.
+    """
     if value is not None and not 0.0 < value < float("inf"):
         return f"interval (CLI: --interval) takes a number of seconds above 0, not {value}"
     return None
 
 
 def watch_interval_error(value: float | None) -> str | None:
-    """Return the refusal for a watch interval that would spin or raise (X-F-1292)."""
+    """Return the refusal for a watch interval that would spin or raise (X-F-1292).
+
+    Parameters
+    ----------
+    value : float or None
+        Requested watch interval in seconds.
+
+    Returns
+    -------
+    str or None
+        Refusal text for a nonpositive or nonfinite interval; None otherwise.
+    """
     if value is not None and not 0.0 < value < float("inf"):
         return (
             f"watch-interval (CLI: --watch-interval) takes a finite number of seconds above 0, "
@@ -330,6 +352,18 @@ def parsed(parser: argparse.ArgumentParser, argv: Sequence[str] | None) -> argpa
     An option typed wins over ``pyfs.local.toml``, which wins over ``pyfs.toml``,
     which wins over the package default; a file the reader refuses stops the
     command, exit 2, before anything is written.
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        Command parser whose defaults can come from workspace settings.
+    argv : sequence of str or None
+        Arguments without the program name; None reads sys.argv.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments with settings and invocation selection applied.
     """
     with withhold_defaults(parser, argv) as held:
         args = parser.parse_args(argv)
@@ -363,6 +397,16 @@ def resume_hint(argv: Sequence[str]) -> str:
     The command is the one invoked, every argument kept, with ``--resume`` added, quoted for
     the shell it was typed in: the Windows command-line rule on Windows and the POSIX rule
     elsewhere. Nothing is asked of the user; a run may be detached or scripted.
+
+    Parameters
+    ----------
+    argv : sequence of str
+        Original arguments without the program name.
+
+    Returns
+    -------
+    str
+        A continuation instruction containing the shell-quoted command.
     """
     words = ["pyfs-matrix", *argv, "--resume"]
     line = command_line_text(words)
