@@ -7610,7 +7610,8 @@ def _fr320_skipped_families_warn__a_campaign(
         body = _saved_simulation(tmp_path / geometry, boundaries).read_bytes()
         _fr320_skipped_families_warn__stage_geometry(workspace, geometry, body=body)
     (inputs / "references" / "r050.toml").write_text(
-        'area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n[study]\nsurfaces = ["Spinner"]\n',
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n[study]\n"
+        'surfaces = ["Spinner", "Blade1", "Blade2", "Blade3", "Blade4", "Blade5"]\n',
         encoding="utf-8",
     )
     (inputs / "pproc" / "p020.toml").write_text(pproc(families), encoding="utf-8")
