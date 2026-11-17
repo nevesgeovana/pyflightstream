@@ -250,9 +250,9 @@ vocabulary, and saying to correct the name or to add it to the reference's
 `[study] surfaces`.
 
 An entirely absent family selection emits no entry, so it cannot invoke a
-solver's every-boundary default. Since 0.58.1, this also applies when none of
-a pproc's declared groups selects a boundary of the row's model: declared
-families absent from this mesh are warned and skipped, and the row still
+solver's every-boundary default. This also applies when none of
+a pproc's groups selects a boundary of the row's model: families absent from
+this mesh, declared or not, are warned and skipped, and the row still
 plans READY. For example, groups selecting the reference's spinner and blades
 emit nothing on a body-only power-off mesh. The other pproc items still run.
 An all-absent selection naming a family that exists nowhere in the reference
