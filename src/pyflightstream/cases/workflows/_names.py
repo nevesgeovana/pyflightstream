@@ -411,7 +411,7 @@ def _the_reference_vocabulary(case: SimCase) -> list[str]:
 def _skip_families_the_mesh_lacks(
     case: SimCase, selection: str | Sequence[str], inventory: Sequence[str], what: str
 ) -> bool:
-    """Skip an entirely absent declared selection through the ordinary family path."""
+    """Skip an entirely absent selection, declared or not, through the ordinary family path."""
     names = _the_names_a_rotor_answers_to(case)
     lacked = declared_names_the_geometry_lacks(selection, inventory, names)
     if not lacked or lacked != declared_names_the_geometry_lacks(selection, [], names):

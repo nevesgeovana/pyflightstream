@@ -5419,6 +5419,10 @@ def test_a_families_entry_that_selects_nothing_says_so(tmp_path):
     assert "CL_X" not in text, "the entry is still skipped, which is the artifact's rule"
     message = str(caught[0].message)
     assert "p001" in message and "lifters" in message and "'W'" in message, message
+    pproc.plots.groups[0].families = "LiftBlade"
+    with pytest.warns(PyflightstreamWarning, match="LiftBlade"):
+        text = rendered(case, "26.123")
+    assert "CL_X" not in text
 
 
 def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):

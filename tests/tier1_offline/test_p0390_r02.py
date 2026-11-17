@@ -803,7 +803,9 @@ def test_one_reader_of_the_flag_treats_absent_and_blank_alike():
 
 
 def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
-    """P0390-R02 (FR-984, FR-986) the extraction refuses a misspelled member, skips a held one."""
+    """P0390-R02 (FR-984, FR-986) the extraction warns and skips a misspelled member.
+
+    A held member is skipped too."""
     from pyflightstream.cases import PprocSpec, workflows
     from pyflightstream.script import Script
     from tests.tier1_offline.test_additional_post import SAVED, STEM, a_point_of
@@ -828,7 +830,16 @@ def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
         workflows.build_additional_script(case, Script(BUILD), saved=SAVED, shadow=shadow)
 
     extract("Tail")
-    extract("Tial")  # an unknown name is skipped on this row, never refused
+    import warnings
+
+    from pyflightstream.cases._skipped_families import noting_the_families_rows_lack
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with noting_the_families_rows_lack():
+            extract("Tial")  # an unknown name is skipped on this row, never refused
+    said = [str(w.message) for w in caught]
+    assert any("Tial" in m and "skipped" in m for m in said), said
 
 
 # --- W3 review fixes: the model as it opened, the rotor names, the words, the flag ---
