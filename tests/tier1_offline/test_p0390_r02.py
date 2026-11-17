@@ -469,6 +469,10 @@ def test_p0580_an_unheld_name_is_skipped_by_default_and_refused_by_the_flag(
     folder = "setups" if artifact == "setup" else "pproc"
     for options in ({}, {"ignore_missing_families": False}):
         plan, said = planned(workspace, path, **options)
+        if artifact == "pproc" and not options:
+            assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.BLOCKED}}
+            assert all(name in error_of(plan, row) for row in ("2001", "2002"))
+            continue
         if not options:
             assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
             assert any(name in line and "skipped" in line for line in said)
@@ -482,6 +486,10 @@ def test_p0580_an_unheld_name_is_skipped_by_default_and_refused_by_the_flag(
         for row, geometry in rows:
             error = error_of(plan, row)
             assert f"the {artifact} artifact '{code}' (inputs/{folder}/{code}.toml)" in error
+            if artifact == "pproc":
+                assert f"groups cite {name!r}" in error
+                assert "No campaign mesh or reference declares" in error
+                continue
             assert f"cites {name!r} under {key}" in error
             assert f"row {row!r} ({geometry})" in error
             assert "ignore_missing_families" in error
@@ -804,13 +812,14 @@ def test_one_reader_of_the_flag_treats_absent_and_blank_alike():
 
 def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
     """P0390-R02 (FR-984, FR-986) the extraction refuses a misspelled member, skips a held one."""
-    from pyflightstream.cases import PprocSpec, workflows
+    from pyflightstream.cases import CampaignConfigError, PprocSpec, workflows
     from pyflightstream.script import Script
     from tests.tier1_offline.test_additional_post import SAVED, STEM, a_point_of
     from tests.tier1_offline.test_saved_simulation import as_a_matrix_row
 
     run = as_a_matrix_row(a_point_of("steady", tmp_path), "steady", STEM)
     reference = run.reference.model_copy(update={"study_surfaces": ("W", "B", "Tail")})
+    run = run.model_copy(update={"pproc": None})
     shadow = workflows.frames_of_the_run(run, BUILD)
 
     def extract(member: str):
@@ -827,7 +836,8 @@ def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
         workflows.build_additional_script(case, Script(BUILD), saved=SAVED, shadow=shadow)
 
     extract("Tail")
-    extract("Tial")
+    with pytest.raises(CampaignConfigError, match="Tial"):
+        extract("Tial")
 
 
 # --- W3 review fixes: the model as it opened, the rotor names, the words, the flag ---
@@ -1020,3 +1030,17 @@ def test_p0581_skip_family_known_only_by_another_rows_mesh(tmp_path, reverse):
     assert any("Tail" in line and "2001" in line and "skipped" in line for line in said)
     selected, _ = planned(workspace, path, sims=["2001"])
     assert status_of(selected) == {"2001": {PlanStatus.READY}}
+
+
+@pytest.mark.parametrize("present", ["Wing", "all"])
+def test_p0581_group_refuses_unknown_member_beside_a_present_member(tmp_path, present):
+    workspace, path = study(
+        tmp_path,
+        reference=REFERENCE.split("[aliases]")[0],
+        setup="iterations = 10\n",
+        pproc=f'[groups]\nPRESENT = "{present}"\nTYPO = "Wnig"\n',
+        models=(WING_ALONE,),
+    )
+    plan, _ = planned(workspace, path)
+    assert status_of(plan) == {"2003": {PlanStatus.BLOCKED}}
+    assert "Wnig" in error_of(plan, "2003")

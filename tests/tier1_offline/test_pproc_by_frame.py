@@ -129,7 +129,7 @@ def expanding_case(**overrides) -> SimCase:
         },
     }
     fields.update(overrides)
-    return SimCase(**fields)
+    return SimCase.model_validate(fields)
 
 
 def every_rotor_frame_placed() -> dict[str, int]:
@@ -719,3 +719,9 @@ def test_two_plot_groups_writing_one_name_are_refused_not_overwritten():
         build([entry, dict(entry)])
     script = build([entry, {**entry, "name": "ONCE"}])
     assert [g["name"] for g in script.plot_groups][:2] == ["TWICE", "ONCE"]
+
+
+@pytest.mark.parametrize("frame", ["MRP", "LOCAL_AXIS", "SMRP", "RMRP"])
+def test_p0581_mixed_unknown_family_is_refused_in_every_frame(frame):
+    with pytest.raises(CampaignConfigError, match="Blaed2"):
+        emissions(frame, ["PB_1", "Blaed2"])

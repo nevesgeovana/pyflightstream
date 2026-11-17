@@ -8,6 +8,8 @@ is warned and skipped on that row. For example, `families = ["Blade2"]` in
 still emit. A selector naming an undeclared family still refuses by name.
 Names declared by any campaign row's mesh or reference are known even when
 planning only a selected row; each row still emits only its own present families.
+Every selector is checked, including a name beside a valid family or group.
+A present member does not hide an unknown sibling.
 
 A rotary row stating `ADVANCE_RATIO:sweep` in `FLIGHT_CONDITION` and its J values
 in `SWEEP_VALUES` now plans with farfield revolution windows. Each point derives

@@ -165,7 +165,9 @@ prints one warning per pproc artifact and per family that an entry declares
 and the geometry of some row does not carry, naming the entry and every row
 that lacks it, and every such row still plans READY. A numbered name counts
 by itself: `Blade2` is missing on a sector whose mesh carries `Blade1` alone,
-and a misspelled `Bladee2` beside `Blade1` is named the same way. A row that
+provided a campaign mesh or reference declares it. A misspelled `Bladee2`
+unknown to every row is refused by name, including beside a present `Blade1`.
+A row that
 carries every family is named in no warning. The word
 is read: `true`, `yes` and `1` mean yes, `false`, `no` and `0` mean no, and
 anything else is refused naming the flag and the word rather than quietly

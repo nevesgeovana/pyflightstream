@@ -153,7 +153,7 @@ def _declared_labels(labels: Mapping[str, int]) -> str:
 
 
 def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Script) -> None:
-    """Refuse an all-absent pproc only when it names undeclared families.
+    """Refuse every undeclared group selector, even beside a present family.
 
     A reference may declare families this row's mesh lacks. Its groups are
     left to the shared per-member skip reader, even when none remains on
@@ -175,18 +175,17 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
             continue
         for member in members:
             if isinstance(member, int):
-                return
+                continue
             if str(member) not in cited:
                 cited.append(str(member))
-    if not cited or any(_resolve_token(case, name, labels) for name in cited):
-        return
-    if not _undeclared_families(case, cited, list(labels)):
+    cited = [name for _owner, name in _undeclared_families(case, cited, list(labels))]
+    if not cited:
         return
     raise CampaignConfigError(
         f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "
         f"{', '.join(repr(name) for name in cited)}, and {_inventory_source(case)} declares "
-        f"none of those names or families; it declares {_declared_labels(labels)}. Every "
-        "polar table of this row would sum nothing. A boundary renamed in the solver "
+        f"none of those names or families; it declares {_declared_labels(labels)}. "
+        "No campaign mesh or reference declares the cited names. A boundary renamed in the solver "
         "before the save carries its new name in the saved file and the mesh solid's name "
         "resolves nothing (RPT-044): write the names the file carries, or name the "
         "artifact written for this geometry."
@@ -469,6 +468,19 @@ def _undeclared_families(
         *(str(member) for members in names.values() for member in members),
     ]
     return names_no_boundary_answers(selection, vocabulary, names, bool)
+
+
+def _refuse_undeclared_families(
+    case: SimCase, selection: str | Sequence[str], inventory: Sequence[str], what: str
+) -> None:
+    """Validate each selector independently of the row's surviving emissions."""
+    unknown = _undeclared_families(case, selection, inventory)
+    if unknown:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} names undeclared "
+            f"families {', '.join(repr(name) for _owner, name in unknown)}. "
+            "No mesh or reference of this campaign declares those names."
+        )
 
 
 def _skip_families_the_mesh_lacks(

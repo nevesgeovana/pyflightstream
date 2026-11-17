@@ -74,6 +74,7 @@ from ._names import (
     _and_the_frame_it_turned_from,
     _artifact_of,
     _inventory,
+    _refuse_undeclared_families,
     _rotors_the_entry_cites,
     _selected_families,
     _skip_families_the_mesh_lacks,
@@ -171,6 +172,7 @@ def pproc_emissions(
     # THE FRAME SELECTS THIS PATH, not the entry's arity. `each_blade` is
     # also one per blade, and expands through the FAMILY selector over the
     # entry's frame. That path needs no declared rotor in the reference.
+    _refuse_undeclared_families(case, families, inventory, what)
     kind = EXPANDING_FRAMES.get(frame.strip().upper())
     if kind is None:
         return [
