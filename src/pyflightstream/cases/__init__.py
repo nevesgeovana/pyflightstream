@@ -918,6 +918,8 @@ class SimCase(BaseModel):
     #: The boundary inventory file selected by matrix binding.
     boundaries_file: str | None = None
     _fsi_geometry_emitter: Callable[[str, Script], None] | None = PrivateAttr(default=None)
+    # Derived campaign declarations travel with point copies, not solver inputs.
+    _campaign_families: tuple[str, ...] = PrivateAttr(default=())
     #: The ``[import]`` table of the sidecar beside a raw mesh (G01), bound
     #: by the workspace: the length unit the file is written in. None for a
     #: geometry whose sidecar states no such table, which is every saved
@@ -951,10 +953,8 @@ class SimCase(BaseModel):
     def _one_sweep_per_case(self) -> SimCase:
         """Refuse a case asking for an aerodynamic AND a geometric sweep.
 
-        The limit is stated at DECLARATION, which is the moment this
-        validator runs: constructing the case in Python, or loading the
-        ``campaign.toml`` that holds it. Nothing is resolved yet, no
-        workspace is opened and no solver is started, so a user meets the
+        Validation runs when constructing the case in Python, before
+        resolving inputs or opening a workspace, so a user meets the
         limit before spending anything on it. The run matrix reader
         carries the same refusal at its own declaration moment, in its
         own vocabulary; both call :func:`multiplied_sweep`, which is

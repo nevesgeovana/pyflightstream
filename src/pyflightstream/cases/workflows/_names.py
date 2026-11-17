@@ -463,6 +463,7 @@ def _undeclared_families(
     names = _the_names_a_rotor_answers_to(case)
     vocabulary = [
         *inventory,
+        *case._campaign_families,
         *_the_reference_vocabulary(case),
         *(study_vocabulary(case) or ()),
         *(str(member) for members in names.values() for member in members),

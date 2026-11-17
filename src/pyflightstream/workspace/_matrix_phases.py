@@ -25,6 +25,7 @@ from pyflightstream.cases import (
     case_at_point,
     point_state_key,
 )
+from pyflightstream.cases._skipped_families import _with_campaign_families
 from pyflightstream.cases.acoustics import resolve_observers_file
 from pyflightstream.cases.corrections import (
     CALIBRATIONS_DIR,
@@ -66,9 +67,9 @@ from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._geometry_record import judge_the_row_geometry
 from pyflightstream.workspace._matrix_binding import (
-    _bind_setup_ports,
     _Binding,
     _condition_defaults,
+    _finish_bound_case,
     _setup_of_the_row,
     _solver_from_setup,
     condition_defaults_origin,
@@ -1632,19 +1633,10 @@ def _bind_rows(binding: _Binding) -> None:
         _bind_profiles(binding, case, row, update)
         _bind_row_variables(binding, case, row, update)
         _bind_states(binding, row, update)
+        binding.sims.append(case.model_copy(update=update))
+    binding.sims = _with_campaign_families(binding.sims)
+    for index, (case, row) in enumerate(zip(binding.sims, binding.rows, strict=True)):
         if row.workflow != LEGACY_WORKFLOW:
-            # Output discovery can read a rotor clock through a farfield window.
-            # Use the first concrete point, as the row's resolved state does;
-            # swept J, RPM and flow values do not exist on the unexpanded row.
-            first = case_at_point(case.model_copy(update=update), next(row.sweep.points(), {}))
-            update["outputs"] = row_outputs(first, row.workflow)
-        bound_case = case.model_copy(update=update)
-        if (
-            (bound_case.fsi is not None or bound_case.fsi_external is not None)
-            and bound_case.geometry
-            and Path(bound_case.geometry).suffix.lower() != ".fsm"
-        ):
-            from pyflightstream.workspace._mark_boundaries import _bind_fsi_marking
-
-            bound_case = _bind_fsi_marking(bound_case)
-        binding.sims.append(_bind_setup_ports(bound_case, binding.workspace.inputs_dir))
+            first = case_at_point(case, next(row.sweep.points(), {}))
+            case = case.model_copy(update={"outputs": row_outputs(first, row.workflow)})
+        binding.sims[index] = _finish_bound_case(case, binding.workspace.inputs_dir)

@@ -52,6 +52,7 @@ from pyflightstream.cases import (
     point_name,
     resolve_recipe,
 )
+from pyflightstream.cases._skipped_families import _with_campaign_families
 from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
@@ -447,7 +448,7 @@ def run_campaign(
     if sweep_csv is not None:
         raise InputArtifactError(REMOVED_FORMS["run_campaign.sweep_csv"].message())
     state = _CampaignState(
-        campaign=campaign,
+        campaign=campaign.model_copy(update={"sims": _with_campaign_families(campaign.sims)}),
         executor=executor,
         workspace=workspace,
         assess=assess,

@@ -1000,3 +1000,23 @@ def test_f5_0304_fr980_the_vocabulary_is_the_study_and_its_aliases_whatever_the_
     assert vocabulary == ("Wing", "Sting", "tail", "HTail", "VTail")
     assert held_by_the_study("TAIL", vocabulary) and held_by_the_study("vtail", vocabulary)
     assert not held_by_the_study("Stinng", vocabulary)
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["P0581-CAMPAIGN", "P0581-REVERSED"])
+def test_p0581_skip_family_known_only_by_another_rows_mesh(tmp_path, reverse):
+    models = (("2001", "wing.fsm", ["Wing"]), ("2002", "tail.fsm", ["Tail"]))
+    if reverse:
+        models = tuple(reversed(models))
+    reference = REFERENCE.split("[aliases]")[0]
+    workspace, path = study(
+        tmp_path,
+        reference=reference,
+        setup="iterations = 10\n",
+        pproc='[groups]\nTAIL = "Tail"\n',
+        models=models,
+    )
+    plan, said = planned(workspace, path)
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
+    assert any("Tail" in line and "2001" in line and "skipped" in line for line in said)
+    selected, _ = planned(workspace, path, sims=["2001"])
+    assert status_of(selected) == {"2001": {PlanStatus.READY}}

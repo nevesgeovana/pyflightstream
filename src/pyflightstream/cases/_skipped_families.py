@@ -474,6 +474,36 @@ def names_a_row_can_cite(case: SimCase) -> dict[str, list[str]]:
     }
 
 
+def _with_campaign_families(cases: Sequence[SimCase]) -> list[SimCase]:
+    """Carry every row's declared mesh/reference names without changing its selection."""
+    known: dict[str, str] = {}
+    for case in cases:
+        names = names_a_row_can_cite(case)
+        inventory = case.inventory
+        if inventory is None and case.geometry is not None:
+            try:
+                inventory = boundary_names(case.geometry)
+            except MeshReadError:
+                pass  # The geometry reader reports unreadable inputs at its own boundary.
+        for name in (
+            *case._campaign_families,
+            *(inventory or ()),
+            *(study_vocabulary(case) or ()),
+            *names,
+            *(
+                family
+                for rotor in case.rotors.values()
+                for family in (*rotor.families_general, *rotor.families_blades)
+            ),
+            *(str(member) for members in names.values() for member in members),
+        ):
+            known.setdefault(name.casefold(), name)
+    bound = [case.model_copy() for case in cases]
+    for case in bound:
+        case._campaign_families = tuple(known.values())
+    return bound
+
+
 def study_vocabulary(case: SimCase) -> tuple[str, ...] | None:
     """Return the names a row's study holds, or None where its reference declares none.
 
