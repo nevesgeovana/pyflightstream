@@ -19,11 +19,10 @@ rows keep their behavior. See the worked example in [the matrix reference](workf
 An expanding-frame post-processing item selecting only families absent from a row
 is warned and skipped on that row. For example, `families = ["Blade2"]` in
 `LOCAL_AXIS` emits no section on a Blade1-only sector, while its Blade1 items
-still emit. A selector naming an undeclared family still refuses by name.
-Names declared by any campaign row's mesh or reference are known even when
-planning only a selected row; each row still emits only its own present families.
-Every selector is checked, including a name beside a valid family or group.
-A present member does not hide an unknown sibling.
+still emit. A family name that a row's mesh lacks is always warned and skipped
+on that row, including a name that no row of the matrix declares (a misspelling
+or a family of another matrix's meshes); it is never refused, and the row still
+plans READY. Numbered names match exactly: `Blade12` is not `Blade1`.
 
 A rotary row stating `ADVANCE_RATIO:sweep` in `FLIGHT_CONDITION` and its J values
 in `SWEEP_VALUES` now plans with farfield revolution windows. Each point derives
@@ -36,7 +35,7 @@ neither `ADVANCE_RATIO` nor `RPM` still refuses the missing rotor speed.
 The matrix header has no `MESH_ROUTE` column. An absent variable states no route.
 The column insertion step of `pyfs-workspace migrate` and the
 `matrix.layout-0.56.0` retirement are removed; the nineteen-column header reads
-without a layout warning. The former column is an unknown column under the ordinary reader.
+without a layout warning. The former column is an unknown column under the ordinary reader: a 0.58.0 matrix that still carries it is refused with a `MatrixError` naming the 19-column header and `'MESH_ROUTE' is not a known column`.
 The former `upgrade_layout_bytes` helper in `cases.matrix` and
 `upgrade_matrix_layout` in `cases._matrix_upgrade` are removed with that step.
 
@@ -89,8 +88,9 @@ keeps its existing meaning. Since 0.58.1, groups selecting only declared familie
 absent from this mesh are warned and skipped even when none of the pproc's groups
 remains. The row still plans READY and other items run. For example, a group selecting
 spinner and blade families declared by the reference emits nothing on a power-off
-body-only mesh. An all-absent selection naming a family that exists nowhere in the
-reference or its declarations still refuses by name. Unreadable or contradictory inventories, ambiguous boundary IDs and
+body-only mesh. Family names that no row of the matrix declares are warned and skipped as well, never
+refused; opt-in missing-family refusal (`--ignore-missing-families false`) still refuses.
+Unreadable or contradictory inventories, ambiguous boundary IDs and
 structural consistency checks retain their own diagnostics. Family lists need no edit.
 
 ## 0.58.0 post tree

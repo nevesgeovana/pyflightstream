@@ -1114,7 +1114,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "How a row whose geometry is a generated configuration or an IGES file becomes a "
             "mesh the solver opens; an optional VAR_NAMES_VALUES key. Stated on a row with an "
             "FSM, OBJ or STL it is warned and skipped.",
-            "native, full_grid or quad_dominant; NA leaves the row as it is",
+            "native, full_grid or quad_dominant; NA or an omitted key leaves the row as it is",
         ),
         GEOM_CONFIGURATION_VARIABLE: InputKey(
             "The entry of the configuration registry a .geom.toml row builds; required when "

@@ -1151,6 +1151,10 @@ def test_p0420_p1_1d_plan_names_thin_blade_beside_source(tmp_path):
         matrix.read_text(encoding="utf-8").replace("wing_clean.fsm", saved.name),
         encoding="utf-8",
     )
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(
+        pproc.read_text(encoding="utf-8").replace("wing_left", "Blade1"), encoding="utf-8"
+    )
     plan = plan_matrix(
         matrix,
         workspace,
@@ -3822,6 +3826,8 @@ def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
     sidecar = write_inventory(library)
     assert sidecar == library.with_name("wb.fsm.boundaries.toml")
     matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm")
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(pproc.read_text(encoding="utf-8").replace("wing_left", "W"), encoding="utf-8")
     records = run_matrix(
         matrix,
         workspace,
@@ -3892,6 +3898,8 @@ def test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone(tmp_path):
     assert write_inventory(library) == folder / "wb.fsm.boundaries.toml"
     stage_geometry(workspace, "neighbour.fsm")
     matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm")
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(pproc.read_text(encoding="utf-8").replace("wing_left", "W"), encoding="utf-8")
     records = run_matrix(
         matrix,
         workspace,

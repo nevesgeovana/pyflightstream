@@ -165,9 +165,9 @@ prints one warning per pproc artifact and per family that an entry declares
 and the geometry of some row does not carry, naming the entry and every row
 that lacks it, and every such row still plans READY. A numbered name counts
 by itself: `Blade2` is missing on a sector whose mesh carries `Blade1` alone,
-provided a campaign mesh or reference declares it. A misspelled `Bladee2`
-unknown to every row is refused by name, including beside a present `Blade1`.
-A row that
+whether or not any row declares it; a misspelled `Bladee2` beside a present
+`Blade1` is named the same way and is warned and skipped, never refused, because
+an entry that does not apply to a row is warned and skipped. A row that
 carries every family is named in no warning. The word
 is read: `true`, `yes` and `1` mean yes, `false`, `no` and `0` mean no, and
 anything else is refused naming the flag and the word rather than quietly
@@ -283,9 +283,10 @@ An expanding-frame item selecting only known families absent from this row's
 mesh is warned and skipped, even when it reaches no rotor of this reference.
 For example, `families = ["Blade2"]` with `frame = "LOCAL_AXIS"` emits no
 section on a Blade1-only sector; the pproc's Blade1 sections still emit.
-A numbered blade can belong to a declared family without being meshed by this
-reference. A selection naming an undeclared family, or a present family that
-belongs to no rotor, still refuses by name. An
+A numbered name matches exactly (`Blade12` is not `Blade1`), and a numbered or
+other name that this row's mesh lacks is warned and skipped even when no mesh
+or reference of the campaign declares it. A present family that
+belongs to no rotor still refuses by name. An
 entry whose rotors the reference does declare, but whose frames THIS RUN
 did not place, is LEFT OUT with a warning, exactly as an entry whose
 families the geometry lacks is: a steady row places each declared rotor's

@@ -17529,6 +17529,11 @@
     },
     {
       "source": "pyflightstream.workspace._matrix_binding",
+      "target": "pyflightstream.workspace._mark_boundaries",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._matrix_binding",
       "target": "pyflightstream.workspace._row_setup",
       "kind": "module"
     },
@@ -17611,11 +17616,6 @@
       "source": "pyflightstream.workspace._matrix_phases",
       "target": "pyflightstream.workspace._geometry_record",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._matrix_phases",
-      "target": "pyflightstream.workspace._mark_boundaries",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._matrix_phases",

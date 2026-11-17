@@ -43,7 +43,9 @@ from pyflightstream.cases.workflows import pproc_emissions
 @pytest.mark.parametrize("frame", ["LOCAL_AXIS", "SMRP", "RMRP"], ids=lambda v: f"P0581-SKIP-{v}")
 def test_p0581_skip_absent_numbered_family_before_rotor_expansion(frame):
     """Expand Blade2, then Blade1, on a Blade1-only row; only Blade1 emits."""
-    case = expanding_case(rotors={"ROTOR": rotor("ROTOR", [], ["Blade1"], 2.0)}, aliases={})
+    case = expanding_case(
+        rotors={"ROTOR": rotor("ROTOR", [], ["Blade1", "Blade2"], 2.0)}, aliases={}
+    )
     frames = {"ROTOR_RMRP1": 1, "ROTOR_SMRP": 2, "ROTOR_RMRP": 3}
     error = None
     skipped = kept = None
@@ -66,10 +68,9 @@ def test_p0581_skip_absent_numbered_family_before_rotor_expansion(frame):
     assert len(said) == 1 and "Blade2" in said[0] and "skipped" in said[0]
 
 
-def test_p0581_skip_unknown_expanding_family_still_refuses_by_name():
-    """P0581-SKIP: a misspelling is no numbered sibling of a declared family."""
-    with pytest.raises(CampaignConfigError, match="Blaed2"):
-        emissions("LOCAL_AXIS", ["Blaed2"])
+def test_p0581_skip_unknown_expanding_family_is_warned_and_skipped_by_name():
+    """P0581-SKIP: a misspelling no row knows is warned and skipped, never refused."""
+    assert warned_and_skipped("LOCAL_AXIS", ["Blaed2"], "Blaed2") == []
 
 
 def rotor(alias, general, blades, diameter):
@@ -141,6 +142,17 @@ def every_rotor_frame_placed() -> dict[str, int]:
         for number in range(1, len(block.families_blades) + 1):
             placed[f"{alias}_RMRP{number}"] = 1
     return placed
+
+
+def warned_and_skipped(frame, families, name):
+    """Expand one entry naming ``name`` that no row knows; assert the skip warning."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with noting_the_families_rows_lack():
+            got = emissions(frame, families)
+    said = [str(item.message) for item in caught]
+    assert any(name in line and "skipped" in line for line in said), said
+    return got
 
 
 def emissions(frame, families, frames=None, case=None):
@@ -722,6 +734,22 @@ def test_two_plot_groups_writing_one_name_are_refused_not_overwritten():
 
 
 @pytest.mark.parametrize("frame", ["MRP", "LOCAL_AXIS", "SMRP", "RMRP"])
-def test_p0581_mixed_unknown_family_is_refused_in_every_frame(frame):
-    with pytest.raises(CampaignConfigError, match="Blaed2"):
-        emissions(frame, ["PB_1", "Blaed2"])
+def test_p0581_mixed_unknown_family_is_warned_and_skipped_in_every_frame(frame):
+    kept = warned_and_skipped(frame, ["PB_1", "Blaed2"], "Blaed2")
+    assert kept, "the present family still emits"
+    assert all("Blaed2" not in str(item) for item in kept)
+
+
+@pytest.mark.parametrize("frame", ["LOCAL_AXIS", "SMRP", "RMRP"])
+def test_p0581_unknown_numbered_family_is_warned_and_skipped_by_exact_name(frame):
+    """Blade12 is not Blade1, and a numbered name the mesh lacks is skipped, not refused."""
+    case = expanding_case(rotors={"ROTOR": rotor("ROTOR", [], ["Blade1"], 2.0)}, aliases={})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with noting_the_families_rows_lack():
+            skipped = pproc_emissions(
+                case, frame, ["Blade12"], ["Blade1"], bool, "section distribution 1", {}
+            )
+    assert skipped == []
+    said = [str(item.message) for item in caught]
+    assert len(said) == 1 and "Blade12" in said[0] and "skipped" in said[0]

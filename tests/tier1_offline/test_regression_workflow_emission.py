@@ -1377,7 +1377,11 @@ class TestCasesWorkflowsSteady:
         requirement = "P0400-CW-STEADY"
         axes = {"roll": "X", "pitch": "Y", "yaw": "Z"}
         reference = ReferenceData(
-            area=50.0, length=2.526, moment_point_m=(9.152, 0.0, 0.0), body_axes=axes
+            area=50.0,
+            length=2.526,
+            moment_point_m=(9.152, 0.0, 0.0),
+            body_axes=axes,
+            study_surfaces=("P",),
         )
         case = _cases_workflows_steady___with_pproc(
             _cases_workflows_steady__steady_case(), _cases_workflows_steady___wb_geometry(tmp_path)

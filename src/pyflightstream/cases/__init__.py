@@ -918,8 +918,6 @@ class SimCase(BaseModel):
     #: The boundary inventory file selected by matrix binding.
     boundaries_file: str | None = None
     _fsi_geometry_emitter: Callable[[str, Script], None] | None = PrivateAttr(default=None)
-    # Derived campaign declarations travel with point copies, not solver inputs.
-    _campaign_families: tuple[str, ...] = PrivateAttr(default=())
     #: The ``[import]`` table of the sidecar beside a raw mesh (G01), bound
     #: by the workspace: the length unit the file is written in. None for a
     #: geometry whose sidecar states no such table, which is every saved

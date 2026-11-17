@@ -147,6 +147,7 @@ REFERENCE = ReferenceData(
     area=10.0,
     length=1.2,
     rotor_diameter=3.6576,
+    study_surfaces=("Tail",),
     moment_point_m=(2.0, 0.0, 0.5),
     body_axes={"roll": "X", "pitch": "Y", "yaw": "Z"},
 )

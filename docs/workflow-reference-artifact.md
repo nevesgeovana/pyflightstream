@@ -242,7 +242,7 @@ Each point's run record lists the skips of its row in `skipped_names`, one
 `{artifact, key, name}` entry per skip in plan order; a point that skipped
 nothing records no such field.
 
-**A misspelling is refused.** A name that selects nothing on the row's model
+**A misspelling is refused.** Outside post-processing (pproc) family selections, a name that selects nothing on the row's model
 and that the vocabulary does not hold BLOCKS the row at plan, at either value
 of `--ignore-missing-families`, with a text naming the artifact, the key, the
 name, the row and its geometry, the reference and the names of its
@@ -250,13 +250,12 @@ vocabulary, and saying to correct the name or to add it to the reference's
 `[study] surfaces`.
 
 An entirely absent family selection emits no entry, so it cannot invoke a
-solver's every-boundary default. Since 0.58.1, this also applies when none of
-a pproc's declared groups selects a boundary of the row's model: declared
-families absent from this mesh are warned and skipped, and the row still
+solver's every-boundary default. This also applies when none of
+a pproc's groups selects a boundary of the row's model: families absent from
+this mesh, declared or not, are warned and skipped, and the row still
 plans READY. For example, groups selecting the reference's spinner and blades
 emit nothing on a body-only power-off mesh. The other pproc items still run.
-An all-absent selection naming a family that exists nowhere in the reference
-or its declarations still refuses by name. No separate `[study]` table is
+No separate `[study]` table is
 needed when aliases or rotor blocks already declare the families.
 
 A skip in `base_regions`, or of a `create` entry of

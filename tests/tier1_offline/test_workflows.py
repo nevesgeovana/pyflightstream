@@ -5414,14 +5414,15 @@ def test_a_families_entry_that_selects_nothing_says_so(tmp_path):
     case = _with_pproc(_rotor_row(sector, "W"), sector, pproc).model_copy(
         update={"aliases": {"lifters": ["LiftBlade"]}}
     )
-    with pytest.raises(CampaignConfigError, match="airfram"):
-        rendered(case, "26.123")
-    pproc.plots.groups[0].families = "LiftBlade"
-    with pytest.warns(PyflightstreamWarning, match="LiftBlade") as caught:
+    with pytest.warns(PyflightstreamWarning, match="airfram") as caught:
         text = rendered(case, "26.123")
     assert "CL_X" not in text, "the entry is still skipped, which is the artifact's rule"
     message = str(caught[0].message)
     assert "p001" in message and "lifters" in message and "'W'" in message, message
+    pproc.plots.groups[0].families = "LiftBlade"
+    with pytest.warns(PyflightstreamWarning, match="LiftBlade"):
+        text = rendered(case, "26.123")
+    assert "CL_X" not in text
 
 
 def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
@@ -7610,7 +7611,8 @@ def _fr320_skipped_families_warn__a_campaign(
         body = _saved_simulation(tmp_path / geometry, boundaries).read_bytes()
         _fr320_skipped_families_warn__stage_geometry(workspace, geometry, body=body)
     (inputs / "references" / "r050.toml").write_text(
-        'area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n[study]\nsurfaces = ["Spinner"]\n',
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n[study]\n"
+        'surfaces = ["Spinner", "Blade1", "Blade2", "Blade3", "Blade4", "Blade5"]\n',
         encoding="utf-8",
     )
     (inputs / "pproc" / "p020.toml").write_text(pproc(families), encoding="utf-8")
@@ -7740,9 +7742,10 @@ class TestFr320SkippedFamiliesWarn:
         plan, said = _fr320_skipped_families_warn__planned(
             tmp_path, ["Blade1", "Bladee2"], [_FR320_SKIPPED_FAMILIES_WARN__WHEEL]
         )
-        assert said == []
-        assert plan.points and all(point.status is PlanStatus.BLOCKED for point in plan.points)
-        assert all("Bladee2" in str(point.error) for point in plan.points)
+        assert len(said) == 1, said
+        assert "cites 'Bladee2'" in said[0]
+        assert repr(_FR320_SKIPPED_FAMILIES_WARN__WHEEL[0]) in said[0]
+        assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
 
     @staticmethod
     @pytest.mark.requirement("FR-320")

@@ -43,7 +43,6 @@ from pyflightstream.cases import (
     resolve_recipe,
 )
 from pyflightstream.cases._skipped_families import (
-    _with_campaign_families,
     noting_the_families_rows_lack,
     noting_the_study_skips,
     noting_the_unplaced_rotor_frames,
@@ -1214,7 +1213,6 @@ def plan_campaign(
     """
     from pyflightstream.cases.blade_order import blade_order_errors
 
-    campaign = campaign.model_copy(update={"sims": _with_campaign_families(campaign.sims)})
     canonical = resolve(campaign.fs_version).canonical
     # F-603: the matrix the plan is built from is pinned BEFORE the dry builds,
     # so an edit made while they run is caught by the next run's comparison.

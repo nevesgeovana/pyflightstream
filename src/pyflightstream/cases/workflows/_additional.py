@@ -47,7 +47,6 @@ from ._geometry import (
 )
 from ._names import (
     _judge_the_group_members_the_model_lacks,
-    _refuse_a_pproc_the_geometry_shares_no_name_with,
 )
 from ._pproc import (
     _pproc_sections,
@@ -444,7 +443,6 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
     script.declare_existing(frames=shadow.num_local_frames)
     script.boundary_inventory = shadow.boundary_inventory
     script.entities.copy_boundaries_from(shadow.entities)
-    _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
     _judge_the_group_members_the_model_lacks(case, script)
     _pproc_sections(case, script, frames)
     moment_frame = frames.get("MRP")

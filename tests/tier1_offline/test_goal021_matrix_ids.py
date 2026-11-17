@@ -494,3 +494,24 @@ def test_p0501_f3_a_plan_warns_once_per_malformed_row(tmp_path):
     said = [str(w.message) for w in caught if issubclass(w.category, NotApplicableWarning)]
     assert len([t for t in said if "POL 8002" in t]) == 1, said
     assert not [t for t in said if "9002" in t], said
+
+
+def test_p0581_renumber_pols_names_the_current_header_for_a_mesh_route_column(tmp_path):
+    from pyflightstream.cases.matrix import MATRIX_COLUMNS
+
+    columns = list(MATRIX_COLUMNS)
+    columns.insert(columns.index("GEOMETRY") + 1, "MESH_ROUTE")
+    cells = ["8001"] + ["-"] * (len(columns) - 1)
+    matrix = tmp_path / "old.fs"
+    matrix.write_text(
+        " | ".join(columns)
+        + "\n"
+        + " | ".join("---" for _ in columns)
+        + "\n"
+        + " | ".join(cells)
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(MatrixError) as raised:
+        renumber_pols(matrix, {1: "9000"}, in_place=False)
+    assert "VAR_NAMES_VALUES" in str(raised.value)

@@ -68,7 +68,6 @@ from ._conventions import (
 )
 from ._names import (
     _judge_the_group_members_the_model_lacks,
-    _refuse_a_pproc_the_geometry_shares_no_name_with,
     _refuse_name_without_inventory,
     _resolve_token,
 )
@@ -121,7 +120,6 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         _import_fsi_geometry(case, script)
         _geometry_simulation_controls(case, script, default_unit="METER")
         _setup_surfaces.emit_setup_surfaces(script, case)
-        _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
         _judge_the_group_members_the_model_lacks(case, script)
         _detect_base_regions(case, script)
         return
@@ -140,7 +138,6 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     _geometry_simulation_controls(case, script)
     _declare_boundaries(case, script)
     _setup_surfaces.emit_setup_surfaces(script, case)
-    _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
     _judge_the_group_members_the_model_lacks(case, script)
     _detect_base_regions(case, script)
 
