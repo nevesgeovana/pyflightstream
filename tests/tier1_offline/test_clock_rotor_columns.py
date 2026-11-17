@@ -55,7 +55,7 @@ def _jclock582_plan(tmp_path, cell, *, workflow="unsteady", diameter=True, block
 _JCLOCK582_CELL = "J_CLOCK: 1.3 / DELTA_THETA: 20 / REVOLUTIONS: 2 / LAST_REVS_AVG: 1"
 
 
-@pytest.mark.requirement("P0582-JCLOCK-COMPATIBILITY")
+@pytest.mark.requirement("FR-3796")
 def test_p0582_existing_power_off_advance_ratio_keeps_its_rotor_block_diameter(tmp_path):
     cell = _JCLOCK582_CELL.replace("J_CLOCK", "ADVANCE_RATIO")
     plan, rendered, _ = _jclock582_plan(tmp_path, cell)
@@ -66,7 +66,7 @@ def test_p0582_existing_power_off_advance_ratio_keeps_its_rotor_block_diameter(t
     assert float(delta) == pytest.approx(expected, rel=1e-6)
 
 
-@pytest.mark.requirement("P0582-JCLOCK-READY")
+@pytest.mark.requirement("FR-3796")
 @pytest.mark.parametrize("blocks", [0, 1, 2])
 @pytest.mark.parametrize(
     "clock_motion", ["", " / CLOCK_MOTION: PUSHER", " / CLOCK_MOTION: unrelated"]
@@ -83,7 +83,7 @@ def test_p0582_jclock_reference_clock_plans_ready(tmp_path, blocks, clock_motion
     assert "CREATE_NEW_MOTION" not in lines
 
 
-@pytest.mark.requirement("P0582-JCLOCK-REFUSALS")
+@pytest.mark.requirement("FR-3797")
 @pytest.mark.parametrize("blocks", [0, 1, 2])
 @pytest.mark.parametrize(
     ("extra", "key"),
@@ -99,7 +99,7 @@ def test_p0582_jclock_two_clocks_refused(tmp_path, extra, key, blocks):
     assert "J_CLOCK" in plan.summary() and key in plan.summary(), plan.summary()
 
 
-@pytest.mark.requirement("P0582-JCLOCK-POSITIVE")
+@pytest.mark.requirement("FR-3797")
 @pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "wrong"])
 def test_p0582_jclock_requires_positive_finite_value(tmp_path, value):
     plan, _, _ = _jclock582_plan(tmp_path, _JCLOCK582_CELL.replace("1.3", value))
@@ -109,14 +109,14 @@ def test_p0582_jclock_requires_positive_finite_value(tmp_path, value):
         assert "not a finite number" in plan.summary(), plan.summary()
 
 
-@pytest.mark.requirement("P0582-JCLOCK-DIAMETER")
+@pytest.mark.requirement("FR-3797")
 def test_p0582_jclock_missing_reference_diameter_refused_even_with_rotor_block(tmp_path):
     plan, _, _ = _jclock582_plan(tmp_path, _JCLOCK582_CELL, diameter=False)
     assert plan.blocked, plan.summary()
     assert "J_CLOCK" in plan.summary() and "rotor_diameter_m" in plan.summary(), plan.summary()
 
 
-@pytest.mark.requirement("P0582-JCLOCK-TURNING")
+@pytest.mark.requirement("FR-3797")
 def test_p0582_jclock_turning_row_refused(tmp_path):
     cell = _JCLOCK582_CELL + " / RPM: 800 / MOVING_BC_ALIAS: PUSHER"
     plan, _, _ = _jclock582_plan(tmp_path, cell, workflow="unsteady_rotor")
@@ -124,7 +124,7 @@ def test_p0582_jclock_turning_row_refused(tmp_path):
     assert "J_CLOCK" in plan.summary() and "turn" in plan.summary(), plan.summary()
 
 
-@pytest.mark.requirement("P0582-JCLOCK-STEADY")
+@pytest.mark.requirement("FR-3798")
 def test_p0582_jclock_steady_row_warned_and_skipped(tmp_path):
     from pyflightstream._errors import NotApplicableWarning
 
@@ -136,7 +136,7 @@ def test_p0582_jclock_steady_row_warned_and_skipped(tmp_path):
     ), [str(item.message) for item in caught]
 
 
-@pytest.mark.requirement("P0582-JCLOCK-OUTPUT")
+@pytest.mark.requirement("FR-3796")
 def test_p0582_jclock_record_and_product_use_the_reference_clock():
     from types import SimpleNamespace
 
@@ -455,7 +455,7 @@ def _jclock582_case(ratio, diameter, *, recipe="unsteady", motions=None):
     )
 
 
-@pytest.mark.requirement("P0582-JCLOCK-POSITIVE")
+@pytest.mark.requirement("FR-3797")
 @pytest.mark.parametrize(
     ("ratio", "diameter", "velocity", "cause"),
     [
@@ -474,7 +474,7 @@ def test_p0582_jclock_degenerate_clock_refused(ratio, diameter, velocity, cause)
         reference_clock_values(case, velocity, [])
 
 
-@pytest.mark.requirement("P0582-JCLOCK-STEADY")
+@pytest.mark.requirement("FR-3798")
 def test_p0582_jclock_non_unsteady_run_type_names_the_workflow():
     from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.workflows._rows import rotor_speed

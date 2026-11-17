@@ -3943,6 +3943,27 @@
       "status": "implemented"
     },
     {
+      "id": "FR-3796",
+      "parent": "FR-3005",
+      "area": "DEXP",
+      "hid": "DEXP-1.4",
+      "status": "implemented"
+    },
+    {
+      "id": "FR-3797",
+      "parent": "FR-3005",
+      "area": "DEXP",
+      "hid": "DEXP-1.5",
+      "status": "implemented"
+    },
+    {
+      "id": "FR-3798",
+      "parent": "FR-3005",
+      "area": "DEXP",
+      "hid": "DEXP-1.6",
+      "status": "implemented"
+    },
+    {
       "id": "NFR-02",
       "parent": "FR-3146",
       "area": "QMNT",

@@ -169,6 +169,19 @@ def _stated(case: SimCase, **variables: str) -> SimCase:
     return case.model_copy(update={"variables": {**case.variables, **variables}})
 
 
+def _jclock(**variables: str) -> SimCase:
+    """An unsteady power-off row whose clock is the notional reference rotor."""
+    return unsteady_case(
+        DELTA_TIME=None,
+        TIME_ITERATIONS=None,
+        DELTA_THETA="20",
+        REVOLUTIONS="2",
+        LAST_ITERS_AVG=None,
+        LAST_REVS_AVG="1",
+        **variables,
+    ).model_copy(update={"reference": REFERENCE})
+
+
 def _with_disc(case: SimCase, **update: object) -> SimCase:
     blocks = {"PROP": PROP, "FAN": PROP}
     return case.model_copy(update={"frames": [HUB], "actuators": blocks, **update})
@@ -501,6 +514,10 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda _: rotor_case(RPM=None, ADVANCE_RATIO="0.9").model_copy(
             update={"reference": REFERENCE}
         ),
+    ),
+    "J_CLOCK": Variation(
+        lambda _: _jclock(J_CLOCK="1.3"),
+        lambda _: _jclock(J_CLOCK="0.9"),
     ),
     **{
         rate: Variation(
