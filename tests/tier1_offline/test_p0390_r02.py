@@ -513,12 +513,12 @@ def test_p0581_skip_a_pproc_whose_only_group_is_absent_on_this_row(tmp_path):
     assert any("groups.TAIL" in line and "tail" in line and "2001" in line for line in said)
 
 
-def test_p0581_skip_an_unknown_group_family_still_refuses_by_name(tmp_path):
-    """P0581-SKIP: a pproc selecting a typo has no reference declaration to skip."""
+def test_p0581_skip_an_unknown_group_family_is_warned_and_skipped_by_name(tmp_path):
+    """P0581-SKIP: a group citing a name no row declares is warned and skipped, never refused."""
     workspace, path = study(tmp_path, pproc='[groups]\nTAIL = "Tial"\n')
-    plan, _ = planned(workspace, path)
-    assert all(point.status is PlanStatus.BLOCKED for point in plan.points)
-    assert "Tial" in error_of(plan, "2001")
+    plan, said = planned(workspace, path)
+    assert all(point.status is PlanStatus.READY for point in plan.points)
+    assert any("Tial" in line and "skipped" in line for line in said), said
 
 
 def test_p0581_skip_power_off_groups_without_a_study_vocabulary(tmp_path):

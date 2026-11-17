@@ -43,7 +43,6 @@ from pyflightstream.cases._skipped_families import (
     judge_a_name_the_model_lacks,
     names_no_boundary_answers,
     skips_a_name_the_model_lacks,
-    study_vocabulary,
 )
 from pyflightstream.cases.setup_surfaces import the_model_inventory
 from pyflightstream.script import (
@@ -152,55 +151,12 @@ def _declared_labels(labels: Mapping[str, int]) -> str:
     return ", ".join(repr(name) for name, _ in sorted(labels.items(), key=lambda item: item[1]))
 
 
-def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Script) -> None:
-    """Refuse an all-absent pproc only when it names undeclared families.
-
-    A reference may declare families this row's mesh lacks. Its groups are
-    left to the shared per-member skip reader, even when none remains on
-    this row. Unknown names keep the RPT-044 diagnostic, citing the words
-    the artifact writes. Positions and unavailable inventories retain their
-    existing interpretation.
-    """
-    pproc = case.pproc
-    if pproc is None or not pproc.groups:
-        return
-    labels = script.entities.labels("boundaries")
-    if not labels:
-        return
-    cited: list[str] = []
-    for members in pproc.groups.values():
-        if not members:
-            # Every family, which resolves by construction; the OTHER
-            # groups of the same artifact still need checking.
-            continue
-        for member in members:
-            if isinstance(member, int):
-                return
-            if str(member) not in cited:
-                cited.append(str(member))
-    if not cited or any(_resolve_token(case, name, labels) for name in cited):
-        return
-    if not _undeclared_families(case, cited, list(labels)):
-        return
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "
-        f"{', '.join(repr(name) for name in cited)}, and {_inventory_source(case)} declares "
-        f"none of those names or families; it declares {_declared_labels(labels)}. Every "
-        "polar table of this row would sum nothing. A boundary renamed in the solver "
-        "before the save carries its new name in the saved file and the mesh solid's name "
-        "resolves nothing (RPT-044): write the names the file carries, or name the "
-        "artifact written for this geometry."
-    )
-
-
 def _judge_the_group_members_the_model_lacks(case: SimCase, script: Script) -> None:
     """Judge each ``[groups]`` member that selects nothing on the row's model (FR-435).
 
-    Called after :func:`_refuse_a_pproc_the_geometry_shares_no_name_with`, so
-    undeclared all-absent selections retain their named refusal. A declared
-    selection absent from this row, including a whole pproc's groups, is
-    skipped and said. A member the row's study holds is skipped and said
-    (FR-982: it is left out of its group at post, and a group none of whose members
+    A selection absent from this row, declared or not and including a whole
+    pproc's groups, is skipped and said, never refused. A member the row's study holds is skipped
+    and said (FR-982: it is left out of its group at post, and a group none of whose members
     selects anything writes no polar row), one the study
     does not hold uses the ordinary family warning, and every one is refused on a run that asked
     for the refusal (FR-988). A position, ``all`` and a member the model answers
@@ -450,25 +406,6 @@ def _the_reference_vocabulary(case: SimCase) -> list[str]:
         for block in case.rotors.values()
         for family in (*block.families_general, *block.families_blades)
     ]
-
-
-def _undeclared_families(
-    case: SimCase, selection: str | Sequence[str], inventory: Sequence[str]
-) -> list[tuple[str | None, str]]:
-    """Name selectors absent from both the row's model and reference declarations.
-
-    Numbered siblings use the shared family reading: Blade2 belongs to a
-    declared Blade family even when this reference meshes Blade1 alone.
-    """
-    names = _the_names_a_rotor_answers_to(case)
-    vocabulary = [
-        *inventory,
-        *case._campaign_families,
-        *_the_reference_vocabulary(case),
-        *(study_vocabulary(case) or ()),
-        *(str(member) for members in names.values() for member in members),
-    ]
-    return names_no_boundary_answers(selection, vocabulary, names, bool)
 
 
 def _skip_families_the_mesh_lacks(

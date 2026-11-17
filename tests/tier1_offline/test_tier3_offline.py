@@ -639,6 +639,21 @@ def test_p0581_a_declared_family_absent_from_the_saved_mesh_is_skipped_at_plan(t
     assert not _plan(root, plain).blocked
 
 
+def test_p0581_groups_citing_only_a_name_no_row_declares_are_warned_and_skipped(tmp_path):
+    """Owner rule: warn and skip, never refuse, even where every group cites an unknown name."""
+    root = _tier3_copy(tmp_path)
+    _pproc(root, "p006", '[groups]\n"1" = "Nothingatall"\n')
+    matrix = _one_row_matrix(
+        root,
+        "unknown_group.fs",
+        f"7214 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p006')}"
+        "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
+    )
+    with pytest.warns(PyflightstreamWarning, match="Nothingatall.*skipped"):
+        plan = _plan(root, matrix)
+    assert not plan.blocked
+
+
 def test_an_empty_group_is_refused_even_beside_a_named_one(tmp_path):
     """Since 0.26.0 the removed list is refused before geometry selection."""
     root = _tier3_copy(tmp_path)

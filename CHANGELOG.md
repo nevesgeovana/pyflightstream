@@ -11,7 +11,7 @@ FlightStream versions.
 
 ### Fixed
 
-Post-processing groups selecting only declared families absent from a row's mesh are warned and skipped even when every group is absent; the row still plans READY and other items run. Unknown all-absent family names retain their named refusal. migration: shared pproc files need no power-off-specific group edit.
+Post-processing groups selecting only declared families absent from a row's mesh are warned and skipped even when every group is absent; the row still plans READY and other items run. Family names that no row declares are warned and skipped too, never refused. migration: shared pproc files need no power-off-specific group edit.
 
 A family name that a row's mesh lacks is always warned and skipped on that row, including a name that no row of the matrix declares; the plan no longer refuses it as a writing error, and the row still plans READY. Numbered names still match exactly. migration: none.
 
