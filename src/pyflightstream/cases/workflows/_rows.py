@@ -512,10 +512,16 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
 
 def _reference_clock_speed(case: SimCase) -> RotorSpeed:
     """Resolve J_CLOCK against the reference diameter, independently of rotor blocks."""
-    if declared_run_type(case) != "unsteady" or case.motions:
+    run_type = declared_run_type(case)
+    if case.motions:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: J_CLOCK requires an unsteady row with no turning rotor. "
             "A turning row uses ADVANCE_RATIO or RPM; remove J_CLOCK from it."
+        )
+    if run_type != "unsteady":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: J_CLOCK requires the unsteady workflow; this row is "
+            f"{run_type!r}. Use workflow unsteady or remove J_CLOCK."
         )
     conflicts = [
         key

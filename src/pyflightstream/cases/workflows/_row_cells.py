@@ -69,8 +69,11 @@ def reference_clock_values(
     ratio = _required_float(
         case, J_CLOCK_VARIABLE, quantity="clock advance ratio", unit="dimensionless"
     )
-    if ratio <= 0:
-        raise CampaignConfigError(f"case {case.sim_id!r}: J_CLOCK must be positive; got {ratio}.")
+    if not math.isfinite(ratio) or ratio <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: J_CLOCK must be positive and finite; got {ratio}. "
+            "Write a positive number, for example J_CLOCK: 1.3."
+        )
     diameter = None if case.reference is None else case.reference.rotor_diameter
     if diameter is None or not math.isfinite(diameter) or diameter <= 0:
         raise CampaignConfigError(

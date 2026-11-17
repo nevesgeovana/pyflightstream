@@ -11,7 +11,11 @@ FlightStream versions.
 
 ### Added
 
-Optional `J_CLOCK` in `VAR_NAMES_VALUES` gives no-turning unsteady rows a notional clock against the reference's top-level `rotor_diameter_m`, with `DELTA_THETA`, `REVOLUTIONS`, revolution windows and the existing clock output columns. It refuses conflicting clocks, turning rows, nonpositive values and missing reference diameter; steady rows warn and skip it. JCLOCK582. migration: existing power-off `ADVANCE_RATIO` rows keep their behavior; new rows can use `J_CLOCK` instead.
+Optional `J_CLOCK` in `VAR_NAMES_VALUES` gives no-turning unsteady rows a notional clock against the reference's top-level `rotor_diameter_m`, with `DELTA_THETA`, `REVOLUTIONS`, revolution windows and the existing clock output columns. It refuses conflicting clocks, turning rows, nonpositive or nonfinite values and missing reference diameter; steady rows warn and skip it. JCLOCK582. migration: existing power-off `ADVANCE_RATIO` rows keep their behavior; new rows can use `J_CLOCK` instead.
+
+### Changed
+
+The 0.58.1 entry for PFS-2236 is filed under Fixed, where it belongs. migration: none.
 
 ## [0.58.1] - 2026-11-16
 

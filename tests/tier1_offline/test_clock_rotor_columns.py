@@ -105,6 +105,8 @@ def test_p0582_jclock_requires_positive_finite_value(tmp_path, value):
     plan, _, _ = _jclock582_plan(tmp_path, _JCLOCK582_CELL.replace("1.3", value))
     assert plan.blocked, plan.summary()
     assert "J_CLOCK" in plan.summary(), plan.summary()
+    if value in {"nan", "inf"}:
+        assert "not a finite number" in plan.summary(), plan.summary()
 
 
 @pytest.mark.requirement("P0582-JCLOCK-DIAMETER")
@@ -436,3 +438,48 @@ def test_a_flat_reference_beside_several_declared_rotors_lends_no_span():
 
     facts = clock_rotor_facts(_Record({"rpm": 2200.0}), _Row({}), _MixedArtifact())
     assert facts["diameter_m"] is None, "a span was borrowed for a rotor nobody identified"
+
+
+def _jclock582_case(ratio, diameter, *, recipe="unsteady", motions=None):
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.cases.settings import ReferenceData
+
+    return SimCase(
+        sim_id="7582",
+        aircraft="Rig",
+        recipe=recipe,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        variables={"J_CLOCK": ratio},
+        reference=ReferenceData(area=1.0, length=1.0, rotor_diameter=diameter),
+        motions=motions or [],
+    )
+
+
+@pytest.mark.requirement("P0582-JCLOCK-POSITIVE")
+@pytest.mark.parametrize(
+    ("ratio", "diameter", "velocity", "cause"),
+    [
+        ("1.3", 2.0, 0.0, "positive flight speed"),
+        ("1.3", 2.0, -5.0, "positive flight speed"),
+        ("1e-200", 1e-200, 30.0, "underflows to zero"),
+        ("1e-300", 1e-10, 1e300, "no positive finite clock speed"),
+    ],
+)
+def test_p0582_jclock_degenerate_clock_refused(ratio, diameter, velocity, cause):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._row_cells import reference_clock_values
+
+    case = _jclock582_case(ratio, diameter)
+    with pytest.raises(CampaignConfigError, match=cause):
+        reference_clock_values(case, velocity, [])
+
+
+@pytest.mark.requirement("P0582-JCLOCK-STEADY")
+def test_p0582_jclock_non_unsteady_run_type_names_the_workflow():
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._rows import rotor_speed
+
+    case = _jclock582_case("1.3", 2.0, recipe="steady")
+    with pytest.raises(CampaignConfigError, match="requires the unsteady workflow") as info:
+        rotor_speed(case)
+    assert "'steady'" in str(info.value)

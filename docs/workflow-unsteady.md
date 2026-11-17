@@ -20,8 +20,8 @@ Its revolution keys also apply when the reference declares no rotor blocks.
 See [the matrix example](workflow-run-matrix.md) and
 [the clock definition](definitions/the-run-block.md#the-clock-rotor).
 
-**Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, or the clock of its
-power-on twin.** `DELTA_THETA` and `REVOLUTIONS` are not a clock by
+**Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, the clock of its
+power-on twin, or `J_CLOCK`.** `DELTA_THETA` and `REVOLUTIONS` are not a clock by
 themselves: they become one by dividing by a rotor speed, and a row stating
 the pair with no speed is refused.
 
