@@ -30,7 +30,7 @@
       ],
       "parameters": "path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_version: str | None, recipes: Mapping[str, str], fs_exe: str | Path | None=None, ignore_missing_families: bool=True, rows: list[MatrixRow] | None=None",
       "returns": "ResolvedMatrix",
-      "source_sha256": "cc899ef45233048aee2d89894b253c6b2e0b2566c9f460563de5e1861ac04aaf"
+      "source_sha256": "00583a01bb045a0641f8013db0387a29f728dc724065dd57497719b80aa3c52f"
     },
     {
       "id": "plan",
@@ -45,7 +45,7 @@
       ],
       "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None, row_builds: Sequence[str | None] | None=None",
       "returns": "CampaignPlan",
-      "source_sha256": "949dc34a71631645269a8580c1a1d496631f39567873e4c4b8561c5133bb7c26"
+      "source_sha256": "f36346275a559066a5a7b8b058a9c9e9b83c58db0cda27dec4bbf1e652f56f81"
     },
     {
       "id": "run",
@@ -62,7 +62,7 @@
       ],
       "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: object=None, accepted_builds: Collection[str]=(), redo_submitted: bool=False, parallel: int | str | None=None",
       "returns": "list[RunRecord]",
-      "source_sha256": "7d521490f28567ec1da9657fa9df8798071f80cb678f96b48fe46999b040a7be"
+      "source_sha256": "5285624ecf87f940af514b76eb705fb8fb22ce73ab6301557362a1145b4cd3ee"
     },
     {
       "id": "collect",
