@@ -474,7 +474,7 @@ def test_p0582_jclock_degenerate_clock_refused(ratio, diameter, velocity, cause)
         reference_clock_values(case, velocity, [])
 
 
-@pytest.mark.requirement("FR-3798")
+@pytest.mark.requirement("FR-3797")
 def test_p0582_jclock_non_unsteady_run_type_names_the_workflow():
     from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.workflows._rows import rotor_speed
