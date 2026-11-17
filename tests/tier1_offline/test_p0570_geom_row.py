@@ -1048,6 +1048,10 @@ def test_p0581_no_route_plans_without_stating_one(tmp_path):
     (row,) = _p0581_read(path)
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     saved_mesh_fixture(stage_geometry(workspace, "wing.fsm"), ["Wing"])
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(
+        pproc.read_text(encoding="utf-8").replace("wing_left", "Wing"), encoding="utf-8"
+    )
     assert "MESH_ROUTE" not in row.variables
     resolved = resolve_matrix(path, workspace, name="route", fs_version="26.120", recipes={})
     assert [case.sim_id for case in resolved.campaign.sims] == ["7001"]
