@@ -242,7 +242,7 @@ Each point's run record lists the skips of its row in `skipped_names`, one
 `{artifact, key, name}` entry per skip in plan order; a point that skipped
 nothing records no such field.
 
-**A misspelling is refused.** Outside pproc `[groups]`, a name that selects nothing on the row's model
+**A misspelling is refused.** Outside post-processing (pproc) family selections, a name that selects nothing on the row's model
 and that the vocabulary does not hold BLOCKS the row at plan, at either value
 of `--ignore-missing-families`, with a text naming the artifact, the key, the
 name, the row and its geometry, the reference and the names of its

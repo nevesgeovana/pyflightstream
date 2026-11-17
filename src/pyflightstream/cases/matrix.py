@@ -1475,7 +1475,9 @@ def renumber_pols(
             if layout != _COLUMNS:
                 raise MatrixError(
                     f"{source} is not a run matrix at the verified layout, so its POL "
-                    "cells cannot be found; upgrade it first."
+                    "cells cannot be found; write the header as MATRIX_COLUMNS "
+                    "(a MESH_ROUTE column moves into VAR_NAMES_VALUES as "
+                    "MESH_ROUTE: <route>)."
                 )
             rebuilt.append(line)
             continue

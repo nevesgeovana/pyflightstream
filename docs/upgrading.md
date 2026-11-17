@@ -21,7 +21,7 @@ neither `ADVANCE_RATIO` nor `RPM` still refuses the missing rotor speed.
 The matrix header has no `MESH_ROUTE` column. An absent variable states no route.
 The column insertion step of `pyfs-workspace migrate` and the
 `matrix.layout-0.56.0` retirement are removed; the nineteen-column header reads
-without a layout warning. The former column is an unknown column under the ordinary reader.
+without a layout warning. The former column is an unknown column under the ordinary reader: a 0.58.0 matrix that still carries it is refused with a `MatrixError` naming the 19-column header and `'MESH_ROUTE' is not a known column`.
 The former `upgrade_layout_bytes` helper in `cases.matrix` and
 `upgrade_matrix_layout` in `cases._matrix_upgrade` are removed with that step.
 
@@ -74,8 +74,9 @@ keeps its existing meaning. Since 0.58.1, groups selecting only declared familie
 absent from this mesh are warned and skipped even when none of the pproc's groups
 remains. The row still plans READY and other items run. For example, a group selecting
 spinner and blade families declared by the reference emits nothing on a power-off
-body-only mesh. An all-absent selection naming a family that exists nowhere in the
-reference or its declarations still refuses by name. Unreadable or contradictory inventories, ambiguous boundary IDs and
+body-only mesh. Family names that no row of the matrix declares are warned and skipped as well, never
+refused; opt-in missing-family refusal (`--ignore-missing-families false`) still refuses.
+Unreadable or contradictory inventories, ambiguous boundary IDs and
 structural consistency checks retain their own diagnostics. Family lists need no edit.
 
 ## 0.58.0 post tree

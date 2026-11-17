@@ -11,17 +11,25 @@ FlightStream versions.
 
 ### Fixed
 
-Post-processing groups selecting only declared families absent from a row's mesh are warned and skipped even when every group is absent; the row still plans READY and other items run. Family names that no row declares are warned and skipped too, never refused. migration: shared pproc files need no power-off-specific group edit.
+Post-processing groups selecting only declared families absent from a row's mesh are warned and skipped even when every group is absent; the row still plans READY and other items run. migration: shared pproc files need no power-off-specific group edit.
 
 A family name that a row's mesh lacks is always warned and skipped on that row, including a name that no row of the matrix declares; the plan no longer refuses it as a writing error, and the row still plans READY. Numbered names still match exactly. migration: none.
 
 Expanding-frame post-processing items selecting only families absent from a row are warned and skipped, including `Blade2` in `LOCAL_AXIS` on a Blade1-only sector; other items still run. migration: shared pproc files need no sector-specific selection edit.
 
-MESH_ROUTE moves from a matrix column to an optional VAR_NAMES variable; the column is gone.
-
 An `ADVANCE_RATIO:sweep` states each point's rotor speed during matrix planning, including farfield output discovery; swept RPM and flow conditions use the same concrete point view. migration: J sweeps need no RPM workaround.
 
 Accepted deprecated TOML keys and CLI flags name their replacement once under default warning filters, including `superfile_format` and the former `trim_moment` spellings during a quiet post. The warnings remain in post logs, and explicit warning filters and `--warning-off` still apply. `PyflightstreamDeprecationWarning` now derives from `FutureWarning` so TOML readers see it outside the CLI too. Forms removed in 0.58.0 retain their named refusals. PFS-2229. migration: filter the package's deprecation category explicitly to suppress these messages.
+
+### Changed
+
+`MESH_ROUTE` moves from a matrix column to an optional `VAR_NAMES_VALUES` variable (`MESH_ROUTE: native|quad_dominant|full_grid`); the header has nineteen columns. migration: delete the `MESH_ROUTE` column and its cells, and move any non-`NA` route into `VAR_NAMES_VALUES`.
+
+`CITATION.cff` records the 0.58.0 DOI. migration: none.
+
+### Removed
+
+The `pyfs-workspace migrate` column-insertion step, the `matrix.layout-0.56.0` layout, `cases.matrix.upgrade_layout_bytes` and `cases._matrix_upgrade.upgrade_matrix_layout`. migration: as above.
 
 A source face in a dominance operation whose mean width is below two sewing tolerance bands (20 um) stops assembly before fragmentation, naming its component and face, measured width, limit and remedy. A 20 um blunt trailing-edge base now fails `assembly.thin_feature` with a thin-feature cause instead of reaching a cut with a BUG cause. No floor changes the geometry; standalone thin sources and inert faces retain their treatment. PFS-2236. migration: increase the named face's mean width above 20 um before assembling it.
 
