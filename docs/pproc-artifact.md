@@ -283,8 +283,8 @@ An expanding-frame item selecting only known families absent from this row's
 mesh is warned and skipped, even when it reaches no rotor of this reference.
 For example, `families = ["Blade2"]` with `frame = "LOCAL_AXIS"` emits no
 section on a Blade1-only sector; the pproc's Blade1 sections still emit.
-A numbered blade can belong to a declared family without being meshed by this
-reference. A selection naming an undeclared family, or a present family that
+A numbered blade must be declared by a mesh or reference of some campaign row;
+`Blade1` alone does not declare `Blade2`. A selection naming an undeclared family, or a present family that
 belongs to no rotor, still refuses by name. An
 entry whose rotors the reference does declare, but whose frames THIS RUN
 did not place, is LEFT OUT with a warning, exactly as an entry whose

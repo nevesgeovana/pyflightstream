@@ -454,11 +454,7 @@ def _the_reference_vocabulary(case: SimCase) -> list[str]:
 def _undeclared_families(
     case: SimCase, selection: str | Sequence[str], inventory: Sequence[str]
 ) -> list[tuple[str | None, str]]:
-    """Name selectors absent from both the row's model and reference declarations.
-
-    Numbered siblings use the shared family reading: Blade2 belongs to a
-    declared Blade family even when this reference meshes Blade1 alone.
-    """
+    """Name selectors absent from campaign declarations, matching numbered names exactly."""
     names = _the_names_a_rotor_answers_to(case)
     vocabulary = [
         *inventory,
@@ -467,7 +463,7 @@ def _undeclared_families(
         *(study_vocabulary(case) or ()),
         *(str(member) for members in names.values() for member in members),
     ]
-    return names_no_boundary_answers(selection, vocabulary, names, bool)
+    return declared_names_the_geometry_lacks(selection, vocabulary, names)
 
 
 def _refuse_undeclared_families(

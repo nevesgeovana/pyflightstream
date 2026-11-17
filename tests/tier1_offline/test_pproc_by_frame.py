@@ -43,7 +43,9 @@ from pyflightstream.cases.workflows import pproc_emissions
 @pytest.mark.parametrize("frame", ["LOCAL_AXIS", "SMRP", "RMRP"], ids=lambda v: f"P0581-SKIP-{v}")
 def test_p0581_skip_absent_numbered_family_before_rotor_expansion(frame):
     """Expand Blade2, then Blade1, on a Blade1-only row; only Blade1 emits."""
-    case = expanding_case(rotors={"ROTOR": rotor("ROTOR", [], ["Blade1"], 2.0)}, aliases={})
+    case = expanding_case(
+        rotors={"ROTOR": rotor("ROTOR", [], ["Blade1", "Blade2"], 2.0)}, aliases={}
+    )
     frames = {"ROTOR_RMRP1": 1, "ROTOR_SMRP": 2, "ROTOR_RMRP": 3}
     error = None
     skipped = kept = None
@@ -725,3 +727,10 @@ def test_two_plot_groups_writing_one_name_are_refused_not_overwritten():
 def test_p0581_mixed_unknown_family_is_refused_in_every_frame(frame):
     with pytest.raises(CampaignConfigError, match="Blaed2"):
         emissions(frame, ["PB_1", "Blaed2"])
+
+
+@pytest.mark.parametrize("frame", ["LOCAL_AXIS", "SMRP", "RMRP"])
+def test_p0581_unknown_numbered_family_is_refused_by_exact_name(frame):
+    case = expanding_case(rotors={"ROTOR": rotor("ROTOR", [], ["Blade1"], 2.0)}, aliases={})
+    with pytest.raises(CampaignConfigError, match="Blade999"):
+        pproc_emissions(case, frame, ["Blade999"], ["Blade1"], bool, "section distribution 1", {})

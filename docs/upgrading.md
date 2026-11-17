@@ -10,6 +10,8 @@ Names declared by any campaign row's mesh or reference are known even when
 planning only a selected row; each row still emits only its own present families.
 Every selector is checked, including a name beside a valid family or group.
 A present member does not hide an unknown sibling.
+Numbered names require exact declarations: `Blade1` alone does not make
+`Blade999` a known family.
 
 A rotary row stating `ADVANCE_RATIO:sweep` in `FLIGHT_CONDITION` and its J values
 in `SWEEP_VALUES` now plans with farfield revolution windows. Each point derives

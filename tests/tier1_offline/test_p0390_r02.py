@@ -1044,3 +1044,31 @@ def test_p0581_group_refuses_unknown_member_beside_a_present_member(tmp_path, pr
     plan, _ = planned(workspace, path)
     assert status_of(plan) == {"2003": {PlanStatus.BLOCKED}}
     assert "Wnig" in error_of(plan, "2003")
+
+
+def test_p0581_selected_sector_knows_the_full_wheel_reference(tmp_path):
+    """P0581: a shared pproc can cite a blade declared only by an unselected row."""
+    reference = (
+        REFERENCE.split("[aliases]")[0]
+        + '[ROTOR]\nkind = "rotor"\nx_m = 0.0\ny_m = 0.0\nz_m = 0.0\n'
+        'axis = "X"\ndiameter_m = 2.0\nfamilies_blades = ["Blade1"]\n'
+        'blade1 = { azimuth_deg = 0.0, zero = "Z" }\n'
+    )
+    workspace, path = study(
+        tmp_path,
+        reference=reference,
+        setup="iterations = 10\n",
+        pproc=(
+            '[[sections.distributions]]\nfamilies = ["Blade2"]\nframe = "SMRP"\nplanes = ["XZ"]\n'
+        ),
+        models=(("2001", "sector.fsm", ["Blade1"]), ("2002", "wheel.fsm", ["Blade1", "Blade2"])),
+    )
+    (workspace.inputs_dir / "references" / "r002.toml").write_text(
+        reference.replace('["Blade1"]', '["Blade1", "Blade2"]'), encoding="utf-8"
+    )
+    lines = path.read_text(encoding="utf-8").splitlines()
+    lines[-1] = lines[-1].replace(" | r001 | ", " | r002 | ")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    plan, said = planned(workspace, path, sims=["2001"])
+    assert status_of(plan) == {"2001": {PlanStatus.READY}}
+    assert any("Blade2" in line and "2001" in line and "skipped" in line for line in said)
