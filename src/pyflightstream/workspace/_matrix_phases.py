@@ -25,7 +25,6 @@ from pyflightstream.cases import (
     case_at_point,
     point_state_key,
 )
-from pyflightstream.cases._skipped_families import _with_campaign_families
 from pyflightstream.cases.acoustics import resolve_observers_file
 from pyflightstream.cases.corrections import (
     CALIBRATIONS_DIR,
@@ -1634,7 +1633,6 @@ def _bind_rows(binding: _Binding) -> None:
         _bind_row_variables(binding, case, row, update)
         _bind_states(binding, row, update)
         binding.sims.append(case.model_copy(update=update))
-    binding.sims = _with_campaign_families(binding.sims)
     for index, (case, row) in enumerate(zip(binding.sims, binding.rows, strict=True)):
         if row.workflow != LEGACY_WORKFLOW:
             first = case_at_point(case, next(row.sweep.points(), {}))

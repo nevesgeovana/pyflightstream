@@ -155,7 +155,6 @@ from pyflightstream.workspace._matrix_binding import (
 from pyflightstream.workspace._matrix_binding import (
     ResolvedMatrix as ResolvedMatrix,
 )
-from pyflightstream.workspace._matrix_binding import _bind_campaign_vocabulary
 from pyflightstream.workspace._matrix_binding import (
     _bind_setup_ports as _bind_setup_ports,
 )
@@ -729,7 +728,6 @@ def resolve_matrix(
         ignore_missing_families=ignore_missing_families,
     )
     _bind_artifacts(binding)
-    _bind_campaign_vocabulary(binding, Path(path))
     _bind_rows(binding)
     # PFS-2254: each table motion's file of inputs/motions/, bound as a profile is.
     sims = [bind_motion_tables(case, binding.workspace.inputs_dir) for case in binding.sims]

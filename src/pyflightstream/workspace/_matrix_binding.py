@@ -14,10 +14,9 @@ from pydantic import ValidationError
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream._retired_names import removed_setup_forms
 from pyflightstream.cases import Campaign, InputKey, SimCase, SolverSettings
-from pyflightstream.cases.matrix import MatrixRow, read_matrix
+from pyflightstream.cases.matrix import MatrixRow
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._row_setup import resolve_stabilization, row_setup
 from pyflightstream.workspace.flight_condition import (
@@ -33,9 +32,7 @@ from pyflightstream.workspace.inputs import (
     ReferenceArtifact,
     RegisteredBuild,
     SetupArtifact,
-    read_inventory,
 )
-from pyflightstream.workspace.sidecars import boundaries_for_matrix
 
 
 @dataclass(frozen=True)
@@ -636,37 +633,3 @@ def _finish_bound_case(case: SimCase, inputs: Path) -> SimCase:
 
         case = _bind_fsi_marking(case)
     return _bind_setup_ports(case, inputs)
-
-
-def _bind_campaign_vocabulary(binding: _Binding, path: Path) -> None:
-    """Read unselected active rows' declarations without binding their execution inputs."""
-    selected = {row.pol for row in binding.rows}
-    known: list[str] = []
-    for row in read_matrix(path):
-        if row.pol in selected:
-            continue
-        try:
-            reference = binding.workspace.resolve_reference(row.ref_code)
-        except InputArtifactError:
-            pass  # An unavailable unselected input cannot declare a known name.
-        else:
-            known.extend(reference.aliases)
-            known.extend(member for members in reference.aliases.values() for member in members)
-            known.extend(reference.rotors)
-            for rotor in reference.rotors.values():
-                known.extend((*rotor.families_general, *rotor.families_blades))
-            if reference.study is not None:
-                known.extend(reference.study.surfaces)
-        stem = row.variables.get("GEOMETRY", "")
-        if stem:
-            try:
-                geometry = binding.workspace.resolve_geometry(stem)
-                sidecar = boundaries_for_matrix(geometry)
-                inventory = (
-                    read_inventory(sidecar) if sidecar.is_file() else boundary_names(geometry)
-                )
-                known.extend(inventory or ())
-            except (InputArtifactError, MeshReadError):
-                pass  # Selected rows still undergo the normal strict input validation.
-    for case in binding.campaign.sims:
-        case._campaign_families = tuple(known)
