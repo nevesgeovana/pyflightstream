@@ -7,6 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.58.2] - 2026-11-16
+
+### Added
+
+Optional `J_CLOCK` in `VAR_NAMES_VALUES` gives no-turning unsteady rows a notional clock against the reference's top-level `rotor_diameter_m`, with `DELTA_THETA`, `REVOLUTIONS`, revolution windows and the existing clock output columns. It refuses conflicting clocks, turning rows, nonpositive values and missing reference diameter; steady rows warn and skip it. JCLOCK582. migration: existing power-off `ADVANCE_RATIO` rows keep their behavior; new rows can use `J_CLOCK` instead.
+
 ## [0.58.1] - 2026-11-16
 
 ### Fixed

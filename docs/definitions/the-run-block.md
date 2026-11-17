@@ -74,6 +74,17 @@ are written without it.
 
 ### `J_CLOCK` and `RPM_CLOCK`, the clock rotor
 
+On an unsteady row with no turning rotor, the optional `J_CLOCK` input supplies
+a notional reference clock: `n = V / (J_CLOCK * D)` in rev/s and
+`DELTA_TIME = (DELTA_THETA / 360) * J_CLOCK * D / V`.
+D is always the row reference's top-level `rotor_diameter_m`, never a rotor
+block's `diameter_m` and never selected by `CLOCK_MOTION`; a reference without
+`rotor_diameter_m` is refused by name.
+`REVOLUTIONS` counts these reference revolutions. `RPM_CLOCK` reports `60 * n`
+and the output `J_CLOCK` is the ratio that speed implies against the point's
+free stream and this same reference diameter. The notional clock turns no mesh
+or rotor frame. Its recorded speed and diameter also define revolution windows.
+
 A row may turn several rotors, each with its own speed and advance ratio; the
 per-rotor columns `RPM<id>` and `J<id>` state them all. The **clock rotor** is
 the one whose revolutions count the row's time: the rotor `CLOCK_MOTION`

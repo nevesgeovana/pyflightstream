@@ -1,5 +1,19 @@
 # Upgrading
 
+## 0.58.2
+
+An `unsteady` row with no turning rotor can state the optional `J_CLOCK` key
+in `VAR_NAMES_VALUES`, with `DELTA_THETA` and `REVOLUTIONS`. Its time step is
+`(DELTA_THETA / 360) * J_CLOCK * D / V`, using the row reference's top-level
+`rotor_diameter_m` for D. Rotor block diameters and `CLOCK_MOTION` do not
+select D. The clock also counts revolution windows and supplies the run block's
+`J_CLOCK` and `RPM_CLOCK`. It turns no mesh or frame.
+
+`J_CLOCK` is refused on a turning row, beside `ADVANCE_RATIO`, `RPM` or
+`DELTA_TIME`, with a nonpositive or nonfinite value, or without the reference
+diameter. Steady rows warn and skip it. Existing power-off `ADVANCE_RATIO`
+rows keep their behavior. See the worked example in [the matrix reference](workflow-run-matrix.md).
+
 ## 0.58.1
 
 An expanding-frame post-processing item selecting only families absent from a row

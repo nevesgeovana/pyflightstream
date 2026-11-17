@@ -18,6 +18,157 @@ from pyflightstream._tokens import FLIGHT_CONDITION_COLUMNS
 from pyflightstream.post.products import clock_rotor_facts
 
 
+def _jclock582_plan(tmp_path, cell, *, workflow="unsteady", diameter=True, blocks=True):
+    """Plan the documented no-turning clock example through a real matrix."""
+    import warnings
+
+    from tests.tier1_offline.test_tier3_offline import TOUR, _rendered, _tier3_copy
+
+    root = _tier3_copy(tmp_path)
+    reference = root / "inputs/references/r004.toml"
+    text = reference.read_text(encoding="utf-8")
+    text = text.split("[rotor]")[0] + "[PUSHER]" + text.split("[PUSHER]")[1]
+    text = text.replace("rotor_diameter_m = 3.6576", "rotor_diameter_m = 2.0" if diameter else "")
+    text = text.replace("diameter_m = 3.6576", "diameter_m = 7.0")
+    if not blocks:
+        text = text.split("[PUSHER]")[0]
+    elif blocks == 2:
+        text += (
+            '\n[SECOND]\nkind = "rotor"\nid = 1\nx_m = 0\ny_m = 0\nz_m = 0\n'
+            'axis = "X"\nrpm_sign = 1\ndiameter_m = 9\nfamilies_blades = ["Blade2"]\n'
+            'blade1 = { azimuth_deg = 0.0, zero = "Y" }\n'
+        )
+    reference.write_text(text, encoding="utf-8")
+    header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
+    row = (
+        "7582 | 0 | 1 | Rig | - | Clock | TASmps:30, REmi:2.3, ALPHA:sweep | 0 "
+        f"| 40_PUSHER.fsm | r004 | s002 | p001 | NONE | - | - | - | 26.120 | {workflow} | " + cell
+    )
+    matrix = root / "jclock.fs"
+    matrix.write_text("\n".join([header, rule, row]) + "\n", encoding="utf-8")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan, rendered = _rendered(root, matrix)
+    return plan, rendered, [item for item in caught]
+
+
+_JCLOCK582_CELL = "J_CLOCK: 1.3 / DELTA_THETA: 20 / REVOLUTIONS: 2 / LAST_REVS_AVG: 1"
+
+
+@pytest.mark.requirement("P0582-JCLOCK-COMPATIBILITY")
+def test_p0582_existing_power_off_advance_ratio_keeps_its_rotor_block_diameter(tmp_path):
+    cell = _JCLOCK582_CELL.replace("J_CLOCK", "ADVANCE_RATIO")
+    plan, rendered, _ = _jclock582_plan(tmp_path, cell)
+    assert not plan.blocked and len(rendered) == 1, plan.summary()
+    lines = next(iter(rendered.values())).splitlines()
+    delta = next(line.split()[1] for line in lines if line.startswith("DELTA_TIME "))
+    expected = 20 / (6 * round(60 * 30 / (1.3 * 7), 4))
+    assert float(delta) == pytest.approx(expected, rel=1e-6)
+
+
+@pytest.mark.requirement("P0582-JCLOCK-READY")
+@pytest.mark.parametrize("blocks", [0, 1, 2])
+@pytest.mark.parametrize(
+    "clock_motion", ["", " / CLOCK_MOTION: PUSHER", " / CLOCK_MOTION: unrelated"]
+)
+def test_p0582_jclock_reference_clock_plans_ready(tmp_path, blocks, clock_motion):
+    """n=30/(1.3*2), dt=(20/360)*1.3*2/30, regardless of rotor selection."""
+    plan, rendered, _ = _jclock582_plan(tmp_path, _JCLOCK582_CELL + clock_motion, blocks=blocks)
+    assert not plan.blocked, plan.summary()
+    assert len(rendered) == 1
+    lines = next(iter(rendered.values())).splitlines()
+    assert "TIME_ITERATIONS 36" in lines
+    delta = next(line.split()[1] for line in lines if line.startswith("DELTA_TIME "))
+    assert float(delta) == pytest.approx((20 / 360) * 1.3 * 2 / 30, rel=1e-6)
+    assert "CREATE_NEW_MOTION" not in lines
+
+
+@pytest.mark.requirement("P0582-JCLOCK-REFUSALS")
+@pytest.mark.parametrize("blocks", [0, 1, 2])
+@pytest.mark.parametrize(
+    ("extra", "key"),
+    [
+        (" / ADVANCE_RATIO: 1.3", "ADVANCE_RATIO"),
+        (" / RPM: 800", "RPM"),
+        (" / DELTA_TIME: 0.01", "DELTA_TIME"),
+    ],
+)
+def test_p0582_jclock_two_clocks_refused(tmp_path, extra, key, blocks):
+    plan, _, _ = _jclock582_plan(tmp_path, _JCLOCK582_CELL + extra, blocks=blocks)
+    assert plan.blocked, plan.summary()
+    assert "J_CLOCK" in plan.summary() and key in plan.summary(), plan.summary()
+
+
+@pytest.mark.requirement("P0582-JCLOCK-POSITIVE")
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "wrong"])
+def test_p0582_jclock_requires_positive_finite_value(tmp_path, value):
+    plan, _, _ = _jclock582_plan(tmp_path, _JCLOCK582_CELL.replace("1.3", value))
+    assert plan.blocked, plan.summary()
+    assert "J_CLOCK" in plan.summary(), plan.summary()
+
+
+@pytest.mark.requirement("P0582-JCLOCK-DIAMETER")
+def test_p0582_jclock_missing_reference_diameter_refused_even_with_rotor_block(tmp_path):
+    plan, _, _ = _jclock582_plan(tmp_path, _JCLOCK582_CELL, diameter=False)
+    assert plan.blocked, plan.summary()
+    assert "J_CLOCK" in plan.summary() and "rotor_diameter_m" in plan.summary(), plan.summary()
+
+
+@pytest.mark.requirement("P0582-JCLOCK-TURNING")
+def test_p0582_jclock_turning_row_refused(tmp_path):
+    cell = _JCLOCK582_CELL + " / RPM: 800 / MOVING_BC_ALIAS: PUSHER"
+    plan, _, _ = _jclock582_plan(tmp_path, cell, workflow="unsteady_rotor")
+    assert plan.blocked, plan.summary()
+    assert "J_CLOCK" in plan.summary() and "turn" in plan.summary(), plan.summary()
+
+
+@pytest.mark.requirement("P0582-JCLOCK-STEADY")
+def test_p0582_jclock_steady_row_warned_and_skipped(tmp_path):
+    from pyflightstream._errors import NotApplicableWarning
+
+    plan, rendered, caught = _jclock582_plan(tmp_path, "J_CLOCK: 1.3", workflow="steady")
+    assert not plan.blocked and rendered, plan.summary()
+    assert any(
+        issubclass(item.category, NotApplicableWarning) and "J_CLOCK" in str(item.message)
+        for item in caught
+    ), [str(item.message) for item in caught]
+
+
+@pytest.mark.requirement("P0582-JCLOCK-OUTPUT")
+def test_p0582_jclock_record_and_product_use_the_reference_clock():
+    from types import SimpleNamespace
+
+    from pyflightstream.cases import ReferenceData
+    from pyflightstream.cases.workflows import reduction_windows, unsteady_time_stepping
+    from pyflightstream.post.products import point_condition
+    from tests.tier1_offline.test_workflows import unsteady_case
+
+    case = unsteady_case(
+        DELTA_TIME=None,
+        TIME_ITERATIONS=None,
+        J_CLOCK="1.3",
+        DELTA_THETA="20",
+        REVOLUTIONS="2",
+        LAST_ITERS_AVG=None,
+        LAST_REVS_AVG="1",
+        VELOCITY="30",
+    )
+    case = case.model_copy(update={"reference": ReferenceData(area=1, length=1, rotor_diameter=2)})
+    plan = reduction_windows(case)
+    assert plan is not None and plan.get("steps_per_revolution") == 18, plan
+    assert plan["time_iterations"] == 36 and plan["time_average"]["windows"] == [[19, 36]]
+    stepping = unsteady_time_stepping(case)
+    assert stepping.delta_time_s == pytest.approx((20 / 360) * 1.3 * 2 / 30, rel=1e-14)
+    artifact = SimpleNamespace(rotor_diameter_m=2, rotors={"OTHER": _Rotor(7)})
+    facts = clock_rotor_facts(
+        _Record(plan), _Row({"J_CLOCK": "1.3", "CLOCK_MOTION": "OTHER"}), artifact
+    )
+    point = SimpleNamespace(loads=None, point={"VINF": 30}, state=None)
+    condition = point_condition(point, mach=0.1, clock=facts)
+    assert condition["J_CLOCK"] == pytest.approx(1.3, rel=1e-14)
+    assert condition["RPM_CLOCK"] == pytest.approx(60 * 30 / (1.3 * 2))
+
+
 class _Rotor:
     def __init__(self, diameter_m: float) -> None:
         self.diameter_m = diameter_m

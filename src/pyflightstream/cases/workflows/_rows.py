@@ -63,14 +63,23 @@ from ._conventions import (
     _workflow_cell,
     declared_run_type,
 )
+from ._row_cells import _POINT_ADVANCE_RATIO as _POINT_ADVANCE_RATIO
 from ._row_cells import (
     _required_float as _required_float,
 )
 from ._row_cells import (
     _required_int as _required_int,
 )
+from ._row_cells import _same_number as _same_number
+from ._row_cells import _stated_advance_ratio as _stated_advance_ratio
+from ._row_cells import _stated_rpm as _stated_rpm
 from ._row_cells import (
     _variable as _variable,
+)
+from ._row_cells import _velocity as _velocity
+from ._row_cells import (
+    reference_clock_values,
+    refuse_swept_motion_speed,
 )
 from ._row_cells import (
     row_walltime_is_best as row_walltime_is_best,
@@ -90,6 +99,7 @@ from ._vocabulary import (
     ALPHA_VARIABLE,
     BETA_VARIABLE,
     CONVERTER_PREFIX,
+    J_CLOCK_VARIABLE,
     LAST_ITERS_AVG_VARIABLE,
     LAST_REVS_AVG_VARIABLE,
     MOTIONS_VARIABLE,
@@ -112,10 +122,8 @@ from ._vocabulary import (
     RPM_SIGN_VARIABLE,
     RPM_VARIABLE,
     SIMULATION_SUFFIX,
-    SWEEP_WORD,
     SYMMETRY_LOADS_VARIABLE,
     SYMMETRY_VARIABLE,
-    VELOCITY_VARIABLE,
     _refuse_retired_window_keys,
 )
 
@@ -142,7 +150,7 @@ class RotorSpeed:
         internally consistent, export, and are wrong, and nothing
         anywhere could refuse it.
     stated_form : str
-        ``rpm`` or ``advance_ratio``: what the user wrote.
+        ``rpm``, ``advance_ratio`` or ``j_clock``: what the user wrote.
     stated_value : float
         Their value, verbatim and unconverted.
     rpm : float
@@ -166,9 +174,8 @@ class RotorSpeed:
     def record(self) -> dict[str, object]:
         """Return the stated form, the derived one, and every input consumed.
 
-        NOTHING IN THIS PACKAGE CONSUMES THIS YET; see
-        :meth:`TimeStepping.record`, which states the position both are
-        in and why they exist before a consumer does.
+        A no-turning J_CLOCK row retains this in its reduction record so
+        the run block can report the reference clock against its own diameter.
         """
         return {
             "form": self.stated_form,
@@ -335,11 +342,6 @@ def _rpm_sign(case: SimCase) -> int:
 _DERIVED_RPM_DECIMALS = 4
 
 
-#: The swept axis's own key on a point, which is where a row that writes
-#: `ADVANCE_RATIO:sweep` in its flight condition puts the VALUE.
-_POINT_ADVANCE_RATIO = "advance_ratio"
-
-
 def _the_cell_states_both(case: SimCase) -> bool:
     """Say whether the ROW'S CELL states the rotor speed and the advance ratio, and no velocity.
 
@@ -356,52 +358,6 @@ def _the_cell_states_both(case: SimCase) -> bool:
     # J x (RPM/60) x D, so asking it whether a velocity is there answered yes
     # for every planned point and refused the very row this form exists for.
     return not any(key in declared for key in ("MACH", "TASmps"))
-
-
-def _stated_rpm(case: SimCase) -> str | None:
-    """Resolve the rotor speed this row states, from `variables` or its POINT.
-
-    The same two homes as the advance ratio, and for the same reason: a row
-    writing ``RPM:sweep`` in its flight condition puts the VALUE on the point,
-    because the held coordinates of a sweep are merged into `variables` and the
-    swept one is not. A MOTION RECORD stating its own speed wins over both, and
-    it wins here rather than by a rule of its own: the record's variables are
-    merged over the row's before this is read.
-    """
-    stated = _variable(case, RPM_VARIABLE)
-    if stated is not None:
-        return stated
-    value = (getattr(case, "point", None) or {}).get(RPM_VARIABLE)
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _stated_advance_ratio(case: SimCase) -> str | None:
-    """Resolve the advance ratio this row states, from `variables` or its POINT.
-
-    ONE FACT WITH TWO HOMES.
-    A row stating `ADVANCE_RATIO:sweep` in its flight condition puts the VALUE
-    on the point: the HELD coordinates of a sweep are merged into `variables`
-    and the SWEPT one is not, so `variables` carries `ALPHA` and `BETA` and no
-    `ADVANCE_RATIO` at all. Both the script emitter and reduction planner
-    must read the point's swept value when it is absent from `variables`.
-
-    THE POINT IS CONSULTED ONLY WHEN `variables` STATE NEITHER FORM. A row that
-    states `RPM` keeps `RPM`; a motion record carrying its own speed keeps it;
-    the two-forms refusal and the sweep-word refusal read `variables` alone and
-    fire exactly where they fired before. The narrowness is the point: this
-    adds a reading where there was none, and changes none that existed.
-    """
-    stated = _variable(case, ADVANCE_RATIO_VARIABLE)
-    if stated is not None or _variable(case, RPM_VARIABLE) is not None:
-        return stated
-    value = (getattr(case, "point", None) or {}).get(_POINT_ADVANCE_RATIO)
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
 
 
 def rotor_speed(case: SimCase) -> RotorSpeed:
@@ -435,6 +391,8 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
     # form, so a row writing `ADVANCE_RATIO:sweep` resolves here as it already
     # resolved in the script emitter, which reads the point and writes
     # `SET_MOTION_ROTOR_RPM` from it.
+    if _variable(case, J_CLOCK_VARIABLE) is not None:
+        return _reference_clock_speed(case)
     ratio_text = _stated_advance_ratio(case)
     rpm_text = _stated_rpm(case)
     # READ FROM `variables`, NOT from the fallback: this refusal is about a
@@ -443,16 +401,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         (ADVANCE_RATIO_VARIABLE, _variable(case, ADVANCE_RATIO_VARIABLE)),
         (RPM_VARIABLE, rpm_text),
     ):
-        if isinstance(text, str) and text.strip().casefold() == SWEEP_WORD.casefold():
-            # SWEEPING IS THE CONDITION'S JOB (FR-70). A record that writes
-            # the word is asking the motion to vary, and a row varies ONE
-            # variable, stated once, where every other reader can see it.
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {key}: {text.strip()} on a motion record. "
-                "Sweeping is stated in FLIGHT_CONDITION, once for the row, and it then "
-                "reaches every motion that states no speed of its own; a record states a "
-                "VALUE, which is how one rotor holds while another is swept."
-            )
+        refuse_swept_motion_speed(case, key, text)
     if ratio_text is not None and rpm_text is not None and _the_cell_states_both(case):
         # The speed and the ratio together, with no
         # velocity stated, are the static-rig form. They do not disagree: the
@@ -559,6 +508,27 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         velocity_m_per_s=velocity,
         diameter_m=diameter,
     )
+
+
+def _reference_clock_speed(case: SimCase) -> RotorSpeed:
+    """Resolve J_CLOCK against the reference diameter, independently of rotor blocks."""
+    if declared_run_type(case) != "unsteady" or case.motions:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: J_CLOCK requires an unsteady row with no turning rotor. "
+            "A turning row uses ADVANCE_RATIO or RPM; remove J_CLOCK from it."
+        )
+    conflicts = [
+        key
+        for key, value in (
+            ("ADVANCE_RATIO", _stated_advance_ratio(case)),
+            ("RPM", _stated_rpm(case)),
+            ("DELTA_TIME", _variable(case, "DELTA_TIME")),
+        )
+        if value is not None
+    ]
+    velocity = _velocity(case)
+    ratio, rpm, diameter = reference_clock_values(case, velocity, conflicts)
+    return RotorSpeed(case.sim_id, "j_clock", ratio, rpm, ratio, velocity, diameter)
 
 
 def _own_speed(case: SimCase, speed: RotorSpeed | None) -> RotorSpeed:
@@ -1037,29 +1007,6 @@ def angles_not_stated(case: SimCase) -> tuple[str, ...]:
         and case.sweep.type not in (axis, "alpha_beta")
         and _variable(case, key) is None
     )
-
-
-def _same_number(text: str, number: float) -> bool:
-    """Whether the cell text reads as the number (an unreadable cell is not the same)."""
-    try:
-        return math.isclose(float(text), float(number), rel_tol=1e-9)
-    except ValueError:
-        return False
-
-
-def _velocity(case: SimCase) -> float:
-    if case.velocity is not None:
-        stated = _variable(case, VELOCITY_VARIABLE)
-        if stated is not None and not _same_number(stated, case.velocity):
-            # X-F-1157: two different speeds are refused, not resolved by precedence.
-            raise CampaignConfigError(
-                f"case {case.sim_id!r}: the VELOCITY cell ({stated}) contradicts the velocity "
-                f"the row already resolves, {case.velocity:g} m/s, through FLIGHT_CONDITION "
-                "(TASmps or MACH) or its resolved flow state. Remove VELOCITY from "
-                "VAR_NAMES_VALUES and state the velocity in FLIGHT_CONDITION."
-            )
-        return float(case.velocity)
-    return _required_float(case, VELOCITY_VARIABLE, quantity="free-stream velocity", unit="m/s")
 
 
 #: THE RADICAL OF A ROTOR THAT HAS NO ALIAS. Only one path produces one: a
@@ -1790,6 +1737,12 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     Recipe-owned keys, declared flags and the converter's private keys keep
     their existing readers. Only entries outside this run type are skipped.
     """
+    if _variable(case, J_CLOCK_VARIABLE) is not None and name in {
+        "unsteady",
+        "unsteady_rotor",
+        QSTEADY_ROTOR,
+    }:
+        _reference_clock_speed(case)
     _refuse_rotor_shedding(case)
     if _workflow_cell(case) is None:
         return

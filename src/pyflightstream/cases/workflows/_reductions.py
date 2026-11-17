@@ -1159,6 +1159,13 @@ def require_whole_passages(case: SimCase) -> None:
         raise CampaignConfigError("\n".join(refusals))
 
 
+def _reference_clock_plan(case: SimCase, plan: dict[str, object]) -> dict[str, object]:
+    """Retain a no-turning reference clock for the run block's measured ratio."""
+    if _variable(case, "J_CLOCK") is not None:
+        plan["reference_clock"] = rotor_speed(case).record()
+    return plan
+
+
 def reduction_windows(case: SimCase) -> dict[str, object] | None:
     """Resolve the windows of every applicable reduction off one row, for its record.
 
@@ -1283,7 +1290,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         "time_average": {"windows": [list(span)], "window_from": window_from},
     }
     if not rotor:
-        return plan
+        return _reference_clock_plan(case, plan)
 
     # THE SPEED OF A ROW THAT STATES ITS ROTOR WITH FLAT KEYS. It plans no
     # per-rotor block, and the rotor table read a rotor's speed from that block

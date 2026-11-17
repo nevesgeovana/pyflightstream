@@ -88,6 +88,7 @@ GEOMETRY_ROW_KEYS: tuple[str, ...] = (
 #: matrix ``VAR_NAMES_VALUES`` cell and arrives as a string.
 VELOCITY_VARIABLE = "VELOCITY"
 RPM_VARIABLE = "RPM"
+J_CLOCK_VARIABLE = "J_CLOCK"
 ROTOR_AXIS_VARIABLE = "ROTOR_AXIS"
 ROTOR_ORIGIN_VARIABLE = "ROTOR_ORIGIN"
 #: The key the WORKSPACE writes beside a bound ``ROTOR_ORIGIN``, carrying
@@ -973,6 +974,7 @@ _POWER_OFF_CLOCK_KEYS: tuple[str, ...] = (
 )
 _UNSTEADY_KEYS: tuple[str, ...] = (
     *_STEADY_KEYS,
+    J_CLOCK_VARIABLE,
     RPM_VARIABLE,
     DELTA_TIME_VARIABLE,
     TIME_ITERATIONS_VARIABLE,
@@ -1344,6 +1346,14 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         TIME_ITERATIONS_VARIABLE: InputKey(
             "The number of physical time steps of the run.",
             "a count",
+            "SET_SOLVER_UNSTEADY",
+        ),
+        J_CLOCK_VARIABLE: InputKey(
+            "The notional advance ratio of a no-turning unsteady row's clock, against "
+            "the reference's top-level rotor_diameter_m. With DELTA_THETA and REVOLUTIONS, "
+            "sets the time step as (DELTA_THETA / 360) * J_CLOCK * D / V. Refused beside "
+            "ADVANCE_RATIO, RPM or DELTA_TIME, and on a turning row; skipped on a steady row.",
+            "positive, dimensionless",
             "SET_SOLVER_UNSTEADY",
         ),
         DELTA_THETA_VARIABLE: InputKey(

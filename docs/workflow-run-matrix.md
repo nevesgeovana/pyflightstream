@@ -112,6 +112,24 @@ else, as `KEY: value` pairs separated by ` / `. The rows above use
 and the recipe named by the row's `RECIPE` code is what resolves it and
 opens the file. That is still how a recipe works.
 
+For an `unsteady` row with no turning rotor, the optional key `J_CLOCK`
+sets a reference clock without stating an `ADVANCE_RATIO` for a stopped rotor.
+For example, put this in `VAR_NAMES_VALUES`:
+
+```text
+J_CLOCK: 1.3 / DELTA_THETA: 20 / REVOLUTIONS: 2 / LAST_REVS_AVG: 1
+```
+
+With `TASmps:30` in `FLIGHT_CONDITION` and top-level `rotor_diameter_m = 2.0`
+in the row's reference, this marches 36 steps of `0.004814814814814815` s
+and averages the final 18 steps. The run block reports `J_CLOCK = 1.3`.
+The diameter is always that top-level reference field; rotor blocks and
+`CLOCK_MOTION` do not select it. `J_CLOCK` must be positive and finite.
+It is refused beside `ADVANCE_RATIO`, `RPM` or `DELTA_TIME`, on a turning
+row, or without `rotor_diameter_m`. A steady row warns and skips it.
+Existing power-off `ADVANCE_RATIO` rows remain accepted. See
+[the clock definition](definitions/the-run-block.md#the-clock-rotor).
+
 **A WORKFLOW reads keys the package defines**, and three of
 them close the gap that made the capability unusable:
 

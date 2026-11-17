@@ -161,6 +161,13 @@ def clock_rotor_facts(
         ``alias``, ``rpm`` and ``diameter_m``, each None where not known.
     """
     reductions = getattr(record, "reductions", None)
+    reference_clock = reductions.get("reference_clock") if isinstance(reductions, Mapping) else None
+    if isinstance(reference_clock, Mapping) and reference_clock.get("form") == "j_clock":
+        return {
+            "alias": None,
+            "rpm": reference_clock.get("rpm"),
+            "diameter_m": reference_clock.get("diameter_m"),
+        }
     speeds = _recorded_speeds(reductions, own_speeds)
     named = str((getattr(matrix_row, "variables", {}) or {}).get("CLOCK_MOTION", "") or "").strip()
     blocks = getattr(artifact, "rotors", None) or {}

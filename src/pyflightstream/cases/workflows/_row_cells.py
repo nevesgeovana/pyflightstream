@@ -20,12 +20,92 @@ from pyflightstream.cases import (
 )
 
 from ._vocabulary import (
+    ADVANCE_RATIO_VARIABLE,
+    J_CLOCK_VARIABLE,
+    RPM_VARIABLE,
+    SWEEP_WORD,
+    VELOCITY_VARIABLE,
     WALLTIME_BEST,
     WALLTIME_MARGIN_DEFAULT_S,
     WALLTIME_UNITS,
     WALLTIME_UNITS_GLOSS,
     WALLTIME_VARIABLE,
 )
+
+_POINT_ADVANCE_RATIO = "advance_ratio"
+
+
+def _stated_rpm(case: SimCase) -> str | None:
+    """Read RPM from the row or its resolved sweep point, keeping motion overrides."""
+    stated = _variable(case, RPM_VARIABLE)
+    if stated is not None:
+        return stated
+    value = (getattr(case, "point", None) or {}).get(RPM_VARIABLE)
+    if value is None:
+        return None
+    return str(value).strip() or None
+
+
+def _stated_advance_ratio(case: SimCase) -> str | None:
+    """Read ADVANCE_RATIO from the row or point, unless a flat RPM owns the speed."""
+    stated = _variable(case, ADVANCE_RATIO_VARIABLE)
+    if stated is not None or _variable(case, RPM_VARIABLE) is not None:
+        return stated
+    value = (getattr(case, "point", None) or {}).get(_POINT_ADVANCE_RATIO)
+    if value is None:
+        return None
+    return str(value).strip() or None
+
+
+def reference_clock_values(
+    case: SimCase, velocity: float, conflicts: list[str]
+) -> tuple[float, float, float]:
+    """Read the notional clock ratio, speed and top-level reference diameter."""
+    if conflicts:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states J_CLOCK and {', '.join(conflicts)}: two clocks. "
+            "Keep J_CLOCK with DELTA_THETA and REVOLUTIONS, or remove J_CLOCK."
+        )
+    ratio = _required_float(
+        case, J_CLOCK_VARIABLE, quantity="clock advance ratio", unit="dimensionless"
+    )
+    if ratio <= 0:
+        raise CampaignConfigError(f"case {case.sim_id!r}: J_CLOCK must be positive; got {ratio}.")
+    diameter = None if case.reference is None else case.reference.rotor_diameter
+    if diameter is None or not math.isfinite(diameter) or diameter <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: J_CLOCK requires positive rotor_diameter_m at the "
+            "top level of the row's REFERENCE. Add it there; rotor block diameter_m "
+            "and CLOCK_MOTION do not select this diameter."
+        )
+    if not math.isfinite(velocity) or velocity <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: J_CLOCK requires positive flight speed; got {velocity} m/s."
+        )
+    denominator = ratio * diameter
+    if denominator == 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: J_CLOCK * rotor_diameter_m underflows to zero. "
+            "State a ratio and diameter that yield a positive finite clock speed."
+        )
+    rpm = 60.0 * velocity / denominator
+    if not math.isfinite(rpm) or rpm <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: J_CLOCK resolves no positive finite clock speed. "
+            "State a ratio and reference diameter that yield a finite speed."
+        )
+    return ratio, rpm, diameter
+
+
+def refuse_swept_motion_speed(case: SimCase, key: str, text: str | None) -> None:
+    """Refuse a motion record's sweep word; sweeping belongs in FLIGHT_CONDITION."""
+    if isinstance(text, str) and text.strip().casefold() == SWEEP_WORD.casefold():
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key}: {text.strip()} on a motion record. "
+            "Sweeping is stated in FLIGHT_CONDITION, once for the row, and it then "
+            "reaches every motion that states no speed of its own; a record states a "
+            "VALUE, which is how one rotor holds while another is swept."
+        )
 
 
 def _variable(case: SimCase, key: str) -> str | None:
@@ -34,6 +114,28 @@ def _variable(case: SimCase, key: str) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _same_number(text: str, number: float) -> bool:
+    """Whether the cell text reads as the number (an unreadable cell is not the same)."""
+    try:
+        return math.isclose(float(text), float(number), rel_tol=1e-9)
+    except ValueError:
+        return False
+
+
+def _velocity(case: SimCase) -> float:
+    if case.velocity is not None:
+        stated = _variable(case, VELOCITY_VARIABLE)
+        if stated is not None and not _same_number(stated, case.velocity):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the VELOCITY cell ({stated}) contradicts the velocity "
+                f"the row already resolves, {case.velocity:g} m/s, through FLIGHT_CONDITION "
+                "(TASmps or MACH) or its resolved flow state. Remove VELOCITY from "
+                "VAR_NAMES_VALUES and state the velocity in FLIGHT_CONDITION."
+            )
+        return float(case.velocity)
+    return _required_float(case, VELOCITY_VARIABLE, quantity="free-stream velocity", unit="m/s")
 
 
 def _required_float(

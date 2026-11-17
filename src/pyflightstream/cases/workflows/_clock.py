@@ -95,6 +95,9 @@ def _refuse_rotor_keys_on_a_rotorless_run(case: SimCase) -> None:
 
     An explicit ``RPM`` on a row that declares rotors is kept: it turns the RMRP frames.
     """
+    # A second clock must be refused before an inapplicable RPM can be dropped.
+    if _variable(case, "J_CLOCK") is not None:
+        unsteady_time_stepping(case)
     found = sorted(
         key
         for key in ROTORLESS_REFUSED_KEYS

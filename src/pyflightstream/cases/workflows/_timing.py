@@ -680,6 +680,9 @@ def power_off_clock(case: SimCase) -> SimCase | None:
     as :func:`~._unsteady._rotorless_frame_motions` reads it for the RMRP
     frames, so the frames and the clock turn at one speed.
 
+    J_CLOCK instead returns the row itself after validating its notional
+    reference clock. Rotor blocks and CLOCK_MOTION never select its diameter.
+
     Parameters
     ----------
     case : SimCase
@@ -698,6 +701,9 @@ def power_off_clock(case: SimCase) -> SimCase | None:
         Where ``CLOCK_MOTION`` names no declared rotor, or the speed of one
         cannot be resolved.
     """
+    if _variable(case, "J_CLOCK") is not None:
+        rotor_speed(case)
+        return case
     if not case.rotors:
         return None
     stated_rpm = _stated_rpm(case)
@@ -804,7 +810,8 @@ def revolution_keys_without_a_clock(case: SimCase) -> tuple[str, ...]:
 def power_off_steps_per_revolution(case: SimCase) -> float | None:
     """Return the steps per revolution of a power-off row's declared clock rotor, or None.
 
-    Only the clock of a rotor the reference declares counts revolutions
+    J_CLOCK counts the notional reference revolutions without rotor blocks.
+    Otherwise only the clock of a rotor the reference declares counts revolutions
     (:func:`power_off_clock`). A row declaring no rotor that states an
     advance ratio with an azimuthal clock has a step, not a rotor to count.
 
@@ -843,6 +850,10 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
 
     This resolver handles unsteady non-rotor rows independently of
     :func:`rotor_time_stepping`.
+
+    J_CLOCK states a notional speed against the top-level reference diameter,
+    with DELTA_THETA and REVOLUTIONS. Its clock is independent of rotor blocks
+    and CLOCK_MOTION, and its speed is retained for clock outputs and windows.
 
     Parameters
     ----------

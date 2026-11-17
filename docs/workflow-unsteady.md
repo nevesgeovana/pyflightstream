@@ -9,6 +9,17 @@ needs the unsteady answer for a shape with no rotor in it, and because a
 powered and an unpowered configuration are only comparable when they are
 solved on the SAME discretisation.
 
+For a power-off row, use `J_CLOCK: 1.3 / DELTA_THETA: 20 / REVOLUTIONS: 2 /
+LAST_REVS_AVG: 1` in `VAR_NAMES_VALUES` to set its notional reference clock.
+The diameter comes from top-level `rotor_diameter_m` of the row's reference,
+independently of rotor blocks and `CLOCK_MOTION`. At 30 m/s with a 2 m
+reference diameter, this gives 36 steps of 0.004814814814814815 s and averages
+the final 18 steps. `J_CLOCK` is positive and finite, and cannot accompany
+`ADVANCE_RATIO`, `RPM` or `DELTA_TIME`, or a row that turns a rotor.
+Its revolution keys also apply when the reference declares no rotor blocks.
+See [the matrix example](workflow-run-matrix.md) and
+[the clock definition](definitions/the-run-block.md#the-clock-rotor).
+
 **Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, or the clock of its
 power-on twin.** `DELTA_THETA` and `REVOLUTIONS` are not a clock by
 themselves: they become one by dividing by a rotor speed, and a row stating
@@ -30,7 +41,7 @@ length and average the same last 36. Nothing turns but the clock: no geometry
 moves and no motion boundary is added; the RMRP frames turn only at an
 explicit `RPM`, as below.
 
-Without a declared rotor and its speed (a row whose reference declares no
+Without `J_CLOCK` or a declared rotor and its speed (a row whose reference declares no
 rotor counts no revolutions, even on an `ADVANCE_RATIO` azimuthal clock), a
 revolution key (`EXPORT_UNSTEADY_AFTER_REV`,
 `EXPORT_UNSTEADY_LAST_REV`, `LAST_REVS_AVG`) warns as not applicable, naming
