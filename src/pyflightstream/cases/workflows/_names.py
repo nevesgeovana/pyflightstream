@@ -153,7 +153,7 @@ def _declared_labels(labels: Mapping[str, int]) -> str:
 
 
 def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Script) -> None:
-    """Refuse every undeclared group selector, even beside a present family.
+    """Refuse an all-absent pproc only when it names undeclared families.
 
     A reference may declare families this row's mesh lacks. Its groups are
     left to the shared per-member skip reader, even when none remains on
@@ -175,17 +175,18 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
             continue
         for member in members:
             if isinstance(member, int):
-                continue
+                return
             if str(member) not in cited:
                 cited.append(str(member))
-    cited = [name for _owner, name in _undeclared_families(case, cited, list(labels))]
-    if not cited:
+    if not cited or any(_resolve_token(case, name, labels) for name in cited):
+        return
+    if not _undeclared_families(case, cited, list(labels)):
         return
     raise CampaignConfigError(
         f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "
         f"{', '.join(repr(name) for name in cited)}, and {_inventory_source(case)} declares "
-        f"none of those names or families; it declares {_declared_labels(labels)}. "
-        "No campaign mesh or reference declares the cited names. A boundary renamed in the solver "
+        f"none of those names or families; it declares {_declared_labels(labels)}. Every "
+        "polar table of this row would sum nothing. A boundary renamed in the solver "
         "before the save carries its new name in the saved file and the mesh solid's name "
         "resolves nothing (RPT-044): write the names the file carries, or name the "
         "artifact written for this geometry."
@@ -454,7 +455,11 @@ def _the_reference_vocabulary(case: SimCase) -> list[str]:
 def _undeclared_families(
     case: SimCase, selection: str | Sequence[str], inventory: Sequence[str]
 ) -> list[tuple[str | None, str]]:
-    """Name selectors absent from campaign declarations, matching numbered names exactly."""
+    """Name selectors absent from both the row's model and reference declarations.
+
+    Numbered siblings use the shared family reading: Blade2 belongs to a
+    declared Blade family even when this reference meshes Blade1 alone.
+    """
     names = _the_names_a_rotor_answers_to(case)
     vocabulary = [
         *inventory,
@@ -463,20 +468,7 @@ def _undeclared_families(
         *(study_vocabulary(case) or ()),
         *(str(member) for members in names.values() for member in members),
     ]
-    return declared_names_the_geometry_lacks(selection, vocabulary, names)
-
-
-def _refuse_undeclared_families(
-    case: SimCase, selection: str | Sequence[str], inventory: Sequence[str], what: str
-) -> None:
-    """Validate each selector independently of the row's surviving emissions."""
-    unknown = _undeclared_families(case, selection, inventory)
-    if unknown:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} names undeclared "
-            f"families {', '.join(repr(name) for _owner, name in unknown)}. "
-            "No mesh or reference of this campaign declares those names."
-        )
+    return names_no_boundary_answers(selection, vocabulary, names, bool)
 
 
 def _skip_families_the_mesh_lacks(
@@ -485,11 +477,7 @@ def _skip_families_the_mesh_lacks(
     """Skip an entirely absent declared selection through the ordinary family path."""
     names = _the_names_a_rotor_answers_to(case)
     lacked = declared_names_the_geometry_lacks(selection, inventory, names)
-    if (
-        not lacked
-        or lacked != declared_names_the_geometry_lacks(selection, [], names)
-        or _undeclared_families(case, selection, inventory)
-    ):
+    if not lacked or lacked != declared_names_the_geometry_lacks(selection, [], names):
         return False
     for _owner, name in lacked:
         judge_a_name_the_model_lacks(case, _artifact_of(case), what, name)

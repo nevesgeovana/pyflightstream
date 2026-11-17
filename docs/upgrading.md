@@ -5,13 +5,10 @@
 An expanding-frame post-processing item selecting only families absent from a row
 is warned and skipped on that row. For example, `families = ["Blade2"]` in
 `LOCAL_AXIS` emits no section on a Blade1-only sector, while its Blade1 items
-still emit. A selector naming an undeclared family still refuses by name.
-Names declared by any campaign row's mesh or reference are known even when
-planning only a selected row; each row still emits only its own present families.
-Every selector is checked, including a name beside a valid family or group.
-A present member does not hide an unknown sibling.
-Numbered names require exact declarations: `Blade1` alone does not make
-`Blade999` a known family.
+still emit. A family name that a row's mesh lacks is always warned and skipped
+on that row, including a name that no row of the matrix declares (a misspelling
+or a family of another matrix's meshes); it is never refused, and the row still
+plans READY. Numbered names match exactly: `Blade12` is not `Blade1`.
 
 A rotary row stating `ADVANCE_RATIO:sweep` in `FLIGHT_CONDITION` and its J values
 in `SWEEP_VALUES` now plans with farfield revolution windows. Each point derives

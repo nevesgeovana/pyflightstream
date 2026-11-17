@@ -469,10 +469,6 @@ def test_p0580_an_unheld_name_is_skipped_by_default_and_refused_by_the_flag(
     folder = "setups" if artifact == "setup" else "pproc"
     for options in ({}, {"ignore_missing_families": False}):
         plan, said = planned(workspace, path, **options)
-        if artifact == "pproc" and not options:
-            assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.BLOCKED}}
-            assert all(name in error_of(plan, row) for row in ("2001", "2002"))
-            continue
         if not options:
             assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
             assert any(name in line and "skipped" in line for line in said)
@@ -486,10 +482,6 @@ def test_p0580_an_unheld_name_is_skipped_by_default_and_refused_by_the_flag(
         for row, geometry in rows:
             error = error_of(plan, row)
             assert f"the {artifact} artifact '{code}' (inputs/{folder}/{code}.toml)" in error
-            if artifact == "pproc":
-                assert f"groups cite {name!r}" in error
-                assert "No campaign mesh or reference declares" in error
-                continue
             assert f"cites {name!r} under {key}" in error
             assert f"row {row!r} ({geometry})" in error
             assert "ignore_missing_families" in error
@@ -812,7 +804,7 @@ def test_one_reader_of_the_flag_treats_absent_and_blank_alike():
 
 def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
     """P0390-R02 (FR-984, FR-986) the extraction refuses a misspelled member, skips a held one."""
-    from pyflightstream.cases import CampaignConfigError, PprocSpec, workflows
+    from pyflightstream.cases import PprocSpec, workflows
     from pyflightstream.script import Script
     from tests.tier1_offline.test_additional_post import SAVED, STEM, a_point_of
     from tests.tier1_offline.test_saved_simulation import as_a_matrix_row
@@ -836,8 +828,7 @@ def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
         workflows.build_additional_script(case, Script(BUILD), saved=SAVED, shadow=shadow)
 
     extract("Tail")
-    with pytest.raises(CampaignConfigError, match="Tial"):
-        extract("Tial")
+    extract("Tial")  # an unknown name is skipped on this row, never refused
 
 
 # --- W3 review fixes: the model as it opened, the rotor names, the words, the flag ---
@@ -1033,7 +1024,7 @@ def test_p0581_skip_family_known_only_by_another_rows_mesh(tmp_path, reverse):
 
 
 @pytest.mark.parametrize("present", ["Wing", "all"])
-def test_p0581_group_refuses_unknown_member_beside_a_present_member(tmp_path, present):
+def test_p0581_group_skips_unknown_member_beside_a_present_member(tmp_path, present):
     workspace, path = study(
         tmp_path,
         reference=REFERENCE.split("[aliases]")[0],
@@ -1041,9 +1032,9 @@ def test_p0581_group_refuses_unknown_member_beside_a_present_member(tmp_path, pr
         pproc=f'[groups]\nPRESENT = "{present}"\nTYPO = "Wnig"\n',
         models=(WING_ALONE,),
     )
-    plan, _ = planned(workspace, path)
-    assert status_of(plan) == {"2003": {PlanStatus.BLOCKED}}
-    assert "Wnig" in error_of(plan, "2003")
+    plan, said = planned(workspace, path)
+    assert status_of(plan) == {"2003": {PlanStatus.READY}}
+    assert any("Wnig" in line and "skipped" in line for line in said), said
 
 
 def test_p0581_selected_sector_knows_the_full_wheel_reference(tmp_path):
@@ -1072,3 +1063,21 @@ def test_p0581_selected_sector_knows_the_full_wheel_reference(tmp_path):
     plan, said = planned(workspace, path, sims=["2001"])
     assert status_of(plan) == {"2001": {PlanStatus.READY}}
     assert any("Blade2" in line and "2001" in line and "skipped" in line for line in said)
+
+
+@pytest.mark.parametrize("name", ["H", "Blade12"])
+def test_p0581_a_family_no_row_of_the_matrix_knows_is_warned_and_skipped(tmp_path, name):
+    """Owner rule: warn and skip, never refuse, a family name the row's mesh lacks."""
+    workspace, path = study(
+        tmp_path,
+        reference=REFERENCE.split("[aliases]")[0],
+        setup="iterations = 10\n",
+        pproc=(
+            f'[[sections.distributions]]\nfamilies = ["Wing", "{name}"]\n'
+            'frame = "SMRP"\nplanes = ["XZ"]\n'
+        ),
+        models=(("2001", "wing.fsm", ["Wing"]), ("2002", "wing2.fsm", ["Wing"])),
+    )
+    plan, said = planned(workspace, path)
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
+    assert any(f"'{name}'" in line and "skipped" in line for line in said), said

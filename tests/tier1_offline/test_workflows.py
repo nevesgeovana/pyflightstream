@@ -5414,10 +5414,7 @@ def test_a_families_entry_that_selects_nothing_says_so(tmp_path):
     case = _with_pproc(_rotor_row(sector, "W"), sector, pproc).model_copy(
         update={"aliases": {"lifters": ["LiftBlade"]}}
     )
-    with pytest.raises(CampaignConfigError, match="airfram"):
-        rendered(case, "26.123")
-    pproc.plots.groups[0].families = "LiftBlade"
-    with pytest.warns(PyflightstreamWarning, match="LiftBlade") as caught:
+    with pytest.warns(PyflightstreamWarning, match="airfram") as caught:
         text = rendered(case, "26.123")
     assert "CL_X" not in text, "the entry is still skipped, which is the artifact's rule"
     message = str(caught[0].message)
@@ -7741,9 +7738,10 @@ class TestFr320SkippedFamiliesWarn:
         plan, said = _fr320_skipped_families_warn__planned(
             tmp_path, ["Blade1", "Bladee2"], [_FR320_SKIPPED_FAMILIES_WARN__WHEEL]
         )
-        assert said == []
-        assert plan.points and all(point.status is PlanStatus.BLOCKED for point in plan.points)
-        assert all("Bladee2" in str(point.error) for point in plan.points)
+        assert len(said) == 1, said
+        assert "cites 'Bladee2'" in said[0]
+        assert repr(_FR320_SKIPPED_FAMILIES_WARN__WHEEL[0]) in said[0]
+        assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
 
     @staticmethod
     @pytest.mark.requirement("FR-320")
